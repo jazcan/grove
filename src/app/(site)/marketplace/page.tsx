@@ -9,12 +9,19 @@ type Props = { searchParams: Promise<{ q?: string; city?: string; category?: str
 
 export default async function MarketplacePage({ searchParams }: Props) {
   const sp = await searchParams;
-  const results = await searchDiscoverableProviders({
-    q: sp.q,
-    city: sp.city,
-    category: sp.category,
-    limit: 50,
-  });
+  let results: Awaited<ReturnType<typeof searchDiscoverableProviders>> = [];
+  let directoryUnavailable = false;
+  try {
+    results = await searchDiscoverableProviders({
+      q: sp.q,
+      city: sp.city,
+      category: sp.category,
+      limit: 50,
+    });
+  } catch (err) {
+    console.error("[marketplace] searchDiscoverableProviders failed", err);
+    directoryUnavailable = true;
+  }
 
   const markers = results.map((p, i) => ({
     username: p.username,
@@ -42,6 +49,22 @@ export default async function MarketplacePage({ searchParams }: Props) {
           <MarketplaceSearchPanel defaultQ={sp.q} defaultCity={sp.city} defaultCategory={sp.category} />
         </div>
 
+        {directoryUnavailable ? (
+          <div
+            role="alert"
+            className="mt-8 rounded-xl border border-[color-mix(in_oklab,var(--error)_28%,var(--border))] bg-[color-mix(in_oklab,var(--error)_6%,var(--card))] px-4 py-3 text-sm leading-relaxed text-[var(--foreground)] sm:px-5"
+          >
+            <p className="font-semibold">We couldn&apos;t load the provider directory.</p>
+            <p className="mt-1 text-[color-mix(in_oklab,var(--foreground)_75%,transparent)]">
+              This is usually a database connection issue on the server. If you deploy Grove, add{" "}
+              <code className="rounded bg-[color-mix(in_oklab,var(--foreground)_6%,var(--card))] px-1 py-0.5 text-xs">
+                DATABASE_URL
+              </code>{" "}
+              in your hosting environment (e.g. Vercel project settings) and redeploy.
+            </p>
+          </div>
+        ) : null}
+
         <section className="mt-10 sm:mt-12 lg:mt-14" aria-labelledby="results-heading">
           <div className="mb-5 flex flex-col gap-1 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -49,9 +72,11 @@ export default async function MarketplacePage({ searchParams }: Props) {
                 Results
               </h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                {results.length === 0
-                  ? "Try a different search."
-                  : `${results.length} provider${results.length === 1 ? "" : "s"} found`}
+                {directoryUnavailable
+                  ? "Directory unavailable."
+                  : results.length === 0
+                    ? "Try a different search."
+                    : `${results.length} provider${results.length === 1 ? "" : "s"} found`}
               </p>
             </div>
             <Link href="/signup" className="ui-link mt-2 text-sm font-semibold sm:mt-0">
@@ -67,10 +92,14 @@ export default async function MarketplacePage({ searchParams }: Props) {
                   role="status"
                 >
                   <p className="mx-auto max-w-md text-lg font-semibold leading-snug text-[var(--foreground)]">
-                    No providers found. Try adjusting your search.
+                    {directoryUnavailable
+                      ? "Provider list could not be loaded."
+                      : "No providers found. Try adjusting your search."}
                   </p>
                   <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-[var(--muted)]">
-                    Broader keywords, another city, or a different category often helps.
+                    {directoryUnavailable
+                      ? "Check server logs or DATABASE_URL configuration, then try again."
+                      : "Broader keywords, another city, or a different category often helps."}
                   </p>
                 </div>
               ) : (

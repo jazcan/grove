@@ -65,6 +65,15 @@ async function verify(signed: string): Promise<string | null> {
   return value;
 }
 
+/** Never throws — RSC and actions must not crash if env/cookie is misconfigured or stale. */
+async function verifySafe(signed: string): Promise<string | null> {
+  try {
+    return await verify(signed);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Prepare CSRF for an incoming request (middleware). Sets request header for RSC;
  * returns a signed cookie value to set on the response when a new token was minted.
@@ -77,7 +86,7 @@ export async function prepareCsrfForRequest(request: NextRequest): Promise<{
   let signedCookieToSet: string | null = null;
   try {
     const existing = request.cookies.get(CSRF_COOKIE)?.value;
-    let raw = existing ? await verify(existing) : null;
+    let raw = existing ? await verifySafe(existing) : null;
     if (!raw) {
       raw = createCsrfTokenValue();
       signedCookieToSet = await sign(raw);
@@ -98,7 +107,7 @@ export async function getCsrfTokenForForm(): Promise<string> {
   const store = await cookies();
   const cookieSigned = store.get(CSRF_COOKIE)?.value;
   if (!cookieSigned) return "";
-  return (await verify(cookieSigned)) ?? "";
+  return (await verifySafe(cookieSigned)) ?? "";
 }
 
 export async function validateCsrfToken(formToken: string | undefined): Promise<boolean> {
@@ -106,7 +115,7 @@ export async function validateCsrfToken(formToken: string | undefined): Promise<
   const store = await cookies();
   const cookieSigned = store.get(CSRF_COOKIE)?.value;
   if (!cookieSigned) return false;
-  const cookieRaw = await verify(cookieSigned);
+  const cookieRaw = await verifySafe(cookieSigned);
   if (!cookieRaw) return false;
   return timingSafeEqualB64Url(formToken, cookieRaw);
 }
