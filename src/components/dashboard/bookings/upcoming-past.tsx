@@ -1,0 +1,109 @@
+import Link from "next/link";
+import { DateTime } from "luxon";
+import { BookingStatusBadge } from "./booking-status-badge";
+import type { TodayBookingCardData } from "./today-booking-card";
+
+export function UpcomingBookingsGrouped({
+  rows,
+  timezone,
+}: {
+  rows: TodayBookingCardData[];
+  timezone: string;
+}) {
+  const groups = new Map<string, TodayBookingCardData[]>();
+  for (const row of rows) {
+    const dt = DateTime.fromMillis(row.startsAt.getTime(), { zone: "utc" }).setZone(timezone);
+    const key = dt.toISODate() ?? "";
+    const list = groups.get(key) ?? [];
+    list.push(row);
+    groups.set(key, list);
+  }
+  const keys = [...groups.keys()].sort();
+
+  if (keys.length === 0) {
+    return (
+      <p className="text-sm text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">No upcoming bookings.</p>
+    );
+  }
+
+  const nowYear = DateTime.now().setZone(timezone).year;
+
+  return (
+    <div className="space-y-8">
+      {keys.map((key) => {
+        const day = DateTime.fromISO(key, { zone: timezone });
+        const dayHead =
+          day.year === nowYear ? day.toFormat("LLL d") : day.toFormat("LLL d, yyyy");
+        const items = groups.get(key) ?? [];
+        return (
+          <section key={key}>
+            <h3 className="text-sm font-semibold text-[var(--foreground)]">{dayHead}</h3>
+            <ul className="mt-3 space-y-2">
+              {items.map((row) => {
+                const start = DateTime.fromMillis(row.startsAt.getTime(), { zone: "utc" }).setZone(timezone);
+                return (
+                  <li key={row.id}>
+                    <Link
+                      href={`/dashboard/bookings/${row.id}`}
+                      prefetch={false}
+                      className="flex flex-col gap-2 rounded-lg border border-[color-mix(in_oklab,var(--foreground)_6%,var(--border))] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-sm)] transition-colors hover:bg-[color-mix(in_oklab,var(--foreground)_3%,var(--card))] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                    >
+                      <div className="min-w-0 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-2">
+                        <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--foreground)]">
+                          {start.toFormat("h:mm a")}
+                        </span>
+                        <span className="text-sm text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
+                          <span className="font-medium text-[var(--foreground)]">{row.serviceName}</span>
+                          <span className="text-[color-mix(in_oklab,var(--foreground)_45%,transparent)]"> — </span>
+                          {row.customerName}
+                        </span>
+                      </div>
+                      <BookingStatusBadge status={row.status} />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+export function PastBookingsList({ rows, timezone }: { rows: TodayBookingCardData[]; timezone: string }) {
+  if (rows.length === 0) {
+    return (
+      <p className="text-sm text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">No past bookings yet.</p>
+    );
+  }
+
+  return (
+    <ul className="space-y-2">
+      {rows.map((row) => {
+        const start = DateTime.fromMillis(row.startsAt.getTime(), { zone: "utc" }).setZone(timezone);
+        return (
+          <li key={row.id}>
+            <Link
+              href={`/dashboard/bookings/${row.id}`}
+              prefetch={false}
+              className="flex flex-col gap-2 rounded-lg border border-[color-mix(in_oklab,var(--foreground)_6%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_1.5%,var(--card))] px-4 py-3 text-sm transition-colors hover:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--card))] sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0">
+                <span className="font-medium tabular-nums text-[color-mix(in_oklab,var(--foreground)_78%,transparent)]">
+                  {start.toFormat("LLL d, yyyy · h:mm a")}
+                </span>
+                <span className="mt-1 block text-[var(--foreground)]">
+                  {row.serviceName}
+                  <span className="text-[color-mix(in_oklab,var(--foreground)_45%,transparent)]"> — </span>
+                  <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">{row.customerName}</span>
+                </span>
+              </div>
+              <BookingStatusBadge status={row.status} />
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

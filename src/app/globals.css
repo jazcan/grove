@@ -1,0 +1,515 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* Light, calm wellness-adjacent system — single theme (no dark media override). */
+:root {
+  --radius-sm: 0.5rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+
+  --background: #f0ede8;
+  --foreground: #1c1b19;
+
+  --card: #ffffff;
+  --card-border: #e4dfd6;
+  --surface-muted: #f7f5f1;
+  --surface-hover: color-mix(in oklab, var(--foreground) 5%, var(--card));
+
+  --muted: #5c574f;
+  --muted-foreground: #6b6560;
+
+  --accent: #2d6a4f;
+  --accent-hover: #245a42;
+  --accent-foreground: #ffffff;
+  --accent-soft: color-mix(in oklab, var(--accent) 12%, white);
+  --accent-soft-border: color-mix(in oklab, var(--accent) 28%, var(--card-border));
+
+  --border: #ddd6cb;
+  --input-border: #c2bbb1;
+  --input-bg: #ffffff;
+  --ring-focus: color-mix(in oklab, var(--accent) 32%, transparent);
+
+  --error: #b42318;
+  --error-foreground: #ffffff;
+  --error-bg: #fdf2f1;
+  --error-border: color-mix(in oklab, var(--error) 35%, var(--card-border));
+
+  --success: #0d6b4f;
+  --success-bg: #ecf8f3;
+  --success-border: color-mix(in oklab, var(--success) 32%, var(--card-border));
+
+  --shadow-sm: 0 1px 2px rgba(28, 27, 25, 0.05);
+  --shadow-card: 0 1px 3px rgba(28, 27, 25, 0.06), 0 1px 2px rgba(28, 27, 25, 0.04);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 1rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Focus visibility (WCAG) — ring works on buttons and custom widgets */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+@layer components {
+  .ui-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ui-card-flat {
+    background: var(--surface-muted);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+  }
+
+  .ui-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .ui-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--foreground);
+  }
+
+  .ui-hint {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  .ui-overline {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .ui-input,
+  .ui-textarea {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    color: var(--foreground);
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .ui-textarea {
+    min-height: 5.5rem;
+    resize: vertical;
+  }
+
+  .ui-input:hover,
+  .ui-textarea:hover {
+    border-color: color-mix(in oklab, var(--input-border) 65%, var(--foreground));
+  }
+
+  .ui-input:focus,
+  .ui-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow:
+      var(--shadow-sm),
+      0 0 0 3px var(--ring-focus);
+  }
+
+  .ui-input[aria-invalid="true"],
+  .ui-textarea[aria-invalid="true"] {
+    border-color: var(--error);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--error) 25%, transparent);
+  }
+
+  .ui-input:disabled,
+  .ui-textarea:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: var(--surface-muted);
+  }
+
+  .ui-btn-primary,
+  .ui-btn-secondary {
+    text-decoration: none;
+  }
+
+  .ui-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--accent-foreground);
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      opacity 0.15s ease;
+  }
+
+  .ui-btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  .ui-btn-primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .ui-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.625rem 1.125rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--foreground);
+    background: var(--card);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .ui-btn-secondary:hover:not(:disabled) {
+    background: var(--surface-hover);
+    border-color: color-mix(in oklab, var(--input-border) 55%, var(--foreground));
+  }
+
+  .ui-btn-secondary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .ui-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    padding: 0.5rem;
+    color: var(--foreground);
+    background: var(--card);
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .ui-btn-ghost:hover {
+    background: var(--surface-hover);
+  }
+
+  .ui-alert-error {
+    border-radius: var(--radius-md);
+    border: 1px solid var(--error-border);
+    border-left: 4px solid var(--error);
+    background: var(--error-bg);
+    padding: 0.875rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .ui-success-panel {
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--success-border);
+    background: linear-gradient(165deg, var(--success-bg) 0%, var(--card) 48%, var(--card) 100%);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ui-step-badge {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-soft-border);
+  }
+
+  .ui-choice {
+    display: flex;
+    cursor: pointer;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 2.75rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--card-border);
+    background: var(--card);
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .ui-choice:hover {
+    border-color: color-mix(in oklab, var(--input-border) 50%, var(--foreground));
+    background: var(--surface-muted);
+  }
+
+  .ui-choice-selected {
+    border-color: var(--accent-soft-border);
+    background: var(--accent-soft);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 18%, transparent);
+  }
+
+  .ui-choice-tall {
+    align-items: flex-start;
+    min-height: 3.25rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .ui-inline-validation {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--error);
+  }
+
+  .ui-pill-selected {
+    border-radius: var(--radius-md);
+    border: 1px solid var(--accent-soft-border);
+    background: var(--accent-soft);
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  .ui-link {
+    color: var(--accent);
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+
+  .ui-link:hover {
+    color: var(--accent-hover);
+  }
+
+  .ui-empty-state {
+    border-radius: var(--radius-md);
+    border: 1px dashed var(--input-border);
+    background: var(--surface-muted);
+    padding: 1rem 1.25rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* Homepage hero — soft “grove” wash: layered blurs + slow transform-only drift (GPU-friendly). */
+@keyframes hero-grove-drift-1 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(3.6%, -2.8%, 0) scale(1.06);
+  }
+}
+
+@keyframes hero-grove-drift-2 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-3.2%, 3.2%, 0) scale(0.955);
+  }
+}
+
+@keyframes hero-grove-drift-3 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(2.6%, 2.2%, 0) scale(1.04);
+  }
+  66% {
+    transform: translate3d(-2.4%, -1.6%, 0) scale(0.985);
+  }
+}
+
+@keyframes hero-grove-drift-4 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.02);
+  }
+  50% {
+    transform: translate3d(2.2%, 3%, 0) scale(0.965);
+  }
+}
+
+.hero-grove-backdrop {
+  contain: layout style;
+}
+
+.hero-grove-blob {
+  will-change: transform;
+}
+
+.hero-grove-blob--1 {
+  animation: hero-grove-drift-1 24s ease-in-out infinite;
+}
+
+.hero-grove-blob--2 {
+  animation: hero-grove-drift-2 30s ease-in-out infinite;
+  animation-delay: -4s;
+}
+
+.hero-grove-blob--3 {
+  animation: hero-grove-drift-3 27s ease-in-out infinite;
+  animation-delay: -9s;
+}
+
+.hero-grove-blob--4 {
+  animation: hero-grove-drift-4 22s ease-in-out infinite;
+  animation-delay: -2s;
+}
+
+@media (max-width: 639.98px) {
+  .hero-grove-blob--1 {
+    animation-duration: 34s;
+  }
+  .hero-grove-blob--2 {
+    animation-duration: 42s;
+  }
+  .hero-grove-blob--3 {
+    animation-duration: 38s;
+  }
+  .hero-grove-blob--4 {
+    animation-duration: 30s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-grove-blob--1,
+  .hero-grove-blob--2,
+  .hero-grove-blob--3,
+  .hero-grove-blob--4 {
+    animation: none !important;
+    will-change: auto;
+  }
+}
+
+/* Shared form controls: 16px+ on narrow viewports avoids iOS Safari zoom-on-focus. */
+@media (max-width: 639.98px) {
+  .ui-input,
+  .ui-textarea {
+    font-size: 1rem;
+  }
+
+  .ui-btn-primary,
+  .ui-btn-secondary {
+    font-size: 1rem;
+  }
+}
+
+/* FullCalendar — softer controls on Availability */
+.availabilityCalendar .fc .fc-toolbar-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.availabilityCalendar .fc .fc-button {
+  background: var(--card);
+  border: 1px solid var(--input-border);
+  color: var(--foreground);
+  padding: 0.4rem 0.65rem;
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
+}
+
+.availabilityCalendar .fc .fc-button-primary:not(:disabled):hover {
+  background: var(--surface-hover);
+}
+
+.availabilityCalendar .fc .fc-button-primary:disabled {
+  opacity: 0.5;
+}
+
+.availabilityCalendar .fc .fc-toolbar.fc-header-toolbar {
+  margin-bottom: 0.75rem;
+}
+
+@keyframes availability-block-pulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.12);
+  }
+}
+
+.availabilityCalendar .fc .fc-event.availability-block-pending {
+  animation: availability-block-pulse 0.9s ease-in-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .availabilityCalendar .fc .fc-event.availability-block-pending {
+    animation: none;
+  }
+}

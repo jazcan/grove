@@ -1,0 +1,68 @@
+# Grove
+
+Service-commerce platform for solo and small providers: public profiles, services, availability, bookings, offline payment tracking, notifications (email + queue), lightweight CRM, marketplace discovery, analytics, and admin audit tooling.
+
+## Prerequisites
+
+- Node.js 20+
+- PostgreSQL 14+
+- Optional: Redis (for BullMQ notification worker)
+
+## Setup
+
+1. Copy [`.env.example`](./.env.example) to `.env` and set `DATABASE_URL`, `SESSION_SECRET` (32+ chars), `CSRF_SECRET` (16+ chars), and `APP_URL`.
+
+2. Install and migrate:
+
+```bash
+npm install
+npx drizzle-kit push
+npm run db:seed
+```
+
+3. Run the app:
+
+```bash
+npm run dev
+```
+
+4. Optional — process notification jobs (requires `REDIS_URL`):
+
+```bash
+npm run worker
+```
+
+## Scripts
+
+| Script        | Description                          |
+| ------------- | ------------------------------------ |
+| `npm run dev` | Next.js dev server (Turbopack)       |
+| `npm run build` / `start` | Production build / server |
+| `npm run lint` | ESLint                              |
+| `npm run test` | Vitest                              |
+| `npm run db:push` | Apply schema (`drizzle-kit push`) |
+| `npm run db:seed` | Default message templates + flags |
+| `npm run worker` | BullMQ worker for email jobs   |
+| `npm run audit` | `npm audit --audit-level=high`   |
+| `npm run uat:env` | Check required env vars for manual UAT |
+| `npm run playwright:install` | Download Chromium into `.playwright-browsers/` for UAT e2e |
+| `npm run uat:e2e` | Playwright checks aligned with [docs/UAT.md](./docs/UAT.md) |
+
+## UAT
+
+Step-by-step acceptance checklists live in [docs/UAT.md](./docs/UAT.md). With Postgres migrated and seeded, run `npm run playwright:install` once (downloads Chromium into `.playwright-browsers/`, gitignored), then `npm run uat:env`, start the app (`npm run dev`) or let Playwright start it, then `npm run uat:e2e`. Optional admin coverage: set `UAT_ADMIN_EMAIL` and `UAT_ADMIN_PASSWORD` for an account that was created while its email was listed in `ADMIN_EMAILS`. To use an already-running dev server only: `UAT_SKIP_WEBSERVER=1 npm run uat:e2e`.
+
+## Admin users
+
+Set `ADMIN_EMAILS` to a comma-separated list of emails. New sign-ups matching those emails receive the `admin` role (no provider tenant).
+
+## Architecture notes
+
+- Multi-tenant boundaries are enforced in server actions (`providerId` from session, never from the client).
+- Public routes use usernames; reserved slugs are blocked in [`src/lib/reserved-usernames.ts`](./src/lib/reserved-usernames.ts).
+- Booking creation uses a transaction with `FOR UPDATE` overlap checks and buffer-aware intervals.
+- CSRF uses a signed cookie set in the root layout plus hidden form fields.
+
+## License
+
+Private / unlicensed unless you add one.

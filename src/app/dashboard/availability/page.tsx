@@ -1,0 +1,242 @@
+import { eq, asc, and, lt, gt } from "drizzle-orm";
+import { getDb } from "@/db";
+import { availabilityRules, blockedTimes, bookings, customers, providers, services } from "@/db/schema";
+import { asFormAction } from "@/lib/form-action";
+import { getCsrfTokenForForm } from "@/lib/csrf";
+import { CsrfField } from "@/components/csrf-field";
+import { requireProvider } from "@/lib/tenancy";
+import { AvailabilityCalendar } from "@/app/dashboard/availability/availability-calendar";
+import { BlockedTimeList } from "@/app/dashboard/availability/blocked-time-list";
+import { WeeklyScheduleRow } from "@/app/dashboard/availability/weekly-schedule-row";
+import Link from "next/link";
+import { upsertAvailabilityRule } from "@/actions/availability";
+
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+type Props = { searchParams: Promise<{ saved?: string }> };
+
+export default async function AvailabilityPage({ searchParams }: Props) {
+  const sp = await searchParams;
+  const saved = sp.saved === "hours" || sp.saved === "blocked";
+  const u = await requireProvider();
+  const db = getDb();
+  const [prov] = await db
+    .select({
+      timezone: providers.timezone,
+      publicProfileEnabled: providers.publicProfileEnabled,
+      username: providers.username,
+    })
+    .from(providers)
+    .where(eq(providers.id, u.providerId))
+    .limit(1);
+  const [anyService] = await db
+    .select({ id: services.id })
+    .from(services)
+    .where(eq(services.providerId, u.providerId))
+    .limit(1);
+  const rules = await db
+    .select()
+    .from(availabilityRules)
+    .where(eq(availabilityRules.providerId, u.providerId))
+    .orderBy(asc(availabilityRules.dayOfWeek));
+  const blocks = await db
+    .select()
+    .from(blockedTimes)
+    .where(eq(blockedTimes.providerId, u.providerId))
+    .orderBy(asc(blockedTimes.startsAt));
+
+  const now = new Date();
+  const rangeStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const rangeEnd = new Date(now.getTime() + 120 * 24 * 60 * 60 * 1000);
+  const appts = await db
+    .select({
+      booking: bookings,
+      serviceName: services.name,
+      customerName: customers.fullName,
+      customerEmail: customers.email,
+      customerPhone: customers.phone,
+    })
+    .from(bookings)
+    .innerJoin(services, eq(bookings.serviceId, services.id))
+    .innerJoin(customers, eq(bookings.customerId, customers.id))
+    .where(
+      and(
+        eq(bookings.providerId, u.providerId),
+        lt(bookings.startsAt, rangeEnd),
+        gt(bookings.endsAt, rangeStart)
+      )
+    )
+    .orderBy(asc(bookings.startsAt));
+
+  const csrf = await getCsrfTokenForForm();
+
+  const hasAvailability = rules.some((r) => r.isActive);
+  const hasServices = !!anyService;
+  const published = !!prov?.publicProfileEnabled;
+  const nextHref = !hasServices ? "/dashboard/services" : "/dashboard/profile";
+  const nextLabel = !hasServices ? "Next: add a service" : published ? "View your public profile" : "Next: publish profile";
+
+  const tz = prov?.timezone ?? "UTC";
+
+  const calendarProps = {
+    timezone: tz,
+    rules: rules.map((r) => ({
+      id: r.id,
+      dayOfWeek: r.dayOfWeek,
+      startTimeLocal: r.startTimeLocal,
+      endTimeLocal: r.endTimeLocal,
+      isActive: r.isActive,
+    })),
+    blocked: blocks
+      .filter((b) => b.endsAt > rangeStart && b.startsAt < rangeEnd)
+      .map((b) => ({
+        id: b.id,
+        startsAtISO: b.startsAt.toISOString(),
+        endsAtISO: b.endsAt.toISOString(),
+        reason: b.reason ?? null,
+      })),
+    bookings: appts
+      .filter((r) => r.booking.endsAt > rangeStart && r.booking.startsAt < rangeEnd)
+      .map((r) => ({
+        id: r.booking.id,
+        startsAtISO: r.booking.startsAt.toISOString(),
+        endsAtISO: r.booking.endsAt.toISOString(),
+        status: r.booking.status,
+        paymentStatus: r.booking.paymentStatus,
+        bufferAfterMinutes: r.booking.bufferAfterMinutes,
+        serviceName: r.serviceName,
+        customerName: r.customerName,
+        customerEmail: r.customerEmail,
+        customerPhone: r.customerPhone ?? null,
+        publicReference: r.booking.publicReference,
+      })),
+  } as const;
+
+  return (
+    <main id="main-content">
+      <header className="max-w-3xl">
+        <h1 className="text-2xl font-semibold tracking-tight">Availability</h1>
+        <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
+          Set when you&apos;re available for bookings.
+        </p>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
+          Quickly block time when you can&apos;t take bookings — drag on the calendar or use Block off time.
+        </p>
+        {saved ? (
+          <div
+            role="status"
+            className="mt-4 rounded-xl border border-[color-mix(in_oklab,var(--accent)_35%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))] px-4 py-3 text-sm"
+          >
+            <div className="font-medium">Saved</div>
+            <div className="mt-0.5 text-[color-mix(in_oklab,var(--foreground)_75%,transparent)]">
+              Your availability has been updated.
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--background)] p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Setup step: Availability</div>
+              <div className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
+                Set when customers can book you.
+              </div>
+            </div>
+            <div className="text-sm">
+              <span className="mr-2 inline-block w-4 text-center" aria-hidden>
+                {hasAvailability ? "✓" : "•"}
+              </span>
+              {hasAvailability ? "Complete" : "Not done yet"}
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+            <Link href={nextHref} className="font-medium text-[var(--accent)] underline underline-offset-2">
+              {nextLabel}
+            </Link>
+            {published ? (
+              <Link href={`/${prov?.username ?? ""}`} className="text-[var(--accent)] underline underline-offset-2">
+                View public profile
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      </header>
+
+      <section className="mt-10">
+        <AvailabilityCalendar csrf={csrf} {...calendarProps} />
+      </section>
+
+      <section id="weekly-schedule" className="mt-20 max-w-2xl scroll-mt-28">
+        <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">Weekly hours</h2>
+        <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
+          Your usual windows for bookings. Edit inline, toggle a day off, or add another row.
+        </p>
+
+        <div className="mt-8 space-y-4">
+          {rules.map((r) => (
+            <WeeklyScheduleRow
+              key={r.id}
+              csrf={csrf}
+              rule={{
+                id: r.id,
+                dayOfWeek: r.dayOfWeek,
+                startTimeLocal: r.startTimeLocal,
+                endTimeLocal: r.endTimeLocal,
+                isActive: r.isActive,
+              }}
+            />
+          ))}
+        </div>
+
+        <form action={asFormAction(upsertAvailabilityRule)} className="mt-10 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-5 shadow-[var(--shadow-card)]">
+          <CsrfField token={csrf} />
+          <p className="text-sm font-semibold text-[var(--foreground)]">Add another window</p>
+          <p className="mt-1 text-xs text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">Same day can have multiple ranges (e.g. morning and evening).</p>
+          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+            <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[180px]">
+              <span className="ui-label">Day</span>
+              <select name="dayOfWeek" className="ui-input mt-1">
+                {DAYS.map((d, i) => (
+                  <option key={d} value={i}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="ui-field min-w-[120px] flex-1 text-sm sm:max-w-[140px]">
+              <span className="ui-label">Start</span>
+              <input name="startTimeLocal" defaultValue="09:00" className="ui-input mt-1" />
+            </label>
+            <label className="ui-field min-w-[120px] flex-1 text-sm sm:max-w-[140px]">
+              <span className="ui-label">End</span>
+              <input name="endTimeLocal" defaultValue="17:00" className="ui-input mt-1" />
+            </label>
+            <input type="hidden" name="isActive" value="on" />
+            <button type="submit" className="ui-btn-primary min-h-11 w-full px-6 text-sm font-semibold sm:ml-auto sm:w-auto">
+              Add hours
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section id="blocked-time-list" className="mt-20 max-w-2xl scroll-mt-28">
+        <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">Blocked time</h2>
+        <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
+          One-off blocks from the calendar. Remove any that are no longer needed.
+        </p>
+        <div className="mt-6">
+          <BlockedTimeList
+            timezone={tz}
+            csrf={csrf}
+            blocks={blocks.map((b) => ({
+              id: b.id,
+              startsAt: b.startsAt,
+              endsAt: b.endsAt,
+              reason: b.reason,
+            }))}
+          />
+        </div>
+      </section>
+    </main>
+  );
+}
