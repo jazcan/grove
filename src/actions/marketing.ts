@@ -19,8 +19,14 @@ import {
   generateCampaignCopy,
   generateReconnectDraft,
   generateStudioContent,
+  type ReconnectGenerationSource,
 } from "@/lib/marketing/generate";
 import type { MarketingGenerationOutput } from "@/lib/marketing/types";
+
+export type MarketingReconnectGenerateData = {
+  output: MarketingGenerationOutput;
+  source: ReconnectGenerationSource;
+};
 
 export type MarketingActionOk<T> = { ok: true; data: T };
 export type MarketingActionErr = { ok: false; error: string };
@@ -77,7 +83,7 @@ const reconnectInput = z.object({
 export async function marketingGenerateReconnect(
   csrfToken: string,
   raw: z.infer<typeof reconnectInput>
-): Promise<MarketingActionResult<{ output: MarketingGenerationOutput }>> {
+): Promise<MarketingActionResult<MarketingReconnectGenerateData>> {
   if (!(await assertCsrf(csrfToken))) return { ok: false, error: "Invalid security token." };
   const parsed = reconnectInput.safeParse(raw);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
