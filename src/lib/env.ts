@@ -4,7 +4,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1).optional(),
   SESSION_SECRET: z.string().min(16).optional(),
   CSRF_SECRET: z.string().min(16).optional(),
-  APP_URL: z.string().url().optional(),
+  /** Prefer full URL; bare host (e.g. `app.example.com`) is normalized in `resolvePublicAppUrl`. */
+  APP_URL: z.string().optional(),
   REDIS_URL: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
@@ -35,6 +36,29 @@ export type Env = z.infer<typeof envSchema> & {
 
 let cached: Env | null = null;
 
+/**
+ * Public site URL for links, CSRF, OAuth. Uses APP_URL when set; on Vercel falls back to VERCEL_URL
+ * so production works even if APP_URL was not added to the project env.
+ */
+function resolvePublicAppUrl(rawAppUrl: string | undefined): string | undefined {
+  const trimmed = rawAppUrl?.trim();
+  if (trimmed) {
+    const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    try {
+      return new URL(withScheme).origin;
+    } catch {
+      console.error("[env] APP_URL is not a valid URL:", trimmed);
+      return undefined;
+    }
+  }
+  const vercel = process.env.VERCEL_URL?.trim();
+  if (vercel) {
+    const host = vercel.replace(/^https?:\/\//i, "");
+    return `https://${host}`;
+  }
+  return undefined;
+}
+
 /** Validates secrets required for auth/session operations */
 export function getEnv(): Env {
   if (cached) return cached;
@@ -46,9 +70,11 @@ export function getEnv(): Env {
   const d = parsed.data;
   const sessionSecret = d.SESSION_SECRET;
   const csrfSecret = d.CSRF_SECRET;
-  const appUrl = d.APP_URL;
+  const appUrl = resolvePublicAppUrl(d.APP_URL);
   if (!sessionSecret || !csrfSecret || !appUrl) {
-    throw new Error("SESSION_SECRET, CSRF_SECRET, and APP_URL are required");
+    throw new Error(
+      "SESSION_SECRET and CSRF_SECRET are required. Set APP_URL to your public site URL (e.g. https://your-domain.com). On Vercel, VERCEL_URL is used if APP_URL is omitted."
+    );
   }
   cached = { ...d, SESSION_SECRET: sessionSecret, CSRF_SECRET: csrfSecret, APP_URL: appUrl };
   return cached;
