@@ -3,6 +3,7 @@ import type { Database } from "@/db";
 import { bookings, customers } from "@/db/schema";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
 import { logAudit } from "@/lib/audit";
+import { emitPlatformEvent } from "@/platform/events/emit";
 
 export type CreateBookingInput = {
   providerId: string;
@@ -95,6 +96,27 @@ export async function createBookingAtomic(
       action: "created",
       metadata: { serviceId: input.serviceId },
     });
+
+    await emitPlatformEvent(
+      {
+        name: "booking.created",
+        aggregateType: "booking",
+        aggregateId: booking.id,
+        tenantProviderId: input.providerId,
+        actorUserId: null,
+        actorType: "customer",
+        payload: {
+          bookingId: booking.id,
+          publicReference: booking.publicReference,
+          providerId: input.providerId,
+          serviceId: input.serviceId,
+          customerId: cust.id,
+          startsAt: input.startsAt.toISOString(),
+          endsAt: input.endsAt.toISOString(),
+        },
+      },
+      tx
+    );
 
     return {
       bookingId: booking.id,

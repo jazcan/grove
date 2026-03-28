@@ -81,6 +81,7 @@ export function BookForm({
   servicePrepInstructions,
 }: Props) {
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const feedbackRef = useRef<HTMLDivElement>(null);
   const [dateISO, setDateISO] = useState(() => localDateISO());
   const [slots, setSlots] = useState<{ start: string; end: string }[]>([]);
   const [slotStart, setSlotStart] = useState("");
@@ -115,6 +116,14 @@ export function BookForm({
       });
     });
   }, [username, serviceId, dateISO]);
+
+  useEffect(() => {
+    if (!state?.error && !state?.success) return;
+    const id = requestAnimationFrame(() => {
+      feedbackRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [state?.error, state?.success]);
 
   useEffect(() => {
     if (providerPaymentCash && !providerPaymentEtransfer) {
@@ -184,53 +193,57 @@ export function BookForm({
         ) : null}
       </section>
 
-      {/* Feedback */}
-      {state?.error ? (
-        <div className="ui-alert-error" role="alert" aria-live="polite">
-          {state.error}
+      {/* Feedback: scroll target — success/error render above the long form so users at the bottom otherwise miss it */}
+      {state?.error || showSuccess ? (
+        <div ref={feedbackRef} className="space-y-4">
+          {state?.error ? (
+            <div className="ui-alert-error" role="alert" aria-live="assertive">
+              {state.error}
+            </div>
+          ) : null}
+          {showSuccess ? (
+            <section
+              className="ui-success-panel p-5 sm:p-8"
+              role="status"
+              aria-label="Booking confirmed"
+              aria-live="assertive"
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
+                <div
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--success-bg)] text-lg font-bold text-[var(--success)] ring-2 ring-[var(--success-border)]"
+                  aria-hidden
+                >
+                  ✓
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-lg font-semibold tracking-tight sm:text-xl">Booking confirmed</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--muted)] sm:text-base">
+                    You’re all set. You should receive an email confirmation shortly.
+                  </p>
+                  <div className="ui-card mt-5 px-4 py-4 text-sm shadow-none sm:px-5">
+                    <div className="font-semibold text-[var(--foreground)]">{serviceName}</div>
+                    <div className="mt-1 text-[var(--muted)]">
+                      {providerName}
+                      {selectedLabel ? ` • ${selectedLabel}` : ""}
+                    </div>
+                    <div className="mt-3 break-all rounded-md bg-[var(--surface-muted)] px-3 py-2 font-mono text-xs text-[var(--muted)]">
+                      Reference: {state.success}
+                    </div>
+                  </div>
+                  <p className="mt-5 text-sm leading-relaxed text-[var(--muted)]">
+                    <span className="font-semibold text-[var(--foreground)]">What happens next:</span> the
+                    provider will review your booking and follow up if anything is needed.
+                  </p>
+                </div>
+              </div>
+            </section>
+          ) : null}
         </div>
       ) : null}
 
-      {showSuccess ? (
-        <section
-          className="ui-success-panel p-5 sm:p-8"
-          role="status"
-          aria-label="Booking confirmed"
-          aria-live="polite"
-        >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
-            <div
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--success-bg)] text-lg font-bold text-[var(--success)] ring-2 ring-[var(--success-border)]"
-              aria-hidden
-            >
-              ✓
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-lg font-semibold tracking-tight sm:text-xl">Booking confirmed</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--muted)] sm:text-base">
-                You’re all set. You should receive an email confirmation shortly.
-              </p>
-              <div className="ui-card mt-5 px-4 py-4 text-sm shadow-none sm:px-5">
-                <div className="font-semibold text-[var(--foreground)]">{serviceName}</div>
-                <div className="mt-1 text-[var(--muted)]">
-                  {providerName}
-                  {selectedLabel ? ` • ${selectedLabel}` : ""}
-                </div>
-                <div className="mt-3 break-all rounded-md bg-[var(--surface-muted)] px-3 py-2 font-mono text-xs text-[var(--muted)]">
-                  Reference: {state.success}
-                </div>
-              </div>
-              <p className="mt-5 text-sm leading-relaxed text-[var(--muted)]">
-                <span className="font-semibold text-[var(--foreground)]">What happens next:</span> the
-                provider will review your booking and follow up if anything is needed.
-              </p>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {/* Steps */}
-      <section className="space-y-8 sm:space-y-10" aria-label="Booking steps">
+      {/* Steps — hide after success so the page clearly “changes” instead of leaving the form in view */}
+      {!showSuccess ? (
+        <section className="space-y-8 sm:space-y-10" aria-label="Booking steps">
         {/* Step 1 */}
         <div className="ui-card p-5 sm:p-7">
           <div className="flex gap-3 sm:gap-4">
@@ -547,7 +560,8 @@ export function BookForm({
             </div>
           </div>
         </form>
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -14,27 +14,23 @@ import {
   decimal,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import {
+  BOOKING_STATUSES,
+  PAYMENT_STATUSES,
+  PRICING_TYPES,
+  PLATFORM_EVENT_ACTORS,
+  USER_ROLES,
+} from "@/platform/enums";
 
-export const userRoleEnum = pgEnum("user_role", ["provider", "admin"]);
+export const userRoleEnum = pgEnum("user_role", USER_ROLES);
 
-export const bookingStatusEnum = pgEnum("booking_status", [
-  "pending",
-  "confirmed",
-  "completed",
-  "cancelled",
-  "no_show",
-  "rescheduled",
-]);
+export const bookingStatusEnum = pgEnum("booking_status", BOOKING_STATUSES);
 
-export const paymentStatusEnum = pgEnum("payment_status", [
-  "unpaid",
-  "partially_paid",
-  "paid",
-  "waived",
-  "refunded",
-]);
+export const paymentStatusEnum = pgEnum("payment_status", PAYMENT_STATUSES);
 
-export const pricingTypeEnum = pgEnum("pricing_type", ["fixed", "hourly"]);
+export const pricingTypeEnum = pgEnum("pricing_type", PRICING_TYPES);
+
+export const platformEventActorEnum = pgEnum("platform_event_actor", PLATFORM_EVENT_ACTORS);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -277,6 +273,35 @@ export const messageTemplates = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("message_templates_provider_idx").on(t.providerId)]
+);
+
+/**
+ * Append-only domain events for automation, workers, and projections. Distinct from `audit_events`
+ * (compliance-oriented). Important state changes should record both when applicable.
+ */
+export const platformEvents = pgTable(
+  "platform_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventName: varchar("event_name", { length: 128 }).notNull(),
+    aggregateType: varchar("aggregate_type", { length: 64 }).notNull(),
+    aggregateId: varchar("aggregate_id", { length: 64 }).notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    schemaVersion: integer("schema_version").notNull().default(1),
+    tenantProviderId: uuid("tenant_provider_id").references(() => providers.id, {
+      onDelete: "set null",
+    }),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    actorType: platformEventActorEnum("actor_type").notNull().default("system"),
+    correlationId: uuid("correlation_id"),
+    causationEventId: uuid("causation_event_id"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("platform_events_tenant_occurred_idx").on(t.tenantProviderId, t.occurredAt),
+    index("platform_events_aggregate_idx").on(t.aggregateType, t.aggregateId),
+    index("platform_events_name_idx").on(t.eventName),
+  ]
 );
 
 export const auditEvents = pgTable(

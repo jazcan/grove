@@ -215,7 +215,7 @@ export async function submitPublicBooking(
     });
 
     return {
-      success: `Booked! Reference: ${created.publicReference}`,
+      success: String(created.publicReference),
     };
   } catch (e) {
     if (e instanceof Error && e.message === "SLOT_TAKEN") {
