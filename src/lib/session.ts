@@ -64,7 +64,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     .limit(1);
 
   if (!row.length) {
-    cookieStore.delete(SESSION_COOKIE);
+    // Do not clear the cookie here: getSessionUser runs in Server Components, where
+    // cookies() is read-only (Next.js). Stale cookies are harmless; explicit sign-out
+    // or route handlers may still call destroySession().
     return null;
   }
 

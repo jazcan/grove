@@ -1,6 +1,6 @@
 import { and, eq, ne, sql } from "drizzle-orm";
 import type { Database } from "@/db";
-import { bookings, customers } from "@/db/schema";
+import { bookings, customers, services } from "@/db/schema";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
 import { logAudit } from "@/lib/audit";
 import { emitPlatformEvent } from "@/platform/events/emit";
@@ -67,6 +67,12 @@ export async function createBookingAtomic(
 
     if (!cust) throw new Error("CUSTOMER_FAILED");
 
+    const [svcRow] = await tx
+      .select({ canonicalTemplateId: services.canonicalTemplateId })
+      .from(services)
+      .where(eq(services.id, input.serviceId))
+      .limit(1);
+
     const pay =
       input.paymentMethod?.trim().slice(0, 64) || null;
 
@@ -75,6 +81,7 @@ export async function createBookingAtomic(
       .values({
         providerId: input.providerId,
         serviceId: input.serviceId,
+        canonicalTemplateId: svcRow?.canonicalTemplateId ?? null,
         customerId: cust.id,
         startsAt: input.startsAt,
         endsAt: input.endsAt,
@@ -113,6 +120,7 @@ export async function createBookingAtomic(
           customerId: cust.id,
           startsAt: input.startsAt.toISOString(),
           endsAt: input.endsAt.toISOString(),
+          canonicalTemplateId: svcRow?.canonicalTemplateId ?? null,
         },
       },
       tx

@@ -5,9 +5,12 @@ import { availabilityRules, providers, services } from "@/db/schema";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { requireProvider } from "@/lib/tenancy";
 import {
+  getServiceDefaultsForCanonicalSlug,
+  listCanonicalTemplatesForUi,
+} from "@/lib/canonical-templates";
+import {
   formatTemplateDurationPrice,
-  getServiceDefaultsForPrefill,
-  serviceTemplates,
+  QUICK_START_PREFILL_ID,
   templateCardTitle,
 } from "@/lib/service-templates";
 import { ServicesList } from "@/app/dashboard/services/services-list";
@@ -20,8 +23,20 @@ export default async function ServicesPage({ searchParams }: Props) {
   const saved = sp.saved === "service";
   const prefillRaw = typeof sp.prefill === "string" ? sp.prefill.trim() : undefined;
   const scratch = sp.scratch === "1" || sp.scratch === "true";
-  const prefillDefaults = getServiceDefaultsForPrefill(prefillRaw);
+
+  let prefillDefaults: Awaited<ReturnType<typeof getServiceDefaultsForCanonicalSlug>> = null;
+  if (scratch) {
+    prefillDefaults = await getServiceDefaultsForCanonicalSlug(QUICK_START_PREFILL_ID);
+  } else if (prefillRaw) {
+    prefillDefaults = await getServiceDefaultsForCanonicalSlug(prefillRaw);
+  }
   const formVisible = prefillDefaults !== null || scratch;
+
+  const serviceTemplates = await listCanonicalTemplatesForUi();
+
+  const canonicalTemplateSlug = scratch
+    ? QUICK_START_PREFILL_ID
+    : (prefillRaw ?? QUICK_START_PREFILL_ID);
 
   const u = await requireProvider();
   const db = getDb();
@@ -159,6 +174,7 @@ export default async function ServicesPage({ searchParams }: Props) {
           prefillDefaults={prefillDefaults}
           formVisible={formVisible}
           scratchMode={scratch}
+          canonicalTemplateSlug={canonicalTemplateSlug}
         />
 
         <div className="max-w-4xl rounded-xl border border-[var(--border)] bg-[var(--background)] p-5 sm:p-6">

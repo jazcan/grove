@@ -21,6 +21,7 @@ import {
   PLATFORM_EVENT_ACTORS,
   USER_ROLES,
 } from "@/platform/enums";
+import type { TemplateAddOn, TemplateOutcome, TemplateStep } from "@/platform/templates/structure";
 
 export const userRoleEnum = pgEnum("user_role", USER_ROLES);
 
@@ -133,6 +134,37 @@ export const shopifyInstallations = pgTable(
   (t) => [index("shopify_installations_provider_idx").on(t.providerId)]
 );
 
+/**
+ * Platform-owned canonical service definitions (steps, add-ons, outcomes + default pricing).
+ * Provider offers are `services` rows linked via `canonicalTemplateId` (variants).
+ */
+export const canonicalServiceTemplates = pgTable(
+  "canonical_service_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: varchar("slug", { length: 64 }).notNull().unique(),
+    version: integer("version").notNull().default(1),
+    label: varchar("label", { length: 200 }).notNull(),
+    descriptionShort: text("description_short").notNull().default(""),
+    name: varchar("name", { length: 200 }).notNull(),
+    description: text("description").notNull().default(""),
+    category: varchar("category", { length: 120 }).notNull().default(""),
+    durationMinutes: integer("duration_minutes").notNull(),
+    bufferMinutes: integer("buffer_minutes").notNull().default(0),
+    pricingType: pricingTypeEnum("pricing_type").notNull().default("fixed"),
+    priceAmount: decimal("price_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+    currency: varchar("currency", { length: 8 }).notNull().default("CAD"),
+    prepInstructions: text("prep_instructions").notNull().default(""),
+    steps: jsonb("steps").$type<TemplateStep[]>().notNull(),
+    addOns: jsonb("add_ons").$type<TemplateAddOn[]>().notNull(),
+    outcomes: jsonb("outcomes").$type<TemplateOutcome[]>().notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("canonical_templates_active_idx").on(t.isActive)]
+);
+
 export const services = pgTable(
   "services",
   {
@@ -140,6 +172,11 @@ export const services = pgTable(
     providerId: uuid("provider_id")
       .notNull()
       .references(() => providers.id, { onDelete: "cascade" }),
+    canonicalTemplateId: uuid("canonical_template_id").references(() => canonicalServiceTemplates.id, {
+      onDelete: "set null",
+    }),
+    /** Version of the canonical row at creation (snapshot for analytics; canonical may bump `version`). */
+    canonicalTemplateVersion: integer("canonical_template_version"),
     name: varchar("name", { length: 200 }).notNull(),
     description: text("description").notNull().default(""),
     category: varchar("category", { length: 120 }).notNull().default(""),
@@ -224,6 +261,10 @@ export const bookings = pgTable(
     serviceId: uuid("service_id")
       .notNull()
       .references(() => services.id, { onDelete: "restrict" }),
+    /** Denormalized from the service’s template at booking time for reporting and lifecycle analytics. */
+    canonicalTemplateId: uuid("canonical_template_id").references(() => canonicalServiceTemplates.id, {
+      onDelete: "set null",
+    }),
     customerId: uuid("customer_id")
       .notNull()
       .references(() => customers.id, { onDelete: "restrict" }),
@@ -420,14 +461,27 @@ export const shopifyInstallationsRelations = relations(shopifyInstallations, ({ 
   }),
 }));
 
+export const canonicalServiceTemplatesRelations = relations(canonicalServiceTemplates, ({ many }) => ({
+  services: many(services),
+  bookings: many(bookings),
+}));
+
 export const servicesRelations = relations(services, ({ one, many }) => ({
   provider: one(providers, { fields: [services.providerId], references: [providers.id] }),
+  canonicalTemplate: one(canonicalServiceTemplates, {
+    fields: [services.canonicalTemplateId],
+    references: [canonicalServiceTemplates.id],
+  }),
   bookings: many(bookings),
 }));
 
 export const bookingsRelations = relations(bookings, ({ one }) => ({
   provider: one(providers, { fields: [bookings.providerId], references: [providers.id] }),
   service: one(services, { fields: [bookings.serviceId], references: [services.id] }),
+  canonicalTemplate: one(canonicalServiceTemplates, {
+    fields: [bookings.canonicalTemplateId],
+    references: [canonicalServiceTemplates.id],
+  }),
   customer: one(customers, { fields: [bookings.customerId], references: [customers.id] }),
 }));
 

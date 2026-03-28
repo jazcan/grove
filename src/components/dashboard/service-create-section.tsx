@@ -27,6 +27,8 @@ type Props = {
   prefillDefaults: ServiceFormDefaults | null;
   formVisible: boolean;
   scratchMode: boolean;
+  /** Canonical template slug posted with the form (`canonical_service_templates.slug`). */
+  canonicalTemplateSlug: string;
 };
 
 const editableSectionClass = (on: boolean) =>
@@ -37,7 +39,13 @@ const editableSectionClass = (on: boolean) =>
       : "",
   ].join(" ");
 
-export function ServiceCreateSection({ csrf, prefillDefaults, formVisible, scratchMode }: Props) {
+export function ServiceCreateSection({
+  csrf,
+  prefillDefaults,
+  formVisible,
+  scratchMode,
+  canonicalTemplateSlug,
+}: Props) {
   const [highlight, setHighlight] = useState(false);
 
   const values: ServiceFormDefaults = prefillDefaults ?? emptyScratchDefaults();
@@ -107,6 +115,7 @@ export function ServiceCreateSection({ csrf, prefillDefaults, formVisible, scrat
       >
         <CsrfField token={csrf} />
         <input type="hidden" name="returnTo" value="/dashboard/services#existing-services" />
+        <input type="hidden" name="canonicalTemplateSlug" value={canonicalTemplateSlug} />
 
         <section className={editableSectionClass(!!pulseFields)}>
           <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">Basic info</div>

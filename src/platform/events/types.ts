@@ -22,6 +22,8 @@ export type PlatformEventPayloads = {
     customerId: string;
     startsAt: string;
     endsAt: string;
+    /** From service / booking snapshot; null for legacy services without a template link. */
+    canonicalTemplateId: string | null;
   };
   "booking.updated": {
     bookingId: string;
@@ -40,6 +42,8 @@ export type PlatformEventPayloads = {
   "service.created": {
     serviceId: string;
     providerId: string;
+    canonicalTemplateId: string | null;
+    canonicalTemplateVersion: number | null;
   };
   "service.updated": {
     serviceId: string;

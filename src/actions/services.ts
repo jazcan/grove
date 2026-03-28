@@ -7,6 +7,9 @@ import { getDb } from "@/db";
 import { services } from "@/db/schema";
 import { plainTextFromInput } from "@/lib/sanitize";
 import { logAudit } from "@/lib/audit";
+import { getCanonicalTemplateRowBySlug } from "@/lib/canonical-templates";
+import { QUICK_START_PREFILL_ID } from "@/lib/service-templates";
+import { emitPlatformEvent } from "@/platform/events/emit";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
 import type { ActionState } from "@/domain/auth/actions";
 
@@ -25,6 +28,13 @@ export async function createService(formData: FormData): Promise<ActionState> {
   const currency = plainTextFromInput(formData.get("currency")?.toString() ?? "CAD", 8) || "CAD";
   const prepInstructions = plainTextFromInput(formData.get("prepInstructions")?.toString() ?? "", 2000);
 
+  const slugRaw = formData.get("canonicalTemplateSlug")?.toString()?.trim() ?? "";
+  const templateSlug = slugRaw || QUICK_START_PREFILL_ID;
+  const canonical = await getCanonicalTemplateRowBySlug(templateSlug);
+  if (!canonical || !canonical.isActive) {
+    return { error: "Unknown or inactive service template. Refresh the page and try again." };
+  }
+
   const [maxRow] = await db
     .select({ m: services.sortOrder })
     .from(services)
@@ -37,6 +47,8 @@ export async function createService(formData: FormData): Promise<ActionState> {
     .insert(services)
     .values({
       providerId: ctx.providerId,
+      canonicalTemplateId: canonical.id,
+      canonicalTemplateVersion: canonical.version,
       name,
       description,
       category,
@@ -50,6 +62,24 @@ export async function createService(formData: FormData): Promise<ActionState> {
       sortOrder,
     })
     .returning({ id: services.id });
+
+  await emitPlatformEvent(
+    {
+      name: "service.created",
+      aggregateType: "service",
+      aggregateId: created!.id,
+      tenantProviderId: ctx.providerId,
+      actorUserId: ctx.id,
+      actorType: "user",
+      payload: {
+        serviceId: created!.id,
+        providerId: ctx.providerId,
+        canonicalTemplateId: canonical.id,
+        canonicalTemplateVersion: canonical.version,
+      },
+    },
+    db
+  );
 
   await logAudit({
     actorUserId: ctx.id,
