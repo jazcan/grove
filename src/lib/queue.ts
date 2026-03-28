@@ -55,15 +55,20 @@ export async function enqueueNotification(job: NotificationJob): Promise<void> {
     console.info("[queue:dev] skip notification job (no REDIS_URL)", job);
     return;
   }
-  await q.add(
-    job.kind,
-    { bookingId: job.bookingId },
-    {
-      jobId: job.idempotencyKey,
-      delay: job.delayMs ?? 0,
-      attempts: 5,
-      backoff: { type: "exponential", delay: 3000 },
-      removeOnComplete: true,
-    }
-  );
+  try {
+    await q.add(
+      job.kind,
+      { bookingId: job.bookingId },
+      {
+        jobId: job.idempotencyKey,
+        delay: job.delayMs ?? 0,
+        attempts: 5,
+        backoff: { type: "exponential", delay: 3000 },
+        removeOnComplete: true,
+      }
+    );
+  } catch (e) {
+    // Booking/email must not fail if Redis is misconfigured or unreachable (common on first deploy).
+    console.error("[queue] enqueue failed", { kind: job.kind, bookingId: job.bookingId, error: e });
+  }
 }

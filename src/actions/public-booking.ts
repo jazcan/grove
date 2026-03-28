@@ -18,74 +18,86 @@ export async function fetchPublicSlots(input: {
   serviceId: string;
   dateISO: string;
 }): Promise<{ slots: { start: string; end: string }[]; error?: string }> {
-  const db = getDb();
   const uname = input.username.trim().toLowerCase();
   if (isReservedUsername(uname)) return { slots: [], error: "Not found" };
 
-  const [prov] = await db
-    .select()
-    .from(providers)
-    .where(eq(providers.username, uname))
-    .limit(1);
-  if (!prov || !prov.publicProfileEnabled) return { slots: [], error: "Not found" };
+  let db;
+  try {
+    db = getDb();
+  } catch (e) {
+    console.error("[fetchPublicSlots] database unavailable", e);
+    return { slots: [], error: "Service temporarily unavailable. Try again shortly." };
+  }
 
-  const [svc] = await db
-    .select()
-    .from(services)
-    .where(
-      and(
-        eq(services.id, input.serviceId),
-        eq(services.providerId, prov.id),
-        eq(services.isActive, true)
+  try {
+    const [prov] = await db
+      .select()
+      .from(providers)
+      .where(eq(providers.username, uname))
+      .limit(1);
+    if (!prov || !prov.publicProfileEnabled) return { slots: [], error: "Not found" };
+
+    const [svc] = await db
+      .select()
+      .from(services)
+      .where(
+        and(
+          eq(services.id, input.serviceId),
+          eq(services.providerId, prov.id),
+          eq(services.isActive, true)
+        )
       )
-    )
-    .limit(1);
-  if (!svc) return { slots: [], error: "Service unavailable" };
+      .limit(1);
+    if (!svc) return { slots: [], error: "Service unavailable" };
 
-  const rules = await db
-    .select()
-    .from(availabilityRules)
-    .where(eq(availabilityRules.providerId, prov.id));
+    const rules = await db
+      .select()
+      .from(availabilityRules)
+      .where(eq(availabilityRules.providerId, prov.id));
 
-  const blocks = await db
-    .select()
-    .from(blockedTimes)
-    .where(eq(blockedTimes.providerId, prov.id));
+    const blocks = await db
+      .select()
+      .from(blockedTimes)
+      .where(eq(blockedTimes.providerId, prov.id));
 
-  const existingForDay = await db
-    .select()
-    .from(bookings)
-    .where(and(eq(bookings.providerId, prov.id), ne(bookings.status, "cancelled")));
+    const existingForDay = await db
+      .select()
+      .from(bookings)
+      .where(and(eq(bookings.providerId, prov.id), ne(bookings.status, "cancelled")));
 
-  const slotList = generateSlots({
-    dateISO: input.dateISO,
-    timezone: prov.timezone,
-    rules: rules.map((r) => ({
-      dayOfWeek: r.dayOfWeek,
-      startTimeLocal: r.startTimeLocal,
-      endTimeLocal: r.endTimeLocal,
-      isActive: r.isActive,
-    })),
-    blocked: blocks.map((b) => ({ startsAt: b.startsAt, endsAt: b.endsAt })),
-    existingBookings: existingForDay.map((b) => ({
-      startsAt: b.startsAt,
-      endsAt: b.endsAt,
-      bufferAfterMinutes: b.bufferAfterMinutes,
-    })),
-    durationMinutes: svc.durationMinutes,
-    bufferMinutes: svc.bufferMinutes,
-    slotStepMinutes: 15,
-    leadTimeMinutes: prov.bookingLeadTimeMinutes,
-    horizonDays: prov.bookingHorizonDays,
-    now: new Date(),
-  });
+    const slotList = generateSlots({
+      dateISO: input.dateISO,
+      timezone: prov.timezone,
+      rules: rules.map((r) => ({
+        dayOfWeek: r.dayOfWeek,
+        startTimeLocal: r.startTimeLocal,
+        endTimeLocal: r.endTimeLocal,
+        isActive: r.isActive,
+      })),
+      blocked: blocks.map((b) => ({ startsAt: b.startsAt, endsAt: b.endsAt })),
+      existingBookings: existingForDay.map((b) => ({
+        startsAt: b.startsAt,
+        endsAt: b.endsAt,
+        bufferAfterMinutes: b.bufferAfterMinutes,
+      })),
+      durationMinutes: svc.durationMinutes,
+      bufferMinutes: svc.bufferMinutes,
+      slotStepMinutes: 15,
+      leadTimeMinutes: prov.bookingLeadTimeMinutes,
+      horizonDays: prov.bookingHorizonDays,
+      now: new Date(),
+    });
 
-  return {
-    slots: slotList.map((s) => ({
-      start: s.start.toISOString(),
-      end: s.end.toISOString(),
-    })),
-  };
+    return {
+      slots: slotList.map((s) => ({
+        start: s.start.toISOString(),
+        end: s.end.toISOString(),
+      })),
+    };
+  } catch (e) {
+    console.error("[fetchPublicSlots] failed", e);
+    return { slots: [], error: "Unable to load times. Try again shortly." };
+  }
 }
 
 export async function submitPublicBooking(
@@ -209,6 +221,7 @@ export async function submitPublicBooking(
     if (e instanceof Error && e.message === "SLOT_TAKEN") {
       return { error: "That time was just taken. Pick another slot." };
     }
-    throw e;
+    console.error("[submitPublicBooking]", e);
+    return { error: "We couldn’t complete the booking. Please try again or contact the provider." };
   }
 }
