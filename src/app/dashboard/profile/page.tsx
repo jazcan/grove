@@ -43,7 +43,6 @@ export default async function ProfilePage({ searchParams }: Props) {
     .limit(1);
   const csrf = await getCsrfTokenForForm();
 
-  const profileBasicsComplete = !!prov?.username && !!prov?.displayName;
   const hasServices = !!anyService;
   const hasAvailability = !!anyRule;
   const published = !!prov?.publicProfileEnabled;
