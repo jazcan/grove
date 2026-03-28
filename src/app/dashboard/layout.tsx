@@ -31,6 +31,7 @@ export default async function DashboardLayout({
                   ["/dashboard", "Home"],
                   ["/dashboard/profile", "Profile"],
                   ["/dashboard/services", "Services"],
+                  ["/dashboard/pricing", "Pricing"],
                   ["/dashboard/availability", "Availability"],
                   ["/dashboard/bookings", "Bookings"],
                   ["/dashboard/customers", "Customers"],

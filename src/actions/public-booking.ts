@@ -1,10 +1,20 @@
 "use server";
 
-import { and, eq, ne } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import { getDb } from "@/db";
-import { providers, services, bookings, availabilityRules, blockedTimes } from "@/db/schema";
+import {
+  providers,
+  services,
+  bookings,
+  availabilityRules,
+  blockedTimes,
+  canonicalServiceTemplates,
+} from "@/db/schema";
 import { generateSlots } from "@/domain/availability/slots";
 import { createBookingAtomic } from "@/domain/bookings/create-booking";
+import { computePublicBookingPrice } from "@/domain/pricing/compute-public-booking-price";
+import { ensureDefaultPricingProfile } from "@/domain/pricing/ensure-default";
+import { rankServicesByIntent } from "@/domain/public/match-services-intent";
 import { validateCsrfToken } from "@/lib/csrf";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 import { getRequestIp } from "@/lib/request-ip";
@@ -100,6 +110,73 @@ export async function fetchPublicSlots(input: {
   }
 }
 
+export async function matchPublicServicesByIntent(input: {
+  username: string;
+  intent: string;
+}): Promise<{
+  matches: { serviceId: string; name: string; score: number }[];
+  error?: string;
+}> {
+  const uname = input.username.trim().toLowerCase();
+  const intent = plainTextFromInput(input.intent ?? "", 2000);
+  if (isReservedUsername(uname)) return { matches: [], error: "Not found" };
+
+  let db;
+  try {
+    db = getDb();
+  } catch (e) {
+    console.error("[matchPublicServicesByIntent] database unavailable", e);
+    return { matches: [], error: "Service temporarily unavailable." };
+  }
+
+  try {
+    const [prov] = await db
+      .select()
+      .from(providers)
+      .where(eq(providers.username, uname))
+      .limit(1);
+    if (!prov || !prov.publicProfileEnabled) return { matches: [], error: "Not found" };
+
+    const rows = await db
+      .select({
+        id: services.id,
+        name: services.name,
+        description: services.description,
+        category: services.category,
+        templateLabel: canonicalServiceTemplates.label,
+        templateShort: canonicalServiceTemplates.descriptionShort,
+      })
+      .from(services)
+      .leftJoin(canonicalServiceTemplates, eq(services.canonicalTemplateId, canonicalServiceTemplates.id))
+      .where(and(eq(services.providerId, prov.id), eq(services.isActive, true)))
+      .orderBy(asc(services.sortOrder), asc(services.name));
+
+    const inputs = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description ?? "",
+      category: r.category ?? "",
+      templateLabel: r.templateLabel ?? "",
+      templateShort: r.templateShort ?? "",
+    }));
+
+    const ranked = rankServicesByIntent(intent, inputs);
+    const withPositive = ranked.filter((r) => r.score > 0);
+    const source = withPositive.length ? withPositive : ranked;
+
+    return {
+      matches: source.slice(0, 8).map((r) => ({
+        serviceId: r.service.id,
+        name: r.service.name,
+        score: r.score,
+      })),
+    };
+  } catch (e) {
+    console.error("[matchPublicServicesByIntent] failed", e);
+    return { matches: [], error: "Couldn’t match services right now." };
+  }
+}
+
 export async function submitPublicBooking(
   _prev: ActionState,
   formData: FormData
@@ -120,6 +197,8 @@ export async function submitPublicBooking(
   const customerPhone = plainTextFromInput(formData.get("customerPhone")?.toString() ?? "", 40);
   const customerNotes = plainTextFromInput(formData.get("customerNotes")?.toString() ?? "", 2000);
   const rawPay = plainTextFromInput(formData.get("paymentMethod")?.toString() ?? "", 64).toLowerCase();
+  const positioningTierIdRaw = formData.get("positioningTierId")?.toString()?.trim() ?? "";
+  const addOnRaw = formData.getAll("addOnIds").map((v) => String(v).trim()).filter(Boolean);
 
   if (!customerName || !customerEmail.includes("@")) {
     return { error: "Name and valid email are required." };
@@ -174,6 +253,20 @@ export async function submitPublicBooking(
   }
 
   try {
+    await ensureDefaultPricingProfile(db, prov.id);
+
+    const priced = await computePublicBookingPrice(db, {
+      providerId: prov.id,
+      serviceId: svc.id,
+      positioningTierId: positioningTierIdRaw || null,
+      selectedAddOnIds: addOnRaw,
+    });
+    if ("error" in priced) {
+      return { error: priced.error };
+    }
+
+    const paymentAmountStr = priced.grandTotal.toFixed(2);
+
     const created = await createBookingAtomic(db, {
       providerId: prov.id,
       serviceId: svc.id,
@@ -185,6 +278,9 @@ export async function submitPublicBooking(
       customerPhone: customerPhone || undefined,
       customerNotes,
       paymentMethod,
+      positioningTierId: priced.tierId,
+      selectedAddOnIds: priced.selectedAddOnIds,
+      paymentAmount: paymentAmountStr,
     });
 
     await enqueueNotification({

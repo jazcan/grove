@@ -134,6 +134,40 @@ export const shopifyInstallations = pgTable(
   (t) => [index("shopify_installations_provider_idx").on(t.providerId)]
 );
 
+/** One pricing strategy per provider (currency anchor for tiers and simulation). */
+export const pricingProfiles = pgTable(
+  "pricing_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .unique()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull().default("Default"),
+    currency: varchar("currency", { length: 8 }).notNull().default("CAD"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("pricing_profiles_provider_idx").on(t.providerId)]
+);
+
+/** Positioning tiers multiply base service list price (template-backed variant). */
+export const positioningTiers = pgTable(
+  "positioning_tiers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => pricingProfiles.id, { onDelete: "cascade" }),
+    label: varchar("label", { length: 120 }).notNull(),
+    multiplier: decimal("multiplier", { precision: 8, scale: 4 }).notNull().default("1.0000"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("positioning_tiers_profile_idx").on(t.profileId)]
+);
+
 /**
  * Platform-owned canonical service definitions (steps, add-ons, outcomes + default pricing).
  * Provider offers are `services` rows linked via `canonicalTemplateId` (variants).
@@ -186,12 +220,35 @@ export const services = pgTable(
     currency: varchar("currency", { length: 8 }).notNull().default("CAD"),
     bufferMinutes: integer("buffer_minutes").notNull().default(0),
     prepInstructions: text("prep_instructions").notNull().default(""),
+    positioningTierId: uuid("positioning_tier_id").references(() => positioningTiers.id, {
+      onDelete: "set null",
+    }),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("services_provider_id_idx").on(t.providerId)]
+);
+
+/** Provider overrides for canonical template add-on suggested prices (per service variant). */
+export const serviceAddOnOverrides = pgTable(
+  "service_add_on_overrides",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    serviceId: uuid("service_id")
+      .notNull()
+      .references(() => services.id, { onDelete: "cascade" }),
+    addOnId: varchar("add_on_id", { length: 64 }).notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    priceOverride: decimal("price_override", { precision: 12, scale: 2 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("service_add_on_overrides_service_add_on_uq").on(t.serviceId, t.addOnId),
+    index("service_add_on_overrides_service_idx").on(t.serviceId),
+  ]
 );
 
 export const availabilityRules = pgTable(
@@ -274,6 +331,12 @@ export const bookings = pgTable(
     paymentStatus: paymentStatusEnum("payment_status").notNull().default("unpaid"),
     paymentMethod: varchar("payment_method", { length: 64 }),
     paymentAmount: decimal("payment_amount", { precision: 12, scale: 2 }),
+    /** Snapshot of positioning tier used for public price (Stage 6). */
+    positioningTierId: uuid("positioning_tier_id").references(() => positioningTiers.id, {
+      onDelete: "set null",
+    }),
+    /** Canonical template add-on ids selected at booking time. */
+    selectedAddOnIds: jsonb("selected_add_on_ids").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     paymentNote: text("payment_note"),
     customerNotes: text("customer_notes").notNull().default(""),
     internalNotes: text("internal_notes").notNull().default(""),
@@ -452,6 +515,21 @@ export const providersRelations = relations(providers, ({ one, many }) => ({
   customers: many(customers),
   bookings: many(bookings),
   shopifyInstallations: many(shopifyInstallations),
+  pricingProfile: one(pricingProfiles, { fields: [providers.id], references: [pricingProfiles.providerId] }),
+}));
+
+export const pricingProfilesRelations = relations(pricingProfiles, ({ one, many }) => ({
+  provider: one(providers, { fields: [pricingProfiles.providerId], references: [providers.id] }),
+  tiers: many(positioningTiers),
+}));
+
+export const positioningTiersRelations = relations(positioningTiers, ({ one, many }) => ({
+  profile: one(pricingProfiles, {
+    fields: [positioningTiers.profileId],
+    references: [pricingProfiles.id],
+  }),
+  services: many(services),
+  bookings: many(bookings),
 }));
 
 export const shopifyInstallationsRelations = relations(shopifyInstallations, ({ one }) => ({
@@ -472,7 +550,19 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
     fields: [services.canonicalTemplateId],
     references: [canonicalServiceTemplates.id],
   }),
+  positioningTier: one(positioningTiers, {
+    fields: [services.positioningTierId],
+    references: [positioningTiers.id],
+  }),
+  addOnOverrides: many(serviceAddOnOverrides),
   bookings: many(bookings),
+}));
+
+export const serviceAddOnOverridesRelations = relations(serviceAddOnOverrides, ({ one }) => ({
+  service: one(services, {
+    fields: [serviceAddOnOverrides.serviceId],
+    references: [services.id],
+  }),
 }));
 
 export const bookingsRelations = relations(bookings, ({ one }) => ({
@@ -481,6 +571,10 @@ export const bookingsRelations = relations(bookings, ({ one }) => ({
   canonicalTemplate: one(canonicalServiceTemplates, {
     fields: [bookings.canonicalTemplateId],
     references: [canonicalServiceTemplates.id],
+  }),
+  positioningTier: one(positioningTiers, {
+    fields: [bookings.positioningTierId],
+    references: [positioningTiers.id],
   }),
   customer: one(customers, { fields: [bookings.customerId], references: [customers.id] }),
 }));

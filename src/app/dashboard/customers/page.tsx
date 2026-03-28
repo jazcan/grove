@@ -88,6 +88,12 @@ export default async function CustomersPage({ searchParams }: Props) {
     statsRows.map((r) => [r.customerId, { cnt: Number(r.cnt), lastAt: r.lastAt }])
   );
 
+  const [totalCustomers] = await db
+    .select({ n: count() })
+    .from(customers)
+    .where(eq(customers.providerId, u.providerId));
+  const totalCustomerCount = Number(totalCustomers?.n ?? 0);
+
   const list: CustomerRow[] = baseList.map((c) => {
     const s = statsMap.get(c.id);
     return {
@@ -111,7 +117,14 @@ export default async function CustomersPage({ searchParams }: Props) {
         <header>
           <h1 className="text-2xl font-semibold tracking-tight">Customers</h1>
           <p className="mt-2 max-w-xl text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-            Manage your clients and view their history.
+            Manage your clients and view their history
+            {totalCustomerCount > 0 ? (
+              <span className="text-[color-mix(in_oklab,var(--foreground)_48%,transparent)]">
+                {" "}
+                · {totalCustomerCount} total
+              </span>
+            ) : null}
+            .
           </p>
         </header>
 

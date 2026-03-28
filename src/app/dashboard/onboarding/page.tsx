@@ -5,6 +5,7 @@ import { providers } from "@/db/schema";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { requireUser } from "@/lib/tenancy";
 import { OnboardingForm } from "@/app/dashboard/onboarding/onboarding-form";
+import { OnboardingRoadmap } from "@/components/dashboard/onboarding-roadmap";
 
 export default async function OnboardingPage() {
   const u = await requireUser();
@@ -44,6 +45,8 @@ export default async function OnboardingPage() {
             />
           </div>
         </div>
+
+        <OnboardingRoadmap />
       </div>
     </main>
   );

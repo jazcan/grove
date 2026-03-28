@@ -26,6 +26,12 @@ npm run db:seed
 npm run dev
 ```
 
+If the site returns **HTTP 500** locally after switching branches, running `build` alongside `dev`, or seeing errors like `Cannot find module './….js'` under `.next`, reset the Next cache and restart:
+
+```bash
+npm run clean && npm run dev
+```
+
 4. Optional — process notification jobs (requires `REDIS_URL`):
 
 ```bash
@@ -36,7 +42,8 @@ npm run worker
 
 | Script        | Description                          |
 | ------------- | ------------------------------------ |
-| `npm run dev` | Next.js dev server (Turbopack)       |
+| `npm run dev` | Next.js dev server                   |
+| `npm run clean` | Delete `.next` (fixes stale dev/build cache) |
 | `npm run build` / `start` | Production build / server |
 | `npm run lint` | ESLint                              |
 | `npm run test` | Vitest                              |

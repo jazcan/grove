@@ -1,9 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition, type FormEvent } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { CsrfField } from "@/components/csrf-field";
 import { fetchPublicSlots, submitPublicBooking } from "@/actions/public-booking";
 import type { ActionState } from "@/domain/auth/actions";
+import { simulateServicePrice } from "@/domain/pricing/engine";
+import type { TemplateAddOn, TemplateOutcome, TemplateStep } from "@/platform/templates/structure";
+
+type TierOption = { id: string; label: string; multiplier: string };
 
 type Props = {
   csrf: string;
@@ -21,6 +25,12 @@ type Props = {
   servicePriceAmount: string;
   serviceCurrency: string;
   servicePrepInstructions: string;
+  positioningTiers: TierOption[];
+  defaultTierId: string;
+  templateSteps: TemplateStep[];
+  templateOutcomes: TemplateOutcome[];
+  canonicalAddOns: TemplateAddOn[];
+  addOnOverrides: { addOnId: string; enabled: boolean; priceOverride: string | null }[];
 };
 
 function formatPrice(input: { pricingType: "fixed" | "hourly"; amount: string; currency: string }): string | null {
@@ -32,6 +42,14 @@ function formatPrice(input: { pricingType: "fixed" | "hourly"; amount: string; c
     return input.pricingType === "hourly" ? `${base}/hr` : base;
   } catch {
     return input.pricingType === "hourly" ? `${input.amount} ${input.currency}/hr` : `${input.amount} ${input.currency}`;
+  }
+}
+
+function formatMoney(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "CAD" }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency}`;
   }
 }
 
@@ -79,6 +97,12 @@ export function BookForm({
   servicePriceAmount,
   serviceCurrency,
   servicePrepInstructions,
+  positioningTiers,
+  defaultTierId,
+  templateSteps,
+  templateOutcomes,
+  canonicalAddOns,
+  addOnOverrides,
 }: Props) {
   const dateInputRef = useRef<HTMLInputElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -97,6 +121,74 @@ export function BookForm({
     submitPublicBooking,
     undefined
   );
+
+  const overrideMap = useMemo(() => {
+    const m = new Map<string, { enabled: boolean; priceOverride: string | null }>();
+    for (const o of addOnOverrides) {
+      m.set(o.addOnId, { enabled: o.enabled, priceOverride: o.priceOverride });
+    }
+    return m;
+  }, [addOnOverrides]);
+
+  const sortedSteps = useMemo(
+    () => [...templateSteps].sort((a, b) => a.order - b.order),
+    [templateSteps]
+  );
+
+  const initialTier =
+    defaultTierId && positioningTiers.some((t) => t.id === defaultTierId)
+      ? defaultTierId
+      : positioningTiers[0]?.id ?? "";
+  const [tierId, setTierId] = useState(initialTier);
+  const [selectedAddOns, setSelectedAddOns] = useState<Set<string>>(new Set());
+
+  const tierMultiplier = useMemo(() => {
+    const t = positioningTiers.find((x) => x.id === tierId);
+    const n = t ? Number(t.multiplier) : 1;
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  }, [positioningTiers, tierId]);
+
+  const disabledAddOnIds = useMemo(() => {
+    const d = new Set<string>();
+    for (const a of canonicalAddOns) {
+      const o = overrideMap.get(a.id);
+      if (o && !o.enabled) d.add(a.id);
+    }
+    return d;
+  }, [canonicalAddOns, overrideMap]);
+
+  const priceOverrides = useMemo(() => {
+    const o: Record<string, string | null> = {};
+    for (const a of canonicalAddOns) {
+      const row = overrideMap.get(a.id);
+      o[a.id] = row?.priceOverride ?? null;
+    }
+    return o;
+  }, [canonicalAddOns, overrideMap]);
+
+  const priceSim = useMemo(() => {
+    return simulateServicePrice({
+      serviceBaseAmount: servicePriceAmount,
+      pricingType: servicePricingType,
+      tierMultiplier,
+      currency: serviceCurrency,
+      canonicalAddOns,
+      selectedAddOnIds: Array.from(selectedAddOns),
+      priceOverrides,
+      disabledAddOnIds,
+    });
+  }, [
+    servicePriceAmount,
+    servicePricingType,
+    tierMultiplier,
+    serviceCurrency,
+    canonicalAddOns,
+    selectedAddOns,
+    priceOverrides,
+    disabledAddOnIds,
+  ]);
+
+  const tierLabel = positioningTiers.find((t) => t.id === tierId)?.label ?? "";
 
   const todayISO = localDateISO();
   const isPastDate = Boolean(dateISO) && /^\d{4}-\d{2}-\d{2}$/.test(dateISO) && dateISO < todayISO;
@@ -138,7 +230,6 @@ export function BookForm({
     setPaymentError("");
   }, [providerPaymentCash, providerPaymentEtransfer]);
 
-  const priceLabel = formatPrice({ pricingType: servicePricingType, amount: servicePriceAmount, currency: serviceCurrency });
   const selectedLabel = slotStart ? prettyDateTime(slotStart) : null;
   const canSubmit = !!slotStart && !formPending && !isPastDate;
   const showSuccess = !!state?.success;
@@ -170,11 +261,136 @@ export function BookForm({
             <h2 className="mt-1 text-lg font-semibold tracking-tight sm:text-xl md:text-2xl">{serviceName}</h2>
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-[var(--muted)]">
               <span>{serviceDurationMinutes} min</span>
-              {priceLabel ? <span className="font-medium text-[var(--foreground)]">{priceLabel}</span> : <span>Price confirmed after booking</span>}
               <span className="min-w-0 break-words">
                 Provider:{" "}
                 <LinkLike href={`/${providerUsername}`} label={`/${providerUsername}`} />
               </span>
+            </div>
+
+            {templateOutcomes.length > 0 ? (
+              <div className="mt-5">
+                <div className="ui-overline text-[var(--muted)]">What you can expect</div>
+                <ul className="mt-2 list-inside list-disc space-y-1 text-sm leading-relaxed text-[var(--foreground)] sm:text-[0.95rem]">
+                  {templateOutcomes.map((o) => (
+                    <li key={o.id}>{o.label}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {sortedSteps.length > 0 ? (
+              <div className="mt-5">
+                <div className="ui-overline text-[var(--muted)]">How it flows</div>
+                <ol className="mt-2 list-inside list-decimal space-y-2 text-sm leading-relaxed text-[var(--foreground)] sm:text-[0.95rem]">
+                  {sortedSteps.map((s) => (
+                    <li key={s.id}>
+                      <span className="font-medium">{s.title}</span>
+                      {s.description?.trim() ? (
+                        <span className="text-[var(--muted)]"> — {s.description}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : null}
+
+            {positioningTiers.length > 1 ? (
+              <div className="ui-field mt-5 max-w-md">
+                <label htmlFor="tier-select" className="ui-label">
+                  Service level
+                </label>
+                <p id="tier-hint" className="ui-hint">
+                  Tiers adjust list price for how this session is positioned.
+                </p>
+                <select
+                  id="tier-select"
+                  value={tierId}
+                  onChange={(e) => setTierId(e.target.value)}
+                  className="ui-input mt-1"
+                  aria-describedby="tier-hint"
+                >
+                  {positioningTiers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label} (×{Number(t.multiplier).toFixed(2)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            {canonicalAddOns.some((a) => !disabledAddOnIds.has(a.id)) ? (
+              <div className="mt-5">
+                <div className="ui-overline text-[var(--muted)]">Add-ons</div>
+                <ul className="mt-2 space-y-2">
+                  {canonicalAddOns.map((a) => {
+                    if (disabledAddOnIds.has(a.id)) return null;
+                    const override = overrideMap.get(a.id)?.priceOverride;
+                    const suggested = a.suggestedPrice != null ? Number(a.suggestedPrice) : null;
+                    const raw =
+                      override != null && override !== ""
+                        ? Number(override)
+                        : suggested != null && Number.isFinite(suggested)
+                          ? suggested
+                          : null;
+                    const addLabel =
+                      raw != null && Number.isFinite(raw)
+                        ? `${a.label} (${formatMoney(raw, serviceCurrency)})`
+                        : a.label;
+                    return (
+                      <li key={a.id}>
+                        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[color-mix(in_oklab,var(--foreground)_10%,transparent)] px-3 py-2.5 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedAddOns.has(a.id)}
+                            onChange={(e) => {
+                              setSelectedAddOns((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.add(a.id);
+                                else next.delete(a.id);
+                                return next;
+                              });
+                            }}
+                            className="mt-0.5 h-[1.125rem] w-[1.125rem] shrink-0 accent-[var(--accent)]"
+                          />
+                          <span>
+                            <span className="font-medium text-[var(--foreground)]">{addLabel}</span>
+                            {a.description?.trim() ? (
+                              <span className="mt-0.5 block text-[var(--muted)]">{a.description}</span>
+                            ) : null}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="mt-5 border-t border-[color-mix(in_oklab,var(--foreground)_8%,transparent)] pt-4">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <div className="ui-overline text-[var(--muted)]">Estimated total</div>
+                  <div className="mt-1 text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">
+                    {formatMoney(priceSim.grandTotal, priceSim.currency)}
+                  </div>
+                  <p className="ui-hint mt-1 max-w-prose">
+                    {servicePricingType === "hourly"
+                      ? `Based on hourly rate × tier${tierLabel ? ` (${tierLabel})` : ""}`
+                      : `List price × tier${tierLabel ? ` (${tierLabel})` : ""}`}
+                    {selectedAddOns.size > 0 ? " plus selected add-ons." : "."}
+                  </p>
+                </div>
+                <div className="text-right text-sm text-[var(--muted)]">
+                  <div>List price</div>
+                  <div className="font-medium text-[var(--foreground)]">
+                    {formatPrice({
+                      pricingType: servicePricingType,
+                      amount: servicePriceAmount,
+                      currency: serviceCurrency,
+                    }) ?? "—"}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           {selectedLabel ? (
@@ -228,6 +444,12 @@ export function BookForm({
                     </div>
                     <div className="mt-3 break-all rounded-md bg-[var(--surface-muted)] px-3 py-2 font-mono text-xs text-[var(--muted)]">
                       Reference: {state.success}
+                    </div>
+                    <div className="mt-3 text-sm text-[var(--muted)]">
+                      Estimated total booked:{" "}
+                      <span className="font-semibold text-[var(--foreground)]">
+                        {formatMoney(priceSim.grandTotal, priceSim.currency)}
+                      </span>
                     </div>
                   </div>
                   <p className="mt-5 text-sm leading-relaxed text-[var(--muted)]">
@@ -354,6 +576,10 @@ export function BookForm({
         {/* Step 2 + 3 combined in one form to preserve backend */}
         <form action={action} className="space-y-8 sm:space-y-10" onSubmit={handleBookingSubmit}>
           <CsrfField token={csrf} />
+          <input type="hidden" name="positioningTierId" value={tierId} />
+          {Array.from(selectedAddOns).map((id) => (
+            <input key={id} type="hidden" name="addOnIds" value={id} />
+          ))}
           <input type="hidden" name="username" value={username} />
           <input type="hidden" name="serviceId" value={serviceId} />
           <input type="hidden" name="dateISO" value={dateISO} />
@@ -455,6 +681,23 @@ export function BookForm({
                   <div className="ui-overline text-[var(--muted)]">Time</div>
                   <div className="mt-1 text-base font-semibold text-[var(--foreground)]">
                     {selectedLabel ?? "Select a time above"}
+                  </div>
+                </div>
+                <div className="mt-4 border-t border-[var(--card-border)] pt-4">
+                  <div className="ui-overline text-[var(--muted)]">Plan & price</div>
+                  <div className="mt-1 text-sm text-[var(--foreground)]">
+                    {tierLabel ? <span className="font-medium">{tierLabel}</span> : null}
+                    {tierLabel && selectedAddOns.size > 0 ? " · " : null}
+                    {selectedAddOns.size > 0 ? (
+                      <span className="text-[var(--muted)]">
+                        {selectedAddOns.size} add-on{selectedAddOns.size === 1 ? "" : "s"}
+                      </span>
+                    ) : !tierLabel ? (
+                      <span className="text-[var(--muted)]">Standard pricing</span>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 text-lg font-semibold text-[var(--foreground)]">
+                    {formatMoney(priceSim.grandTotal, priceSim.currency)} estimated
                   </div>
                 </div>
               </div>

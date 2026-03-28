@@ -11,7 +11,11 @@ export type PlatformEventName =
   | "provider.updated"
   | "service.created"
   | "service.updated"
-  | "customer.upserted";
+  | "customer.upserted"
+  | "availability.rule.saved"
+  | "availability.rule.deleted"
+  | "availability.block.created"
+  | "availability.block.deleted";
 
 export type PlatformEventPayloads = {
   "booking.created": {
@@ -24,6 +28,9 @@ export type PlatformEventPayloads = {
     endsAt: string;
     /** From service / booking snapshot; null for legacy services without a template link. */
     canonicalTemplateId: string | null;
+    positioningTierId: string | null;
+    selectedAddOnIds: string[];
+    paymentAmount: string | null;
   };
   "booking.updated": {
     bookingId: string;
@@ -53,6 +60,23 @@ export type PlatformEventPayloads = {
   "customer.upserted": {
     customerId: string;
     providerId: string;
+  };
+  "availability.rule.saved": {
+    providerId: string;
+    ruleId: string;
+    dayOfWeek: number;
+  };
+  "availability.rule.deleted": {
+    providerId: string;
+    ruleId: string;
+  };
+  "availability.block.created": {
+    providerId: string;
+    blockId: string;
+  };
+  "availability.block.deleted": {
+    providerId: string;
+    blockId: string;
   };
 };
 

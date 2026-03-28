@@ -10,6 +10,7 @@ import { logAudit } from "@/lib/audit";
 import { getCanonicalTemplateRowBySlug } from "@/lib/canonical-templates";
 import { QUICK_START_PREFILL_ID } from "@/lib/service-templates";
 import { emitPlatformEvent } from "@/platform/events/emit";
+import { ensureDefaultPricingProfile } from "@/domain/pricing/ensure-default";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
 import type { ActionState } from "@/domain/auth/actions";
 
@@ -43,12 +44,16 @@ export async function createService(formData: FormData): Promise<ActionState> {
     .limit(1);
   const sortOrder = (maxRow?.m ?? 0) + 1;
 
+  const { tiers } = await ensureDefaultPricingProfile(db, ctx.providerId);
+  const defaultTier = tiers.find((t) => t.sortOrder === 0) ?? tiers[0];
+
   const [created] = await db
     .insert(services)
     .values({
       providerId: ctx.providerId,
       canonicalTemplateId: canonical.id,
       canonicalTemplateVersion: canonical.version,
+      positioningTierId: defaultTier?.id ?? null,
       name,
       description,
       category,
@@ -131,6 +136,23 @@ export async function updateService(formData: FormData): Promise<ActionState> {
       updatedAt: new Date(),
     })
     .where(eq(services.id, id));
+
+  await emitPlatformEvent(
+    {
+      name: "service.updated",
+      aggregateType: "service",
+      aggregateId: id,
+      tenantProviderId: ctx.providerId,
+      actorUserId: ctx.id,
+      actorType: "user",
+      payload: {
+        serviceId: id,
+        providerId: ctx.providerId,
+        patch: { fields: ["core_pricing_and_copy"] },
+      },
+    },
+    db
+  );
 
   await logAudit({
     actorUserId: ctx.id,

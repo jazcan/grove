@@ -7,6 +7,7 @@ import { getDb } from "@/db";
 import { availabilityRules, blockedTimes } from "@/db/schema";
 import { plainTextFromInput } from "@/lib/sanitize";
 import { logAudit } from "@/lib/audit";
+import { emitPlatformEvent } from "@/platform/events/emit";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
 import type { ActionState } from "@/domain/auth/actions";
 
@@ -113,6 +114,26 @@ export async function deleteAvailabilityRule(formData: FormData): Promise<Action
     .where(and(eq(availabilityRules.id, id), eq(availabilityRules.providerId, ctx.providerId)))
     .returning({ id: availabilityRules.id });
   if (!res.length) return { error: "Not found." };
+  await emitPlatformEvent(
+    {
+      name: "availability.rule.deleted",
+      aggregateType: "availability_rule",
+      aggregateId: id,
+      tenantProviderId: ctx.providerId,
+      actorUserId: ctx.id,
+      actorType: "user",
+      payload: { providerId: ctx.providerId, ruleId: id },
+    },
+    db
+  );
+  await logAudit({
+    actorUserId: ctx.id,
+    actorType: "user",
+    tenantProviderId: ctx.providerId,
+    entityType: "availability_rule",
+    entityId: id,
+    action: "deleted",
+  });
   revalidatePath("/dashboard/availability");
   redirect("/dashboard/availability?saved=hours#weekly-schedule");
 }
@@ -165,6 +186,18 @@ async function insertBlockedTimeFromForm(
     entityId: row!.id,
     action: "created",
   });
+  await emitPlatformEvent(
+    {
+      name: "availability.block.created",
+      aggregateType: "blocked_time",
+      aggregateId: row!.id,
+      tenantProviderId: ctx.providerId,
+      actorUserId: ctx.id,
+      actorType: "user",
+      payload: { providerId: ctx.providerId, blockId: row!.id },
+    },
+    db
+  );
   return {
     ok: true,
     id: row!.id,
@@ -211,6 +244,26 @@ export async function deleteBlockedTime(formData: FormData): Promise<ActionState
     .where(and(eq(blockedTimes.id, id), eq(blockedTimes.providerId, ctx.providerId)))
     .returning({ id: blockedTimes.id });
   if (!res.length) return { error: "Not found." };
+  await emitPlatformEvent(
+    {
+      name: "availability.block.deleted",
+      aggregateType: "blocked_time",
+      aggregateId: id,
+      tenantProviderId: ctx.providerId,
+      actorUserId: ctx.id,
+      actorType: "user",
+      payload: { providerId: ctx.providerId, blockId: id },
+    },
+    db
+  );
+  await logAudit({
+    actorUserId: ctx.id,
+    actorType: "user",
+    tenantProviderId: ctx.providerId,
+    entityType: "blocked_time",
+    entityId: id,
+    action: "deleted",
+  });
   revalidatePath("/dashboard/availability");
   redirect("/dashboard/availability?saved=blocked#blocked-time-list");
 }
@@ -227,6 +280,26 @@ export async function deleteBlockedTimeInline(formData: FormData): Promise<Delet
     .where(and(eq(blockedTimes.id, id), eq(blockedTimes.providerId, ctx.providerId)))
     .returning({ id: blockedTimes.id });
   if (!res.length) return { ok: false, error: "Not found." };
+  await emitPlatformEvent(
+    {
+      name: "availability.block.deleted",
+      aggregateType: "blocked_time",
+      aggregateId: id,
+      tenantProviderId: ctx.providerId,
+      actorUserId: ctx.id,
+      actorType: "user",
+      payload: { providerId: ctx.providerId, blockId: id },
+    },
+    db
+  );
+  await logAudit({
+    actorUserId: ctx.id,
+    actorType: "user",
+    tenantProviderId: ctx.providerId,
+    entityType: "blocked_time",
+    entityId: id,
+    action: "deleted",
+  });
   revalidatePath("/dashboard/availability");
   return { ok: true };
 }

@@ -1,9 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and, ne, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getDb } from "@/db";
-import { bookings, services } from "@/db/schema";
+import { bookings } from "@/db/schema";
+import { rescheduleBookingAtomic } from "@/domain/bookings/reschedule-booking";
+import {
+  updateBookingInternalNotesWithEvent,
+  updateBookingPaymentWithEvent,
+  updateBookingStatusWithEvent,
+} from "@/domain/bookings/provider-mutations";
 import { plainTextFromInput } from "@/lib/sanitize";
 import { logAudit } from "@/lib/audit";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
@@ -28,12 +34,13 @@ export async function updateBookingStatus(formData: FormData): Promise<ActionSta
   ];
   if (!allowed.includes(status)) return { error: "Invalid status." };
   const db = getDb();
-  const res = await db
-    .update(bookings)
-    .set({ status, updatedAt: new Date() })
-    .where(and(eq(bookings.id, id), eq(bookings.providerId, ctx.providerId)))
-    .returning({ id: bookings.id });
-  if (!res.length) return { error: "Not found." };
+  const ok = await updateBookingStatusWithEvent(db, {
+    providerId: ctx.providerId,
+    bookingId: id,
+    status,
+    actorUserId: ctx.id,
+  });
+  if (!ok) return { error: "Not found." };
   await logAudit({
     actorUserId: ctx.id,
     actorType: "user",
@@ -54,12 +61,15 @@ export async function updateBookingNotes(formData: FormData): Promise<ActionStat
   const id = formData.get("id")?.toString() ?? "";
   const internalNotes = plainTextFromInput(formData.get("internalNotes")?.toString() ?? "", 5000);
   const db = getDb();
-  const res = await db
-    .update(bookings)
-    .set({ internalNotes, updatedAt: new Date() })
-    .where(and(eq(bookings.id, id), eq(bookings.providerId, ctx.providerId)))
-    .returning({ id: bookings.id });
-  if (!res.length) return { error: "Not found." };
+  const ok = await updateBookingInternalNotesWithEvent(db, {
+    providerId: ctx.providerId,
+    bookingId: id,
+    internalNotes,
+    actorUserId: ctx.id,
+  });
+  if (!ok) return { error: "Not found." };
+  revalidatePath("/dashboard/bookings");
+  revalidatePath(`/dashboard/bookings/${id}`);
   return { success: "Notes saved." };
 }
 
@@ -82,16 +92,21 @@ export async function updateBookingPayment(formData: FormData): Promise<ActionSt
     .limit(1);
   if (!before) return { error: "Not found." };
 
-  await db
-    .update(bookings)
-    .set({
+  try {
+    await updateBookingPaymentWithEvent(db, {
+      providerId: ctx.providerId,
+      bookingId: id,
       paymentStatus,
       paymentMethod: paymentMethod || null,
       paymentAmount: paymentAmountRaw?.length ? paymentAmountRaw : null,
       paymentNote: paymentNote || null,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(bookings.id, id), eq(bookings.providerId, ctx.providerId)));
+      actorUserId: ctx.id,
+      previousPaymentStatus: before.paymentStatus,
+    });
+  } catch (e) {
+    if (e instanceof Error && e.message === "NOT_FOUND") return { error: "Not found." };
+    throw e;
+  }
 
   await logAudit({
     actorUserId: ctx.id,
@@ -103,6 +118,8 @@ export async function updateBookingPayment(formData: FormData): Promise<ActionSt
     metadata: { from: before.paymentStatus, to: paymentStatus },
   });
 
+  revalidatePath("/dashboard/bookings");
+  revalidatePath(`/dashboard/bookings/${id}`);
   return { success: "Payment updated." };
 }
 
@@ -111,55 +128,22 @@ export async function rescheduleBooking(formData: FormData): Promise<ActionState
   const ctx = await loadProviderContext();
   const id = formData.get("id")?.toString() ?? "";
   const startsAt = new Date(formData.get("startsAt")?.toString() ?? "");
-  const db = getDb();
-  const [b] = await db
-    .select({
-      booking: bookings,
-      service: services,
-    })
-    .from(bookings)
-    .innerJoin(services, eq(bookings.serviceId, services.id))
-    .where(and(eq(bookings.id, id), eq(bookings.providerId, ctx.providerId)))
-    .limit(1);
-  if (!b) return { error: "Not found." };
   if (Number.isNaN(startsAt.getTime())) return { error: "Invalid start time." };
 
-  const durationMs = b.service.durationMinutes * 60_000;
-  const endsAt = new Date(startsAt.getTime() + durationMs);
-  const buf = b.service.bufferMinutes;
-
+  const db = getDb();
   try {
-    await db.transaction(async (tx) => {
-      const realOverlap = await tx
-        .select({ id: bookings.id })
-        .from(bookings)
-        .where(
-          and(
-            eq(bookings.providerId, ctx.providerId),
-            ne(bookings.id, id),
-            ne(bookings.status, "cancelled"),
-            sql`${bookings.startsAt} < ${endsAt} + (${buf} * interval '1 minute')`,
-            sql`${bookings.endsAt} + (${bookings.bufferAfterMinutes} * interval '1 minute') > ${startsAt}`
-          )
-        )
-        .for("update");
-
-      if (realOverlap.length) throw new Error("SLOT_TAKEN");
-
-      await tx
-        .update(bookings)
-        .set({
-          startsAt,
-          endsAt,
-          bufferAfterMinutes: buf,
-          status: "rescheduled",
-          updatedAt: new Date(),
-        })
-        .where(eq(bookings.id, id));
+    await rescheduleBookingAtomic(db, {
+      providerId: ctx.providerId,
+      bookingId: id,
+      startsAt,
+      actorUserId: ctx.id,
     });
   } catch (e) {
     if (e instanceof Error && e.message === "SLOT_TAKEN") {
       return { error: "That time conflicts with another booking." };
+    }
+    if (e instanceof Error && e.message === "NOT_FOUND") {
+      return { error: "Not found." };
     }
     throw e;
   }
@@ -173,5 +157,7 @@ export async function rescheduleBooking(formData: FormData): Promise<ActionState
     action: "rescheduled",
   });
 
+  revalidatePath("/dashboard/bookings");
+  revalidatePath(`/dashboard/bookings/${id}`);
   return { success: "Booking rescheduled." };
 }

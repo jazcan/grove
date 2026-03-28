@@ -65,7 +65,7 @@ export function OnboardingForm({ csrfToken, defaultUsername, defaultDisplayName 
         {pending ? "Saving…" : "Continue"}
       </button>
       <p className="text-center text-sm text-[var(--muted)]">
-        You can add services and availability next.
+        Then follow the steps below—services, availability, and publish.
       </p>
     </form>
   );

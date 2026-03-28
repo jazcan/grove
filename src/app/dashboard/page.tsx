@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { eq, desc } from "drizzle-orm";
 import { getDb } from "@/db";
-import { availabilityRules, bookings, providers, services } from "@/db/schema";
+import { bookings, providers } from "@/db/schema";
 import { CopyPublicProfileUrlButton } from "@/components/dashboard/copy-public-profile-url-button";
+import { CommandCenterStats } from "@/components/dashboard/command-center-stats";
 import { DashboardNextSteps } from "@/components/dashboard/dashboard-next-steps";
 import { PublicProfileLiveCard } from "@/components/dashboard/public-profile-live-card";
 import { getEnv } from "@/lib/env";
+import { buildProviderSetupSteps, loadProviderSetupState } from "@/lib/provider-setup";
 import { requireProvider } from "@/lib/tenancy";
 
 export default async function DashboardHomePage() {
@@ -17,23 +19,15 @@ export default async function DashboardHomePage() {
     .where(eq(providers.id, u.providerId))
     .limit(1);
 
-  const [anyService] = await db
-    .select({ id: services.id })
-    .from(services)
-    .where(eq(services.providerId, u.providerId))
-    .limit(1);
-
-  const [anyRule] = await db
-    .select({ id: availabilityRules.id })
-    .from(availabilityRules)
-    .where(eq(availabilityRules.providerId, u.providerId))
-    .limit(1);
+  const timezone = prov?.timezone ?? "America/Toronto";
+  const setup = await loadProviderSetupState(db, u.providerId, timezone);
 
   const [anyBooking] = await db
     .select({ id: bookings.id })
     .from(bookings)
     .where(eq(bookings.providerId, u.providerId))
     .limit(1);
+  const hasAnyBooking = !!anyBooking;
 
   const upcoming = await db
     .select()
@@ -51,42 +45,13 @@ export default async function DashboardHomePage() {
     .limit(20);
 
   const nextUp = soon.filter((b) => b.startsAt >= now).slice(0, 3);
-  const published = !!prov?.publicProfileEnabled;
-  const hasServices = !!anyService;
-  const hasAvailability = !!anyRule;
-  const needsSetup = !published || !hasServices || !hasAvailability;
-  const profileBasicsComplete = !!prov?.username && !!prov?.displayName;
-  const hasAnyBooking = !!anyBooking;
+  const published = setup.isPublished;
+  const needsSetup = setup.needsSetup;
 
   const appUrl = getEnv().APP_URL.replace(/\/$/, "");
   const profileUrl = prov?.username ? `${appUrl}/${prov.username}` : appUrl;
 
-  const nextSteps = [
-    {
-      key: "services",
-      label: "Add your services",
-      hint: "List what you offer, how long it takes, and your price.",
-      done: hasServices,
-      href: "/dashboard/services",
-      cta: "Add services",
-    },
-    {
-      key: "availability",
-      label: "Set your availability",
-      hint: "Choose the times clients can book you on your schedule.",
-      done: hasAvailability,
-      href: "/dashboard/availability",
-      cta: "Set availability",
-    },
-    {
-      key: "share",
-      label: "Start sharing your profile",
-      hint: "Turn on your public profile and reach out to a few clients.",
-      done: published && profileBasicsComplete,
-      href: "/dashboard/profile",
-      cta: "Open profile",
-    },
-  ] as const;
+  const setupSteps = buildProviderSetupSteps(setup);
 
   return (
     <main id="main-content">
@@ -105,18 +70,20 @@ export default async function DashboardHomePage() {
             </>
           ) : (
             <>
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Dashboard</h1>
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Command center</h1>
               <p className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
                 {published
-                  ? "Here’s what’s happening with your business."
-                  : "You’re almost ready to start accepting bookings."}
+                  ? "Snapshot of your schedule, pipeline, and client base."
+                  : "You’re almost ready to start accepting bookings—finish publishing when you’re set."}
               </p>
             </>
           )}
         </header>
 
         <section className="mt-8 space-y-8 pb-12 sm:mt-10 sm:space-y-10">
-          {!hasAnyBooking ? <DashboardNextSteps steps={[...nextSteps]} /> : null}
+          <CommandCenterStats setup={setup} />
+
+          {needsSetup ? <DashboardNextSteps steps={[...setupSteps]} /> : null}
 
           {!needsSetup && published && prov?.username ? (
             <PublicProfileLiveCard username={prov.username} profileUrl={profileUrl} />

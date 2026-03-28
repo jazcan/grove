@@ -6,6 +6,8 @@ export type PublicServiceCardModel = {
   pricingType: "fixed" | "hourly";
   priceAmount: string;
   currency: string;
+  /** Short outcome labels from the canonical template (Stage 6). */
+  outcomeTeasers?: string[];
 };
 
 type Props = {
@@ -42,6 +44,15 @@ export function ProviderServiceCard({ username, service }: Props) {
           <p className="mt-3 text-sm leading-relaxed text-[var(--muted)] sm:mt-4 sm:text-base whitespace-pre-wrap break-words">
             {desc}
           </p>
+        ) : null}
+        {service.outcomeTeasers && service.outcomeTeasers.length > 0 ? (
+          <ul className="mt-4 list-inside list-disc space-y-1 text-sm text-[var(--muted)] sm:text-[0.95rem]">
+            {service.outcomeTeasers.slice(0, 3).map((o) => (
+              <li key={o} className="leading-snug">
+                {o}
+              </li>
+            ))}
+          </ul>
         ) : null}
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-[color-mix(in_oklab,var(--foreground)_8%,transparent)] pt-4 sm:mt-6">
           <span className="text-sm font-semibold text-[var(--accent)]">View availability</span>

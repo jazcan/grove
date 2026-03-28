@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -36,106 +37,123 @@ export default async function BookingDetailPage({ params }: Props) {
   const { booking, customer, service } = row;
 
   return (
-    <main id="main-content">
-      <h1 className="text-2xl font-semibold">Booking</h1>
+    <main id="main-content" className="mx-auto max-w-3xl">
+      <p className="text-sm">
+        <Link href="/dashboard/bookings" className="ui-link font-semibold">
+          ← Bookings
+        </Link>
+      </p>
+
+      <h1 className="mt-4 text-2xl font-semibold tracking-tight">Booking</h1>
       <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
         Reference {booking.publicReference.toString()}
       </p>
 
-      <section className="mt-8 space-y-2 text-sm">
+      <section className="ui-card mt-8 space-y-3 p-5 text-sm sm:p-6">
         <p>
-          <strong>Service:</strong> {service.name}
+          <strong className="text-[var(--foreground)]">Service:</strong> {service.name}
         </p>
         <p>
-          <strong>Customer:</strong> {customer.fullName} ({customer.email})
+          <strong className="text-[var(--foreground)]">Customer:</strong> {customer.fullName} ({customer.email})
         </p>
         <p>
-          <strong>When:</strong> {booking.startsAt.toLocaleString()} → {booking.endsAt.toLocaleString()}
+          <strong className="text-[var(--foreground)]">When:</strong> {booking.startsAt.toLocaleString()} →{" "}
+          {booking.endsAt.toLocaleString()}
         </p>
         <p>
-          <strong>Customer notes:</strong> {booking.customerNotes || "—"}
+          <strong className="text-[var(--foreground)]">Customer notes:</strong> {booking.customerNotes || "—"}
         </p>
       </section>
 
-      <section className="mt-10 max-w-md space-y-6">
-        <form action={asFormAction(updateBookingStatus)} className="flex flex-wrap items-end gap-2">
-          <CsrfField token={csrf} />
-          <input type="hidden" name="id" value={booking.id} />
-          <label className="text-sm">
-            Status
-            <select name="status" defaultValue={booking.status} className="ml-2 rounded border px-2 py-1">
-              <option value="pending">pending</option>
-              <option value="confirmed">confirmed</option>
-              <option value="completed">completed</option>
-              <option value="cancelled">cancelled</option>
-              <option value="no_show">no_show</option>
-              <option value="rescheduled">rescheduled</option>
-            </select>
-          </label>
-          <button type="submit" className="rounded border px-3 py-1 text-sm">
-            Update
-          </button>
-        </form>
+      <section className="mt-8 grid max-w-lg gap-8">
+        <div className="ui-card p-5 sm:p-6">
+          <h2 className="text-base font-semibold text-[var(--foreground)]">Status</h2>
+          <form action={asFormAction(updateBookingStatus)} className="mt-4 flex flex-wrap items-end gap-3">
+            <CsrfField token={csrf} />
+            <input type="hidden" name="id" value={booking.id} />
+            <label className="ui-field text-sm">
+              <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Status</span>
+              <select name="status" defaultValue={booking.status} className="ui-input mt-1">
+                <option value="pending">pending</option>
+                <option value="confirmed">confirmed</option>
+                <option value="completed">completed</option>
+                <option value="cancelled">cancelled</option>
+                <option value="no_show">no_show</option>
+                <option value="rescheduled">rescheduled</option>
+              </select>
+            </label>
+            <button type="submit" className="ui-btn-secondary min-h-10 px-4 text-sm">
+              Update
+            </button>
+          </form>
+        </div>
 
-        <form action={asFormAction(updateBookingPayment)} className="grid gap-2">
-          <CsrfField token={csrf} />
-          <input type="hidden" name="id" value={booking.id} />
-          <label className="text-sm">
-            Payment status
-            <select
-              name="paymentStatus"
-              defaultValue={booking.paymentStatus}
-              className="mt-1 w-full rounded border px-2 py-2"
-            >
-              <option value="unpaid">unpaid</option>
-              <option value="partially_paid">partially_paid</option>
-              <option value="paid">paid</option>
-              <option value="waived">waived</option>
-              <option value="refunded">refunded</option>
-            </select>
-          </label>
-          <input name="paymentMethod" placeholder="Method" defaultValue={booking.paymentMethod ?? ""} className="rounded border px-2 py-2" />
-          <input name="paymentAmount" placeholder="Amount" defaultValue={booking.paymentAmount ?? ""} className="rounded border px-2 py-2" />
-          <textarea name="paymentNote" placeholder="Payment note" defaultValue={booking.paymentNote ?? ""} className="rounded border px-2 py-2" rows={2} />
-          <button type="submit" className="w-fit rounded bg-[var(--accent)] px-3 py-2 text-sm text-white">
-            Save payment
-          </button>
-        </form>
+        <div className="ui-card p-5 sm:p-6">
+          <h2 className="text-base font-semibold text-[var(--foreground)]">Payment</h2>
+          <form action={asFormAction(updateBookingPayment)} className="mt-4 grid gap-3">
+            <CsrfField token={csrf} />
+            <input type="hidden" name="id" value={booking.id} />
+            <label className="ui-field text-sm">
+              <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Payment status</span>
+              <select
+                name="paymentStatus"
+                defaultValue={booking.paymentStatus}
+                className="ui-input mt-1"
+              >
+                <option value="unpaid">unpaid</option>
+                <option value="partially_paid">partially_paid</option>
+                <option value="paid">paid</option>
+                <option value="waived">waived</option>
+                <option value="refunded">refunded</option>
+              </select>
+            </label>
+            <input name="paymentMethod" placeholder="Method" defaultValue={booking.paymentMethod ?? ""} className="ui-input" />
+            <input name="paymentAmount" placeholder="Amount" defaultValue={booking.paymentAmount ?? ""} className="ui-input" />
+            <textarea name="paymentNote" placeholder="Payment note" defaultValue={booking.paymentNote ?? ""} className="ui-textarea" rows={2} />
+            <button type="submit" className="ui-btn-primary w-fit min-h-10 px-4 text-sm">
+              Save payment
+            </button>
+          </form>
+        </div>
 
-        <form action={asFormAction(rescheduleBooking)} className="grid gap-2">
-          <CsrfField token={csrf} />
-          <input type="hidden" name="id" value={booking.id} />
-          <label className="text-sm">
-            Reschedule start (local)
-            <input
-              name="startsAt"
-              type="datetime-local"
-              required
-              className="mt-1 w-full rounded border px-2 py-2"
+        <div className="ui-card p-5 sm:p-6">
+          <h2 className="text-base font-semibold text-[var(--foreground)]">Reschedule</h2>
+          <form action={asFormAction(rescheduleBooking)} className="mt-4 grid gap-3">
+            <CsrfField token={csrf} />
+            <input type="hidden" name="id" value={booking.id} />
+            <label className="ui-field text-sm">
+              <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">New start (local)</span>
+              <input
+                name="startsAt"
+                type="datetime-local"
+                required
+                className="ui-input mt-1"
+              />
+            </label>
+            <button type="submit" className="ui-btn-secondary w-fit min-h-10 px-4 text-sm">
+              Reschedule
+            </button>
+          </form>
+        </div>
+
+        <div className="ui-card p-5 sm:p-6">
+          <h2 className="text-base font-semibold text-[var(--foreground)]">Internal notes</h2>
+          <p className="ui-hint mt-1 text-xs">Visible only to you.</p>
+          <form action={asFormAction(updateBookingNotes)} className="mt-4 grid gap-3">
+            <CsrfField token={csrf} />
+            <input type="hidden" name="id" value={booking.id} />
+            <textarea
+              id="internalNotes"
+              name="internalNotes"
+              rows={4}
+              defaultValue={booking.internalNotes}
+              className="ui-textarea"
             />
-          </label>
-          <button type="submit" className="w-fit rounded border px-3 py-2 text-sm">
-            Reschedule
-          </button>
-        </form>
-
-        <form action={asFormAction(updateBookingNotes)} className="grid gap-2">
-          <CsrfField token={csrf} />
-          <input type="hidden" name="id" value={booking.id} />
-          <label className="text-sm font-medium" htmlFor="internalNotes">
-            Internal notes (private)
-          </label>
-          <textarea
-            id="internalNotes"
-            name="internalNotes"
-            rows={4}
-            defaultValue={booking.internalNotes}
-            className="rounded border px-2 py-2"
-          />
-          <button type="submit" className="w-fit rounded border px-3 py-2 text-sm">
-            Save notes
-          </button>
-        </form>
+            <button type="submit" className="ui-btn-secondary w-fit min-h-10 px-4 text-sm">
+              Save notes
+            </button>
+          </form>
+        </div>
       </section>
     </main>
   );

@@ -17,6 +17,10 @@ export type CreateBookingInput = {
   customerNotes: string;
   /** Customer-selected method at booking time (e.g. cash | etransfer). */
   paymentMethod?: string | null;
+  /** Public flow: tier + add-ons used to compute list total (Stage 6). */
+  positioningTierId?: string | null;
+  selectedAddOnIds?: string[];
+  paymentAmount?: string | null;
 };
 
 export async function createBookingAtomic(
@@ -76,6 +80,10 @@ export async function createBookingAtomic(
     const pay =
       input.paymentMethod?.trim().slice(0, 64) || null;
 
+    const tierId = input.positioningTierId?.trim() || null;
+    const addOnIds = input.selectedAddOnIds?.length ? [...new Set(input.selectedAddOnIds)] : [];
+    const payAmt = input.paymentAmount?.trim() || null;
+
     const [booking] = await tx
       .insert(bookings)
       .values({
@@ -89,6 +97,9 @@ export async function createBookingAtomic(
         status: "pending",
         customerNotes: input.customerNotes.slice(0, 2000),
         paymentMethod: pay,
+        positioningTierId: tierId,
+        selectedAddOnIds: addOnIds,
+        paymentAmount: payAmt,
       })
       .returning({ id: bookings.id, publicReference: bookings.publicReference });
 
@@ -121,6 +132,9 @@ export async function createBookingAtomic(
           startsAt: input.startsAt.toISOString(),
           endsAt: input.endsAt.toISOString(),
           canonicalTemplateId: svcRow?.canonicalTemplateId ?? null,
+          positioningTierId: tierId,
+          selectedAddOnIds: addOnIds,
+          paymentAmount: payAmt,
         },
       },
       tx

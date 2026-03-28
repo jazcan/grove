@@ -1,13 +1,14 @@
 import { notFound } from "next/navigation";
 import { eq, asc } from "drizzle-orm";
 import { getDb } from "@/db";
-import { providers, services } from "@/db/schema";
+import { providers, services, canonicalServiceTemplates } from "@/db/schema";
 import {
   ProviderAboutSection,
   ProviderBottomCta,
   ProviderDetailsSection,
   ProviderProfileHeader,
   ProviderServiceCard,
+  IntentPlanner,
 } from "@/components/public-profile";
 import {
   buildProviderLocationLine,
@@ -19,10 +20,10 @@ import { isReservedUsername } from "@/lib/reserved-usernames";
 
 type Props = { params: Promise<{ username: string }> };
 
-function primaryCtaForServices(username: string, active: { id: string }[]) {
+function primaryCtaForServices(username: string, active: { service: { id: string } }[]) {
   if (active.length === 0) return null;
   if (active.length === 1) {
-    return { href: `/${username}/book/${active[0]!.id}`, label: "Book now" as const };
+    return { href: `/${username}/book/${active[0]!.service.id}`, label: "Book now" as const };
   }
   return { href: `/${username}#services`, label: "View services" as const };
 }
@@ -37,12 +38,16 @@ export default async function PublicProfilePage({ params }: Props) {
   if (!prov || !prov.publicProfileEnabled) notFound();
 
   const svcList = await db
-    .select()
+    .select({
+      service: services,
+      templateOutcomes: canonicalServiceTemplates.outcomes,
+    })
     .from(services)
+    .leftJoin(canonicalServiceTemplates, eq(services.canonicalTemplateId, canonicalServiceTemplates.id))
     .where(eq(services.providerId, prov.id))
     .orderBy(asc(services.sortOrder), asc(services.name));
 
-  const activeServices = svcList.filter((s) => s.isActive);
+  const activeServices = svcList.filter((row) => row.service.isActive);
   const primaryCta = primaryCtaForServices(prov.username, activeServices);
   const avatarUrl = publicProfileImageUrl(prov.profileImageKey);
   const locationLine = buildProviderLocationLine(prov.city, prov.serviceArea);
@@ -68,13 +73,22 @@ export default async function PublicProfilePage({ params }: Props) {
           primaryCta={primaryCta}
         />
 
+        <IntentPlanner
+          username={prov.username}
+          services={activeServices.map((row) => ({
+            id: row.service.id,
+            name: row.service.name,
+            durationMinutes: row.service.durationMinutes,
+          }))}
+        />
+
         <section id="services" className="scroll-mt-28 sm:scroll-mt-32" aria-labelledby="services-heading">
           <div className="mt-10 sm:mt-12">
             <h2 id="services-heading" className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--accent)]">
               Services
             </h2>
             <p className="mt-2 max-w-2xl text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-              Choose a session to see open times and finish your booking.
+              Choose a session to see your plan, price, and open times — then finish your booking.
             </p>
           </div>
 
@@ -90,21 +104,28 @@ export default async function PublicProfilePage({ params }: Props) {
             </div>
           ) : (
             <ul className="mt-6 space-y-4 sm:mt-8 sm:space-y-5">
-              {activeServices.map((s) => (
-                <ProviderServiceCard
-                  key={s.id}
-                  username={prov.username}
-                  service={{
-                    id: s.id,
-                    name: s.name,
-                    description: s.description,
-                    durationMinutes: s.durationMinutes,
-                    pricingType: s.pricingType,
-                    priceAmount: String(s.priceAmount),
-                    currency: s.currency,
-                  }}
-                />
-              ))}
+              {activeServices.map((row) => {
+                const s = row.service;
+                const outcomes = Array.isArray(row.templateOutcomes)
+                  ? row.templateOutcomes.map((o) => (typeof o?.label === "string" ? o.label : "")).filter(Boolean)
+                  : [];
+                return (
+                  <ProviderServiceCard
+                    key={s.id}
+                    username={prov.username}
+                    service={{
+                      id: s.id,
+                      name: s.name,
+                      description: s.description,
+                      durationMinutes: s.durationMinutes,
+                      pricingType: s.pricingType,
+                      priceAmount: String(s.priceAmount),
+                      currency: s.currency,
+                      outcomeTeasers: outcomes.slice(0, 3),
+                    }}
+                  />
+                );
+              })}
             </ul>
           )}
         </section>
@@ -126,7 +147,7 @@ export default async function PublicProfilePage({ params }: Props) {
         <ProviderBottomCta
           username={prov.username}
           serviceCount={activeServices.length}
-          singleServiceId={activeServices.length === 1 ? activeServices[0]!.id : undefined}
+          singleServiceId={activeServices.length === 1 ? activeServices[0]!.service.id : undefined}
         />
       </div>
     </main>

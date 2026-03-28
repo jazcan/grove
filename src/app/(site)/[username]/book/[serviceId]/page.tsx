@@ -2,9 +2,12 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { providers, services } from "@/db/schema";
+import { providers, services, canonicalServiceTemplates, serviceAddOnOverrides } from "@/db/schema";
+import { ensureDefaultPricingProfile } from "@/domain/pricing/ensure-default";
 import { isReservedUsername } from "@/lib/reserved-usernames";
 import { getCsrfTokenForForm } from "@/lib/csrf";
+import type { TemplateAddOn, TemplateOutcome, TemplateStep } from "@/platform/templates/structure";
+import { templateStructureSchema } from "@/platform/templates/structure";
 import { BookForm } from "./book-form";
 
 type Props = { params: Promise<{ username: string; serviceId: string }> };
@@ -40,7 +43,9 @@ export default async function PublicBookPage({ params }: Props) {
     .limit(1);
   if (!prov?.publicProfileEnabled) notFound();
 
-  const [svc] = await db
+  const { tiers } = await ensureDefaultPricingProfile(db, prov.id);
+
+  const [svcRow] = await db
     .select({
       id: services.id,
       name: services.name,
@@ -49,16 +54,52 @@ export default async function PublicBookPage({ params }: Props) {
       priceAmount: services.priceAmount,
       currency: services.currency,
       prepInstructions: services.prepInstructions,
+      positioningTierId: services.positioningTierId,
+      steps: canonicalServiceTemplates.steps,
+      addOns: canonicalServiceTemplates.addOns,
+      outcomes: canonicalServiceTemplates.outcomes,
     })
     .from(services)
+    .leftJoin(canonicalServiceTemplates, eq(services.canonicalTemplateId, canonicalServiceTemplates.id))
     .where(
       and(eq(services.id, serviceId), eq(services.providerId, prov.id), eq(services.isActive, true))
     )
     .limit(1);
-  if (!svc) notFound();
+  if (!svcRow) notFound();
+
+  const overrides = await db
+    .select()
+    .from(serviceAddOnOverrides)
+    .where(eq(serviceAddOnOverrides.serviceId, serviceId));
+
+  let templateSteps: TemplateStep[] = [];
+  let templateOutcomes: TemplateOutcome[] = [];
+  let canonicalAddOns: TemplateAddOn[] = [];
+  if (svcRow.steps != null && svcRow.addOns != null && svcRow.outcomes != null) {
+    const parsed = templateStructureSchema.safeParse({
+      steps: svcRow.steps,
+      addOns: svcRow.addOns,
+      outcomes: svcRow.outcomes,
+    });
+    if (parsed.success) {
+      templateSteps = parsed.data.steps;
+      templateOutcomes = parsed.data.outcomes;
+      canonicalAddOns = parsed.data.addOns;
+    }
+  }
+
+  const positioningTiers = tiers.map((t) => ({
+    id: t.id,
+    label: t.label,
+    multiplier: t.multiplier,
+  }));
+  const defaultTierId =
+    svcRow.positioningTierId && positioningTiers.some((x) => x.id === svcRow.positioningTierId)
+      ? svcRow.positioningTierId
+      : positioningTiers[0]?.id ?? "";
 
   const csrf = await getCsrfTokenForForm();
-  const pricingType = svc.pricingType === "hourly" ? "hourly" : "fixed";
+  const pricingType = svcRow.pricingType === "hourly" ? "hourly" : "fixed";
 
   return (
     <main
@@ -75,7 +116,7 @@ export default async function PublicBookPage({ params }: Props) {
       <header className="mt-6 max-w-2xl">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Book an appointment</h1>
         <p className="mt-3 text-base leading-relaxed text-[var(--muted)] sm:text-[1.05rem]">
-          You’ll choose a time, add your details, and confirm — it only takes a minute.
+          Review what’s included and your estimated total, pick a time, add your details, and confirm.
         </p>
       </header>
 
@@ -89,13 +130,23 @@ export default async function PublicBookPage({ params }: Props) {
           providerPaymentEtransfer={Boolean(prov.paymentEtransfer)}
           providerEtransferDetails={serialString(prov.etransferDetails)}
           providerCancellationPolicy={serialString(prov.cancellationPolicy)}
-          serviceId={serialString(svc.id)}
-          serviceName={serialString(svc.name)}
-          serviceDurationMinutes={Number(svc.durationMinutes) || 0}
+          serviceId={serialString(svcRow.id)}
+          serviceName={serialString(svcRow.name)}
+          serviceDurationMinutes={Number(svcRow.durationMinutes) || 0}
           servicePricingType={pricingType}
-          servicePriceAmount={serialString(svc.priceAmount)}
-          serviceCurrency={serialString(svc.currency)}
-          servicePrepInstructions={serialString(svc.prepInstructions)}
+          servicePriceAmount={serialString(svcRow.priceAmount)}
+          serviceCurrency={serialString(svcRow.currency)}
+          servicePrepInstructions={serialString(svcRow.prepInstructions)}
+          positioningTiers={positioningTiers}
+          defaultTierId={defaultTierId}
+          templateSteps={templateSteps}
+          templateOutcomes={templateOutcomes}
+          canonicalAddOns={canonicalAddOns}
+          addOnOverrides={overrides.map((o) => ({
+            addOnId: o.addOnId,
+            enabled: o.enabled,
+            priceOverride: o.priceOverride != null ? String(o.priceOverride) : null,
+          }))}
         />
       </div>
       </div>
