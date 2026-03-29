@@ -21,7 +21,14 @@ function serializeForm(form: HTMLFormElement | null): string {
   return parts.sort().join("|");
 }
 
-export function ProfileShell({ children }: { children: React.ReactNode }) {
+export function ProfileShell({
+  children,
+  usernameLocked = false,
+}: {
+  children: React.ReactNode;
+  /** When true, hide the sticky “Save username” control (username is read-only). */
+  usernameLocked?: boolean;
+}) {
   const [dirty, setDirty] = useState(false);
   const initialRef = useRef<string | null>(null);
 
@@ -47,7 +54,7 @@ export function ProfileShell({ children }: { children: React.ReactNode }) {
       uf?.removeEventListener("input", onChange);
       uf?.removeEventListener("change", onChange);
     };
-  }, []);
+  }, [usernameLocked]);
 
   return (
     <div className={dirty ? "pb-24" : "pb-8"}>
@@ -62,9 +69,11 @@ export function ProfileShell({ children }: { children: React.ReactNode }) {
               <button type="submit" form="profile-form" className="ui-btn-primary min-h-11 px-5 text-sm">
                 Save changes
               </button>
-              <button type="submit" form="username-form" className="ui-btn-secondary min-h-11 px-5 text-sm">
-                Save username
-              </button>
+              {usernameLocked ? null : (
+                <button type="submit" form="username-form" className="ui-btn-secondary min-h-11 px-5 text-sm">
+                  Save username
+                </button>
+              )}
             </div>
           </div>
         </div>

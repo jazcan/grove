@@ -112,10 +112,37 @@ export const providers = pgTable(
     bookingHorizonDays: integer("booking_horizon_days").notNull().default(60),
     /** When true, public booking pages show no slots and submissions are rejected (temporary pause). */
     bookingsPaused: boolean("bookings_paused").notNull().default(false),
+    /**
+     * Remembered default for new services: whether "Enable service levels" is checked on create.
+     * Updated when the provider saves any service with that toggle.
+     */
+    defaultServiceLevelsEnabled: boolean("default_service_levels_enabled").notNull().default(false),
+    /** Set when the provider has committed a public page address (onboarding or first profile save). */
+    usernameLockedAt: timestamp("username_locked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("providers_discoverable_idx").on(t.discoverable, t.publicProfileEnabled)]
+);
+
+/** Deduplicated provider-facing signals for dashboard banners (e.g. public booking failures). */
+export const providerDashboardSignals = pgTable(
+  "provider_dashboard_signals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    signalKind: varchar("signal_kind", { length: 64 }).notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    occurrenceCount: integer("occurrence_count").notNull().default(1),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("provider_dashboard_signals_provider_kind_uidx").on(t.providerId, t.signalKind),
+    index("provider_dashboard_signals_provider_idx").on(t.providerId),
+  ]
 );
 
 /** Shopify Admin app install; tenant is linked via providerId after Grove attach flow. */
@@ -225,6 +252,12 @@ export const services = pgTable(
     positioningTierId: uuid("positioning_tier_id").references(() => positioningTiers.id, {
       onDelete: "set null",
     }),
+    /** When false, public booking uses a single price (default tier); tier picker is hidden. */
+    serviceLevelsEnabled: boolean("service_levels_enabled").notNull().default(true),
+    phoneRequired: boolean("phone_required").notNull().default(false),
+    notesRequired: boolean("notes_required").notNull().default(false),
+    /** Shown on the public booking form when notes are required (provider-defined prompt). */
+    notesInstructions: text("notes_instructions"),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

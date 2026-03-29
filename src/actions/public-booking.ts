@@ -1,7 +1,8 @@
 "use server";
 
+import { DateTime } from "luxon";
 import { and, asc, eq, ne } from "drizzle-orm";
-import { getDb } from "@/db";
+import { getDb, type Database } from "@/db";
 import {
   providers,
   services,
@@ -22,6 +23,79 @@ import { plainTextFromInput } from "@/lib/sanitize";
 import { isReservedUsername } from "@/lib/reserved-usernames";
 import { enqueueNotification } from "@/lib/queue";
 import type { ActionState } from "@/domain/auth/actions";
+import { recordPublicBookingSubmitFailed } from "@/domain/provider-dashboard-signals";
+import { logAudit } from "@/lib/audit";
+import { emitPlatformEvent } from "@/platform/events/emit";
+
+type LoadPublicSlotsResult =
+  | { ok: true; slots: { start: string; end: string }[] }
+  | { ok: false; reason: "not_found" | "paused" | "no_service" };
+
+async function loadPublicSlotsForDate(
+  db: Database,
+  uname: string,
+  serviceId: string,
+  dateISO: string
+): Promise<LoadPublicSlotsResult> {
+  const [prov] = await db.select().from(providers).where(eq(providers.username, uname)).limit(1);
+  if (!prov || !prov.publicProfileEnabled) return { ok: false, reason: "not_found" };
+  if (prov.bookingsPaused) return { ok: false, reason: "paused" };
+
+  const [svc] = await db
+    .select()
+    .from(services)
+    .where(
+      and(eq(services.id, serviceId), eq(services.providerId, prov.id), eq(services.isActive, true))
+    )
+    .limit(1);
+  if (!svc) return { ok: false, reason: "no_service" };
+
+  const rules = await db
+    .select()
+    .from(availabilityRules)
+    .where(eq(availabilityRules.providerId, prov.id));
+
+  const blocks = await db
+    .select()
+    .from(blockedTimes)
+    .where(eq(blockedTimes.providerId, prov.id));
+
+  const existingForDay = await db
+    .select()
+    .from(bookings)
+    .where(and(eq(bookings.providerId, prov.id), ne(bookings.status, "cancelled")));
+
+  const slotList = generateSlots({
+    dateISO,
+    timezone: prov.timezone,
+    rules: rules.map((r) => ({
+      dayOfWeek: r.dayOfWeek,
+      startTimeLocal: r.startTimeLocal,
+      endTimeLocal: r.endTimeLocal,
+      isActive: r.isActive,
+    })),
+    blocked: blocks.map((b) => ({ startsAt: b.startsAt, endsAt: b.endsAt })),
+    existingBookings: existingForDay.map((b) => ({
+      startsAt: b.startsAt,
+      endsAt: b.endsAt,
+      bufferAfterMinutes: b.bufferAfterMinutes,
+    })),
+    durationMinutes: svc.durationMinutes,
+    bufferMinutes: svc.bufferMinutes,
+    slotStepMinutes: 15,
+    leadTimeMinutes: prov.bookingLeadTimeMinutes,
+    horizonDays: prov.bookingHorizonDays,
+    now: new Date(),
+  });
+
+  return {
+    ok: true,
+    slots: slotList.map((s) => ({
+      start: s.start.toISOString(),
+      end: s.end.toISOString(),
+    })),
+  };
+}
 
 export async function fetchPublicSlots(input: {
   username: string;
@@ -40,19 +114,45 @@ export async function fetchPublicSlots(input: {
   }
 
   try {
-    const [prov] = await db
-      .select()
-      .from(providers)
-      .where(eq(providers.username, uname))
-      .limit(1);
-    if (!prov || !prov.publicProfileEnabled) return { slots: [], error: "Not found" };
-
-    if (prov.bookingsPaused) {
-      return { slots: [], bookingsPaused: true };
+    const r = await loadPublicSlotsForDate(db, uname, input.serviceId, input.dateISO);
+    if (!r.ok) {
+      if (r.reason === "paused") return { slots: [], bookingsPaused: true };
+      if (r.reason === "not_found") return { slots: [], error: "Not found" };
+      return { slots: [], error: "Service unavailable" };
     }
+    return { slots: r.slots };
+  } catch (e) {
+    console.error("[fetchPublicSlots] failed", e);
+    return { slots: [], error: "Unable to load times. Try again shortly." };
+  }
+}
+
+/** Earliest bookable slot within the provider’s horizon (provider timezone calendar days). */
+export async function suggestPublicBookingSlot(input: {
+  username: string;
+  serviceId: string;
+}): Promise<
+  | { ok: true; dateISO: string; slotStart: string; slotEnd: string }
+  | { ok: false; bookingsPaused?: boolean; error?: string }
+> {
+  const uname = input.username.trim().toLowerCase();
+  if (isReservedUsername(uname)) return { ok: false, error: "Not found" };
+
+  let db;
+  try {
+    db = getDb();
+  } catch (e) {
+    console.error("[suggestPublicBookingSlot] database unavailable", e);
+    return { ok: false, error: "Service temporarily unavailable. Try again shortly." };
+  }
+
+  try {
+    const [prov] = await db.select().from(providers).where(eq(providers.username, uname)).limit(1);
+    if (!prov || !prov.publicProfileEnabled) return { ok: false, error: "Not found" };
+    if (prov.bookingsPaused) return { ok: false, bookingsPaused: true };
 
     const [svc] = await db
-      .select()
+      .select({ id: services.id })
       .from(services)
       .where(
         and(
@@ -62,55 +162,27 @@ export async function fetchPublicSlots(input: {
         )
       )
       .limit(1);
-    if (!svc) return { slots: [], error: "Service unavailable" };
+    if (!svc) return { ok: false, error: "Service unavailable" };
 
-    const rules = await db
-      .select()
-      .from(availabilityRules)
-      .where(eq(availabilityRules.providerId, prov.id));
+    const horizon = Math.max(1, Math.min(Number(prov.bookingHorizonDays) || 60, 120));
+    const tz = prov.timezone || "UTC";
+    let day = DateTime.now().setZone(tz).startOf("day");
 
-    const blocks = await db
-      .select()
-      .from(blockedTimes)
-      .where(eq(blockedTimes.providerId, prov.id));
+    for (let i = 0; i < horizon; i++) {
+      const dateISO = day.toISODate();
+      if (!dateISO) break;
+      const r = await loadPublicSlotsForDate(db, uname, input.serviceId, dateISO);
+      if (r.ok && r.slots.length > 0) {
+        const first = r.slots[0]!;
+        return { ok: true, dateISO, slotStart: first.start, slotEnd: first.end };
+      }
+      day = day.plus({ days: 1 });
+    }
 
-    const existingForDay = await db
-      .select()
-      .from(bookings)
-      .where(and(eq(bookings.providerId, prov.id), ne(bookings.status, "cancelled")));
-
-    const slotList = generateSlots({
-      dateISO: input.dateISO,
-      timezone: prov.timezone,
-      rules: rules.map((r) => ({
-        dayOfWeek: r.dayOfWeek,
-        startTimeLocal: r.startTimeLocal,
-        endTimeLocal: r.endTimeLocal,
-        isActive: r.isActive,
-      })),
-      blocked: blocks.map((b) => ({ startsAt: b.startsAt, endsAt: b.endsAt })),
-      existingBookings: existingForDay.map((b) => ({
-        startsAt: b.startsAt,
-        endsAt: b.endsAt,
-        bufferAfterMinutes: b.bufferAfterMinutes,
-      })),
-      durationMinutes: svc.durationMinutes,
-      bufferMinutes: svc.bufferMinutes,
-      slotStepMinutes: 15,
-      leadTimeMinutes: prov.bookingLeadTimeMinutes,
-      horizonDays: prov.bookingHorizonDays,
-      now: new Date(),
-    });
-
-    return {
-      slots: slotList.map((s) => ({
-        start: s.start.toISOString(),
-        end: s.end.toISOString(),
-      })),
-    };
+    return { ok: false };
   } catch (e) {
-    console.error("[fetchPublicSlots] failed", e);
-    return { slots: [], error: "Unable to load times. Try again shortly." };
+    console.error("[suggestPublicBookingSlot] failed", e);
+    return { ok: false, error: "Unable to load times. Try again shortly." };
   }
 }
 
@@ -196,7 +268,9 @@ export async function submitPublicBooking(
   const serviceId = formData.get("serviceId")?.toString() ?? "";
   const slotStartIso = formData.get("slotStart")?.toString() ?? "";
   const dateISO = formData.get("dateISO")?.toString() ?? "";
-  const customerName = plainTextFromInput(formData.get("customerName")?.toString() ?? "", 200);
+  const customerFirst = plainTextFromInput(formData.get("customerFirstName")?.toString() ?? "", 100);
+  const customerLast = plainTextFromInput(formData.get("customerLastName")?.toString() ?? "", 100);
+  const legacyName = plainTextFromInput(formData.get("customerName")?.toString() ?? "", 200);
   const customerEmail = plainTextFromInput(formData.get("customerEmail")?.toString() ?? "", 320);
   const customerPhone = plainTextFromInput(formData.get("customerPhone")?.toString() ?? "", 40);
   const customerNotes = plainTextFromInput(formData.get("customerNotes")?.toString() ?? "", 2000);
@@ -204,8 +278,19 @@ export async function submitPublicBooking(
   const positioningTierIdRaw = formData.get("positioningTierId")?.toString()?.trim() ?? "";
   const addOnRaw = formData.getAll("addOnIds").map((v) => String(v).trim()).filter(Boolean);
 
-  if (!customerName || !customerEmail.includes("@")) {
-    return { error: "Name and valid email are required." };
+  const trimmedFirst = customerFirst.trim();
+  const trimmedLast = customerLast.trim();
+  let customerName: string;
+  if (trimmedFirst && trimmedLast) {
+    customerName = `${trimmedFirst} ${trimmedLast}`.trim().slice(0, 200);
+  } else if (legacyName.trim()) {
+    customerName = legacyName.trim().slice(0, 200);
+  } else {
+    return { error: "First name, last name, and a valid email are required." };
+  }
+
+  if (!customerEmail.includes("@")) {
+    return { error: "A valid email is required." };
   }
 
   const db = getDb();
@@ -227,6 +312,13 @@ export async function submitPublicBooking(
     )
     .limit(1);
   if (!svc) return { error: "Service not available." };
+
+  if (svc.phoneRequired && !customerPhone.trim()) {
+    return { error: "Phone number is required for this service." };
+  }
+  if (svc.notesRequired && !customerNotes.trim()) {
+    return { error: "Please add the information your provider requested in the notes field." };
+  }
 
   const startsAt = new Date(slotStartIso);
   if (Number.isNaN(startsAt.getTime())) return { error: "Invalid time." };
@@ -325,6 +417,29 @@ export async function submitPublicBooking(
       return { error: "That time was just taken. Pick another slot." };
     }
     console.error("[submitPublicBooking]", e);
+    try {
+      await recordPublicBookingSubmitFailed(db, prov.id);
+      await logAudit({
+        actorUserId: null,
+        actorType: "customer",
+        tenantProviderId: prov.id,
+        entityType: "booking",
+        entityId: serviceId,
+        action: "public_submit_failed",
+        metadata: { username, serviceId },
+      });
+      await emitPlatformEvent({
+        name: "booking.public_submit_failed",
+        aggregateType: "provider",
+        aggregateId: prov.id,
+        payload: { providerId: prov.id, serviceId },
+        tenantProviderId: prov.id,
+        actorUserId: null,
+        actorType: "system",
+      });
+    } catch (recordErr) {
+      console.error("[submitPublicBooking] provider signal / audit failed", recordErr);
+    }
     return { error: "We couldn’t complete the booking. Please try again or contact the provider." };
   }
 }

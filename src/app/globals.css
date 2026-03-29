@@ -494,6 +494,27 @@ body {
   margin-bottom: 0.75rem;
 }
 
+/* Time grid: tighter rows + clearer hour labels for scanability */
+.availabilityCalendar .fc .fc-timegrid-slot {
+  height: 1.85rem;
+}
+
+.availabilityCalendar .fc .fc-timegrid-slot-label {
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in oklab, var(--foreground) 52%, transparent);
+  vertical-align: middle;
+}
+
+.availabilityCalendar .fc .fc-timegrid-axis-cushion,
+.availabilityCalendar .fc .fc-timegrid-slot-label-cushion {
+  max-width: 3.25rem;
+}
+
+.availabilityCalendar .fc .fc-timegrid-col-frame {
+  border-color: color-mix(in oklab, var(--foreground) 6%, var(--border));
+}
+
 /* Drag-to-block: obvious selection feedback while choosing a range */
 .availabilityCalendar .fc .fc-highlight {
   background: color-mix(in oklab, var(--accent) 28%, transparent);

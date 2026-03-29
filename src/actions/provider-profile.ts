@@ -163,9 +163,10 @@ export async function completeOnboarding(
     .where(eq(providers.id, ctx.providerId))
     .limit(1);
 
+  const lockAt = new Date();
   await db
     .update(providers)
-    .set({ username: raw, displayName, updatedAt: new Date() })
+    .set({ username: raw, displayName, usernameLockedAt: lockAt, updatedAt: new Date() })
     .where(eq(providers.id, ctx.providerId));
 
   await logAudit({
@@ -203,6 +204,20 @@ export async function updateUsername(formData: FormData): Promise<ProfileState> 
     return { error: "Username must be 3–64 chars, lowercase letters, numbers, hyphens." };
   }
   const db = getDb();
+  const [current] = await db
+    .select({ username: providers.username, usernameLockedAt: providers.usernameLockedAt })
+    .from(providers)
+    .where(eq(providers.id, ctx.providerId))
+    .limit(1);
+  if (current?.usernameLockedAt) {
+    if (raw !== current.username) {
+      return { error: "Your page address is permanent and cannot be changed." };
+    }
+    revalidatePath("/dashboard/onboarding");
+    revalidatePath("/dashboard/profile");
+    const returnTo = formData.get("returnTo")?.toString() || "/dashboard/profile#username-form";
+    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}saved=username`);
+  }
   const [taken] = await db
     .select({ id: providers.id })
     .from(providers)
@@ -216,9 +231,14 @@ export async function updateUsername(formData: FormData): Promise<ProfileState> 
     .from(providers)
     .where(eq(providers.id, ctx.providerId))
     .limit(1);
+  const lockAt = new Date();
   await db
     .update(providers)
-    .set({ username: raw, updatedAt: new Date() })
+    .set({
+      username: raw,
+      usernameLockedAt: lockAt,
+      updatedAt: new Date(),
+    })
     .where(eq(providers.id, ctx.providerId));
   await logAudit({
     actorUserId: ctx.id,

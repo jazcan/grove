@@ -17,8 +17,165 @@ export type ServiceRowForUI = {
   priceAmount: string;
   currency: string;
   prepInstructions: string;
+  serviceLevelsEnabled: boolean;
+  phoneRequired: boolean;
+  notesRequired: boolean;
+  notesInstructions: string | null;
   isActive: boolean;
 };
+
+function EditServiceForm({ full, csrf }: { full: ServiceRowForUI; csrf: string }) {
+  const [notesRequiredOn, setNotesRequiredOn] = useState(full.notesRequired);
+
+  return (
+    <form action={asFormAction(updateService)} className="grid gap-6">
+      <CsrfField token={csrf} />
+      <input type="hidden" name="id" value={full.id} />
+
+      <section className="grid gap-3">
+        <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
+          Basic info
+        </div>
+        <div className="grid gap-3">
+          <input name="name" defaultValue={full.name} className="rounded border px-3 py-2" required />
+          <textarea name="description" defaultValue={full.description} rows={4} className="rounded border px-3 py-2" />
+          <input name="category" defaultValue={full.category} className="rounded border px-3 py-2" />
+        </div>
+      </section>
+
+      <section className="grid gap-3">
+        <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
+          Duration & buffer
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <label className="grid gap-1 text-sm">
+            <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Duration (minutes)</span>
+            <input
+              name="durationMinutes"
+              type="number"
+              min={5}
+              defaultValue={full.durationMinutes}
+              className="rounded border px-3 py-2"
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Buffer (minutes)</span>
+            <input
+              name="bufferMinutes"
+              type="number"
+              min={0}
+              defaultValue={full.bufferMinutes}
+              className="rounded border px-3 py-2"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="grid gap-3">
+        <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">Pricing</div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <label className="grid gap-1 text-sm sm:col-span-1">
+            <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Type</span>
+            <select name="pricingType" defaultValue={full.pricingType} className="rounded border px-3 py-2">
+              <option value="fixed">Fixed</option>
+              <option value="hourly">Hourly</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm sm:col-span-1">
+            <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Price</span>
+            <input name="priceAmount" defaultValue={full.priceAmount} className="rounded border px-3 py-2" />
+          </label>
+          <label className="grid gap-1 text-sm sm:col-span-1">
+            <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Currency</span>
+            <input name="currency" defaultValue={full.currency ?? "CAD"} className="rounded border px-3 py-2" />
+          </label>
+        </div>
+      </section>
+
+      <section className="grid gap-3">
+        <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
+          Pricing behavior
+        </div>
+        <p className="text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
+          When enabled, clients can pick a level (Standard / Enhanced / Premium — you set labels under Pricing). When off, this service uses one price.
+        </p>
+        <label className="flex items-start gap-3 text-sm leading-snug">
+          <input
+            type="checkbox"
+            name="serviceLevelsEnabled"
+            defaultChecked={full.serviceLevelsEnabled}
+            className="mt-1"
+          />
+          <span>Enable service levels for this service</span>
+        </label>
+      </section>
+
+      <section className="grid gap-3">
+        <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
+          Booking requirements
+        </div>
+        <label className="flex items-start gap-3 text-sm leading-snug">
+          <input type="checkbox" name="phoneRequired" defaultChecked={full.phoneRequired} className="mt-1" />
+          <span>Require phone number</span>
+        </label>
+        <label className="flex items-start gap-3 text-sm leading-snug">
+          <input
+            type="checkbox"
+            name="notesRequired"
+            checked={notesRequiredOn}
+            onChange={(e) => setNotesRequiredOn(e.target.checked)}
+            className="mt-1"
+          />
+          <span>Require notes from the client</span>
+        </label>
+        {notesRequiredOn ? (
+          <label className="grid gap-1 text-sm">
+            <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
+              What should the customer include?
+            </span>
+            <textarea
+              name="notesInstructions"
+              defaultValue={full.notesInstructions ?? ""}
+              rows={3}
+              className="ui-textarea rounded border px-3 py-2"
+            />
+          </label>
+        ) : null}
+      </section>
+
+      <section className="grid gap-3">
+        <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
+          Before the appointment (optional)
+        </div>
+        <textarea
+          name="prepInstructions"
+          defaultValue={full.prepInstructions}
+          rows={3}
+          className="ui-textarea rounded border px-3 py-2"
+        />
+      </section>
+
+      <section className="grid gap-3">
+        <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
+          Make this service available to clients
+        </div>
+        <label className="flex items-start gap-3 text-sm leading-snug">
+          <input type="checkbox" name="isActive" defaultChecked={full.isActive} className="mt-1" />
+          <span>Active — clients can see and book this when your profile is live</span>
+        </label>
+      </section>
+
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-xs text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
+          Tip: keep descriptions short and scannable.
+        </div>
+        <button type="submit" className="w-full rounded bg-[var(--accent)] px-4 py-2 text-sm text-white sm:w-auto">
+          Save service
+        </button>
+      </div>
+    </form>
+  );
+}
 
 function formatPrice(s: ServiceRowForUI): string {
   const label = s.pricingType === "hourly" ? "/hr" : "";
@@ -108,142 +265,7 @@ export function ServicesList({
 
             {isOpen ? (
               <div className="border-t border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-5 sm:p-6">
-                <form action={asFormAction(updateService)} className="grid gap-6">
-                  <CsrfField token={csrf} />
-                  <input type="hidden" name="id" value={s.id} />
-
-                  <section className="grid gap-3">
-                    <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
-                      Basic info
-                    </div>
-                    <div className="grid gap-3">
-                      <input
-                        name="name"
-                        defaultValue={full.name}
-                        className="rounded border px-3 py-2"
-                        required
-                      />
-                      <textarea
-                        name="description"
-                        defaultValue={full.description}
-                        rows={4}
-                        className="rounded border px-3 py-2"
-                      />
-                      <input
-                        name="category"
-                        defaultValue={full.category}
-                        className="rounded border px-3 py-2"
-                      />
-                    </div>
-                  </section>
-
-                  <section className="grid gap-3">
-                    <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
-                      Duration & buffer
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <label className="grid gap-1 text-sm">
-                        <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
-                          Duration (minutes)
-                        </span>
-                        <input
-                          name="durationMinutes"
-                          type="number"
-                          min={5}
-                          defaultValue={full.durationMinutes}
-                          className="rounded border px-3 py-2"
-                        />
-                      </label>
-                      <label className="grid gap-1 text-sm">
-                        <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
-                          Buffer (minutes)
-                        </span>
-                        <input
-                          name="bufferMinutes"
-                          type="number"
-                          min={0}
-                          defaultValue={full.bufferMinutes}
-                          className="rounded border px-3 py-2"
-                        />
-                      </label>
-                    </div>
-                  </section>
-
-                  <section className="grid gap-3">
-                    <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
-                      Pricing
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                      <label className="grid gap-1 text-sm sm:col-span-1">
-                        <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
-                          Type
-                        </span>
-                        <select
-                          name="pricingType"
-                          defaultValue={full.pricingType}
-                          className="rounded border px-3 py-2"
-                        >
-                          <option value="fixed">Fixed</option>
-                          <option value="hourly">Hourly</option>
-                        </select>
-                      </label>
-                      <label className="grid gap-1 text-sm sm:col-span-1">
-                        <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
-                          Price
-                        </span>
-                        <input
-                          name="priceAmount"
-                          defaultValue={full.priceAmount}
-                          className="rounded border px-3 py-2"
-                        />
-                      </label>
-                      <label className="grid gap-1 text-sm sm:col-span-1">
-                        <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
-                          Currency
-                        </span>
-                        <input
-                          name="currency"
-                          defaultValue={full.currency ?? "CAD"}
-                          className="rounded border px-3 py-2"
-                        />
-                      </label>
-                    </div>
-                  </section>
-
-                  <section className="grid gap-3">
-                    <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
-                      Before the appointment (optional)
-                    </div>
-                    <textarea
-                      name="prepInstructions"
-                      defaultValue={full.prepInstructions}
-                      rows={3}
-                      className="ui-textarea"
-                    />
-                  </section>
-
-                  <section className="grid gap-3">
-                    <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
-                      Make this service available to clients
-                    </div>
-                    <label className="flex items-start gap-3 text-sm leading-snug">
-                      <input type="checkbox" name="isActive" defaultChecked={full.isActive} className="mt-1" />
-                      <span>Active — clients can see and book this when your profile is live</span>
-                    </label>
-                  </section>
-
-                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-xs text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
-                      Tip: keep descriptions short and scannable.
-                    </div>
-                    <button
-                      type="submit"
-                      className="w-full rounded bg-[var(--accent)] px-4 py-2 text-sm text-white sm:w-auto"
-                    >
-                      Save service
-                    </button>
-                  </div>
-                </form>
+                <EditServiceForm key={full.id} full={full} csrf={csrf} />
               </div>
             ) : null}
           </li>

@@ -4,7 +4,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
-import { services } from "@/db/schema";
+import { providers, services } from "@/db/schema";
 import { plainTextFromInput } from "@/lib/sanitize";
 import { logAudit } from "@/lib/audit";
 import { getCanonicalTemplateRowBySlug } from "@/lib/canonical-templates";
@@ -28,6 +28,14 @@ export async function createService(formData: FormData): Promise<ActionState> {
   const priceAmount = formData.get("priceAmount")?.toString() ?? "0";
   const currency = plainTextFromInput(formData.get("currency")?.toString() ?? "CAD", 8) || "CAD";
   const prepInstructions = plainTextFromInput(formData.get("prepInstructions")?.toString() ?? "", 2000);
+
+  const serviceLevelsEnabled = formData.get("serviceLevelsEnabled") === "on";
+  const phoneRequired = formData.get("phoneRequired") === "on";
+  const notesRequired = formData.get("notesRequired") === "on";
+  const notesInstructions = plainTextFromInput(formData.get("notesInstructions")?.toString() ?? "", 1500);
+  if (notesRequired && !notesInstructions.trim()) {
+    return { error: 'When "Notes required" is on, add a short note for clients under "What should the customer include?".' };
+  }
 
   const slugRaw = formData.get("canonicalTemplateSlug")?.toString()?.trim() ?? "";
   const templateSlug = slugRaw || QUICK_START_PREFILL_ID;
@@ -63,6 +71,10 @@ export async function createService(formData: FormData): Promise<ActionState> {
       priceAmount,
       currency,
       prepInstructions,
+      serviceLevelsEnabled,
+      phoneRequired,
+      notesRequired,
+      notesInstructions: notesRequired ? notesInstructions : null,
       isActive: true,
       sortOrder,
     })
@@ -115,6 +127,14 @@ export async function updateService(formData: FormData): Promise<ActionState> {
   const name = plainTextFromInput(formData.get("name")?.toString() ?? "", 200);
   if (!name) return { error: "Name is required." };
 
+  const serviceLevelsEnabled = formData.get("serviceLevelsEnabled") === "on";
+  const phoneRequired = formData.get("phoneRequired") === "on";
+  const notesRequired = formData.get("notesRequired") === "on";
+  const notesInstructions = plainTextFromInput(formData.get("notesInstructions")?.toString() ?? "", 1500);
+  if (notesRequired && !notesInstructions.trim()) {
+    return { error: 'When "Notes required" is on, add a short note for clients under "What should the customer include?".' };
+  }
+
   await db
     .update(services)
     .set({
@@ -132,10 +152,19 @@ export async function updateService(formData: FormData): Promise<ActionState> {
         formData.get("prepInstructions")?.toString() ?? "",
         2000
       ),
+      serviceLevelsEnabled,
+      phoneRequired,
+      notesRequired,
+      notesInstructions: notesRequired ? notesInstructions : null,
       isActive: formData.get("isActive") === "on",
       updatedAt: new Date(),
     })
     .where(eq(services.id, id));
+
+  await db
+    .update(providers)
+    .set({ defaultServiceLevelsEnabled: serviceLevelsEnabled, updatedAt: new Date() })
+    .where(eq(providers.id, ctx.providerId));
 
   await emitPlatformEvent(
     {

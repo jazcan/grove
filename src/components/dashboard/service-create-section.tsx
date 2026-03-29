@@ -29,6 +29,8 @@ type Props = {
   scratchMode: boolean;
   /** Canonical template slug posted with the form (`canonical_service_templates.slug`). */
   canonicalTemplateSlug: string;
+  /** Provider’s last saved preference for new services (Enable service levels). */
+  defaultServiceLevelsEnabled: boolean;
 };
 
 const editableSectionClass = (on: boolean) =>
@@ -45,8 +47,10 @@ export function ServiceCreateSection({
   formVisible,
   scratchMode,
   canonicalTemplateSlug,
+  defaultServiceLevelsEnabled,
 }: Props) {
   const [highlight, setHighlight] = useState(false);
+  const [notesRequiredOn, setNotesRequiredOn] = useState(false);
 
   const values: ServiceFormDefaults = prefillDefaults ?? emptyScratchDefaults();
   const showAdjustHint = formVisible && (prefillDefaults !== null || scratchMode);
@@ -200,6 +204,64 @@ export function ServiceCreateSection({
               <input name="currency" defaultValue={values.currency} className="ui-input mt-1" />
             </label>
           </div>
+        </section>
+
+        <section className="grid gap-3">
+          <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
+            Pricing behavior
+          </div>
+          <p className="text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
+            Service levels let clients choose between your Standard, Enhanced, and Premium options (you define names and prices under{" "}
+            <a href="/dashboard/pricing" className="font-medium text-[var(--accent)] underline underline-offset-2">
+              Pricing
+            </a>
+            ). Turn this off if you want one simple price for this service.
+          </p>
+          <label className="flex items-start gap-3 text-sm leading-snug">
+            <input
+              type="checkbox"
+              name="serviceLevelsEnabled"
+              defaultChecked={defaultServiceLevelsEnabled}
+              className="mt-1"
+            />
+            <span>Enable service levels for this service</span>
+          </label>
+        </section>
+
+        <section className="grid gap-3">
+          <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
+            Booking requirements
+          </div>
+          <p className="text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
+            Choose what clients must fill in when they book this service.
+          </p>
+          <label className="flex items-start gap-3 text-sm leading-snug">
+            <input type="checkbox" name="phoneRequired" className="mt-1" />
+            <span>Require phone number</span>
+          </label>
+          <label className="flex items-start gap-3 text-sm leading-snug">
+            <input
+              type="checkbox"
+              name="notesRequired"
+              className="mt-1"
+              checked={notesRequiredOn}
+              onChange={(e) => setNotesRequiredOn(e.target.checked)}
+            />
+            <span>Require notes from the client</span>
+          </label>
+          {notesRequiredOn ? (
+            <label className="ui-field text-sm">
+              <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
+                What should the customer include?
+              </span>
+              <textarea
+                name="notesInstructions"
+                rows={3}
+                placeholder="e.g. Address, pet’s name, or what you’d like to focus on"
+                className="ui-textarea mt-1"
+              />
+            </label>
+          ) : null}
         </section>
 
         <section className="grid gap-3">

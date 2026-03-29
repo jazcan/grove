@@ -1,14 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { CsrfField } from "@/components/csrf-field";
 import { updatePositioningTiers, updatePricingProfile } from "@/actions/pricing";
 import type { ActionState } from "@/domain/auth/actions";
-
-type PricingFormAction = (
-  prev: ActionState | undefined,
-  formData: FormData
-) => Promise<ActionState>;
 
 type Profile = {
   name: string;
@@ -22,6 +17,26 @@ type TierRow = {
   sortOrder: number;
 };
 
+function profileFieldsUnchanged(form: HTMLFormElement, profile: Profile): boolean {
+  const fd = new FormData(form);
+  const name = (fd.get("name")?.toString() ?? "").trim();
+  const currency = (fd.get("currency")?.toString() ?? "").trim();
+  return name === profile.name.trim() && currency.toUpperCase() === profile.currency.trim().toUpperCase();
+}
+
+function tierFieldsUnchanged(form: HTMLFormElement, tiers: TierRow[]): boolean {
+  const fd = new FormData(form);
+  for (let i = 0; i < tiers.length; i++) {
+    const t = tiers[i];
+    const label = (fd.get(`tierLabel_${i}`)?.toString() ?? "").trim();
+    const mult = Number(fd.get(`tierMult_${i}`)?.toString() ?? "");
+    if (label !== t.label.trim()) return false;
+    const prev = Number(t.multiplier);
+    if (!Number.isFinite(mult) || !Number.isFinite(prev) || mult !== prev) return false;
+  }
+  return true;
+}
+
 export function PricingProfileForm({
   profile,
   csrf,
@@ -29,13 +44,25 @@ export function PricingProfileForm({
   profile: Profile;
   csrf: string;
 }) {
-  const [state, action, pending] = useActionState(
-    updatePricingProfile as unknown as PricingFormAction,
-    undefined
-  );
+  const [state, action, pending] = useActionState(updatePricingProfile, undefined);
+  const [noChangesHint, setNoChangesHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (state?.success != null || state?.error != null) setNoChangesHint(null);
+  }, [state]);
 
   return (
-    <form action={action} className="ui-card space-y-4 p-5 sm:p-7">
+    <form
+      action={action}
+      className="ui-card space-y-4 p-5 sm:p-7"
+      onInput={() => setNoChangesHint(null)}
+      onSubmit={(e) => {
+        if (profileFieldsUnchanged(e.currentTarget, profile)) {
+          e.preventDefault();
+          setNoChangesHint("No changes to save.");
+        }
+      }}
+    >
       <h2 className="text-lg font-semibold text-[var(--foreground)]">Pricing profile</h2>
       <p className="ui-hint max-w-prose">
         One profile per business anchors currency; positioning tiers scale your list prices.
@@ -56,7 +83,12 @@ export function PricingProfileForm({
           {state.error}
         </div>
       ) : null}
-      {state?.success ? (
+      {noChangesHint ? (
+        <div className="ui-hint text-sm" role="status">
+          {noChangesHint}
+        </div>
+      ) : null}
+      {!noChangesHint && state?.success ? (
         <div className="text-sm font-medium text-[var(--success)]" role="status">
           {state.success}
         </div>
@@ -75,13 +107,25 @@ export function PositioningTiersForm({
   tiers: TierRow[];
   csrf: string;
 }) {
-  const [state, action, pending] = useActionState(
-    updatePositioningTiers as unknown as PricingFormAction,
-    undefined
-  );
+  const [state, action, pending] = useActionState(updatePositioningTiers, undefined);
+  const [noChangesHint, setNoChangesHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (state?.success != null || state?.error != null) setNoChangesHint(null);
+  }, [state]);
 
   return (
-    <form action={action} className="ui-card space-y-4 p-5 sm:p-7">
+    <form
+      action={action}
+      className="ui-card space-y-4 p-5 sm:p-7"
+      onInput={() => setNoChangesHint(null)}
+      onSubmit={(e) => {
+        if (tierFieldsUnchanged(e.currentTarget, tiers)) {
+          e.preventDefault();
+          setNoChangesHint("No changes to save.");
+        }
+      }}
+    >
       <h2 className="text-lg font-semibold text-[var(--foreground)]">Positioning tiers</h2>
       <p className="ui-hint max-w-prose">
         Multipliers apply to your service list price (fixed) or starting hourly rate. New services default to the first
@@ -121,7 +165,12 @@ export function PositioningTiersForm({
           {state.error}
         </div>
       ) : null}
-      {state?.success ? (
+      {noChangesHint ? (
+        <div className="ui-hint text-sm" role="status">
+          {noChangesHint}
+        </div>
+      ) : null}
+      {!noChangesHint && state?.success ? (
         <div className="text-sm font-medium text-[var(--success)]" role="status">
           {state.success}
         </div>

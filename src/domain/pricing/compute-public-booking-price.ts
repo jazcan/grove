@@ -63,6 +63,7 @@ export async function computePublicBookingPrice(
       positioningTierId: services.positioningTierId,
       canonicalTemplateId: services.canonicalTemplateId,
       providerId: services.providerId,
+      serviceLevelsEnabled: services.serviceLevelsEnabled,
     })
     .from(services)
     .where(and(eq(services.id, input.serviceId), eq(services.providerId, input.providerId)))
@@ -73,12 +74,20 @@ export async function computePublicBookingPrice(
   }
 
   const tierById = new Map(tierRows.map((t) => [t.id, t]));
-  let tierId = input.positioningTierId?.trim() || "";
-  if (!tierId || !tierById.has(tierId)) {
-    const fallback = svc.positioningTierId && tierById.has(svc.positioningTierId) ? svc.positioningTierId : null;
-    tierId =
-      fallback ??
-      tierRows.sort((a, b) => a.sortOrder - b.sortOrder)[0]!.id;
+  const sortedTierIds = tierRows.sort((a, b) => a.sortOrder - b.sortOrder).map((t) => t.id);
+  const defaultTierIdForService =
+    svc.positioningTierId && tierById.has(svc.positioningTierId)
+      ? svc.positioningTierId
+      : sortedTierIds[0] ?? "";
+
+  let tierId = "";
+  if (svc.serviceLevelsEnabled) {
+    tierId = input.positioningTierId?.trim() || "";
+    if (!tierId || !tierById.has(tierId)) {
+      tierId = defaultTierIdForService;
+    }
+  } else {
+    tierId = defaultTierIdForService;
   }
 
   const tier = tierById.get(tierId);

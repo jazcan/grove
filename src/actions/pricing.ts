@@ -37,7 +37,10 @@ export async function updatePricingProfile(
   return { success: "Profile saved." };
 }
 
-export async function updatePositioningTiers(formData: FormData): Promise<ActionState> {
+export async function updatePositioningTiers(
+  _prev: ActionState | undefined,
+  formData: FormData
+): Promise<ActionState> {
   if (!(await csrfOk(formData, { action: "updatePositioningTiers" }))) return { error: "Invalid security token." };
   const ctx = await loadProviderContext();
   const count = Number(formData.get("tierCount") ?? 0);

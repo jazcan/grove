@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { CsrfField } from "@/components/csrf-field";
-import { fetchPublicSlots, submitPublicBooking } from "@/actions/public-booking";
+import { fetchPublicSlots, submitPublicBooking, suggestPublicBookingSlot } from "@/actions/public-booking";
 import type { ActionState } from "@/domain/auth/actions";
 import { simulateServicePrice } from "@/domain/pricing/engine";
 import type { TemplateAddOn, TemplateOutcome, TemplateStep } from "@/platform/templates/structure";
@@ -13,7 +13,6 @@ type Props = {
   csrf: string;
   username: string;
   providerName: string;
-  providerUsername: string;
   providerPaymentCash: boolean;
   providerPaymentEtransfer: boolean;
   providerEtransferDetails: string;
@@ -25,6 +24,10 @@ type Props = {
   servicePriceAmount: string;
   serviceCurrency: string;
   servicePrepInstructions: string;
+  pricingUsesSingleLevel: boolean;
+  phoneRequired: boolean;
+  notesRequired: boolean;
+  notesInstructions: string;
   positioningTiers: TierOption[];
   defaultTierId: string;
   templateSteps: TemplateStep[];
@@ -85,7 +88,6 @@ export function BookForm({
   csrf,
   username,
   providerName,
-  providerUsername,
   providerPaymentCash,
   providerPaymentEtransfer,
   providerEtransferDetails,
@@ -97,6 +99,10 @@ export function BookForm({
   servicePriceAmount,
   serviceCurrency,
   servicePrepInstructions,
+  pricingUsesSingleLevel,
+  phoneRequired,
+  notesRequired,
+  notesInstructions,
   positioningTiers,
   defaultTierId,
   templateSteps,
@@ -106,12 +112,19 @@ export function BookForm({
 }: Props) {
   const dateInputRef = useRef<HTMLInputElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
-  const [dateISO, setDateISO] = useState(() => localDateISO());
+  const initialSlotPickRef = useRef<string | null>(null);
+  const [calendarReady, setCalendarReady] = useState(false);
+  const [dateISO, setDateISO] = useState<string | null>(null);
   const [slots, setSlots] = useState<{ start: string; end: string }[]>([]);
   const [bookingsPaused, setBookingsPaused] = useState(false);
   const [slotStart, setSlotStart] = useState("");
   const [pending, startTransition] = useTransition();
-  const [customerName, setCustomerName] = useState("");
+  const [nextAvailableHighlight, setNextAvailableHighlight] = useState<{
+    dateISO: string;
+    slotStart: string;
+  } | null>(null);
+  const [customerFirstName, setCustomerFirstName] = useState("");
+  const [customerLastName, setCustomerLastName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
@@ -192,11 +205,36 @@ export function BookForm({
   const tierLabel = positioningTiers.find((t) => t.id === tierId)?.label ?? "";
 
   const todayISO = localDateISO();
-  const isPastDate = Boolean(dateISO) && /^\d{4}-\d{2}-\d{2}$/.test(dateISO) && dateISO < todayISO;
+  const dateISOValue = dateISO ?? "";
+  const isPastDate =
+    Boolean(dateISO) && /^\d{4}-\d{2}-\d{2}$/.test(dateISOValue) && dateISOValue < todayISO;
 
   useEffect(() => {
+    let cancelled = false;
+    suggestPublicBookingSlot({ username, serviceId }).then((res) => {
+      if (cancelled) return;
+      if (res.ok) {
+        initialSlotPickRef.current = res.slotStart;
+        setNextAvailableHighlight({ dateISO: res.dateISO, slotStart: res.slotStart });
+        setDateISO(res.dateISO);
+        setBookingsPaused(false);
+      } else {
+        if (res.bookingsPaused) setBookingsPaused(true);
+        else setBookingsPaused(false);
+        setDateISO(localDateISO());
+        setNextAvailableHighlight(null);
+      }
+      setCalendarReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [username, serviceId]);
+
+  useEffect(() => {
+    if (!calendarReady || dateISO == null) return;
     const today = localDateISO();
-    const past = Boolean(dateISO) && /^\d{4}-\d{2}-\d{2}$/.test(dateISO) && dateISO < today;
+    const past = /^\d{4}-\d{2}-\d{2}$/.test(dateISO) && dateISO < today;
     if (past) {
       setSlots([]);
       setSlotStart("");
@@ -204,11 +242,23 @@ export function BookForm({
     }
     startTransition(() => {
       fetchPublicSlots({ username, serviceId, dateISO }).then((res) => {
-        setSlots(spreadSlotsForDisplay(res.slots, MAX_DISPLAY_SLOTS));
-        setSlotStart("");
+        setBookingsPaused(!!res.bookingsPaused);
+        const displayed = spreadSlotsForDisplay(res.slots, MAX_DISPLAY_SLOTS);
+        setSlots(displayed);
+        setSlotStart((prev) => {
+          const pick = initialSlotPickRef.current;
+          if (pick && displayed.some((s) => s.start === pick)) {
+            initialSlotPickRef.current = null;
+            return pick;
+          }
+          initialSlotPickRef.current = null;
+          if (displayed.length === 0) return "";
+          if (prev && displayed.some((s) => s.start === prev)) return prev;
+          return displayed[0]!.start;
+        });
       });
     });
-  }, [username, serviceId, dateISO]);
+  }, [calendarReady, username, serviceId, dateISO]);
 
   useEffect(() => {
     if (!state?.error && !state?.success) return;
@@ -232,7 +282,18 @@ export function BookForm({
   }, [providerPaymentCash, providerPaymentEtransfer]);
 
   const selectedLabel = slotStart ? prettyDateTime(slotStart) : null;
-  const canSubmit = !!slotStart && !formPending && !isPastDate;
+  const canSubmit =
+    calendarReady &&
+    !!dateISO &&
+    !!slotStart &&
+    !formPending &&
+    !isPastDate;
+  const showNotesGuidance = notesRequired || Boolean(notesInstructions.trim());
+  const notesGuidanceText = notesInstructions.trim()
+    ? notesInstructions.trim()
+    : notesRequired
+      ? "Please include the details your provider needs for this appointment."
+      : "";
   const showSuccess = !!state?.success;
 
   function handleBookingSubmit(e: FormEvent<HTMLFormElement>) {
@@ -262,10 +323,6 @@ export function BookForm({
             <h2 className="mt-1 text-lg font-semibold tracking-tight sm:text-xl md:text-2xl">{serviceName}</h2>
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-[var(--muted)]">
               <span>{serviceDurationMinutes} min</span>
-              <span className="min-w-0 break-words">
-                Provider:{" "}
-                <LinkLike href={`/${providerUsername}`} label={`/${providerUsername}`} />
-              </span>
             </div>
 
             {templateOutcomes.length > 0 ? (
@@ -301,7 +358,7 @@ export function BookForm({
                   Service level
                 </label>
                 <p id="tier-hint" className="ui-hint">
-                  Tiers adjust list price for how this session is positioned.
+                  Pick the option that fits you best—each level is priced differently.
                 </p>
                 <select
                   id="tier-select"
@@ -312,7 +369,7 @@ export function BookForm({
                 >
                   {positioningTiers.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.label} (×{Number(t.multiplier).toFixed(2)})
+                      {t.label}
                     </option>
                   ))}
                 </select>
@@ -375,10 +432,13 @@ export function BookForm({
                     {formatMoney(priceSim.grandTotal, priceSim.currency)}
                   </div>
                   <p className="ui-hint mt-1 max-w-prose">
-                    {servicePricingType === "hourly"
-                      ? `Based on hourly rate × tier${tierLabel ? ` (${tierLabel})` : ""}`
-                      : `List price × tier${tierLabel ? ` (${tierLabel})` : ""}`}
-                    {selectedAddOns.size > 0 ? " plus selected add-ons." : "."}
+                    {pricingUsesSingleLevel
+                      ? servicePricingType === "hourly"
+                        ? `Based on the hourly rate shown above${selectedAddOns.size > 0 ? ", plus selected add-ons" : ""}.`
+                        : `Based on the service price shown above${selectedAddOns.size > 0 ? ", plus selected add-ons" : ""}.`
+                      : servicePricingType === "hourly"
+                        ? `Price reflects the level you choose${tierLabel ? ` (${tierLabel})` : ""}${selectedAddOns.size > 0 ? " and selected add-ons" : ""}.`
+                        : `Price reflects the level you choose${tierLabel ? ` (${tierLabel})` : ""}${selectedAddOns.size > 0 ? " and selected add-ons" : ""}.`}
                   </p>
                 </div>
                 <div className="text-right text-sm text-[var(--muted)]">
@@ -477,7 +537,7 @@ export function BookForm({
               <p className="ui-overline">Step 1 of 3</p>
               <h3 className="mt-1 text-base font-semibold tracking-tight sm:text-lg">Choose a time</h3>
               <p className="ui-hint mt-2 max-w-prose">
-                Pick a date, then select an available time.
+                We&apos;ll start from the next open time when possible. You can change the date anytime.
               </p>
             </div>
           </div>
@@ -495,7 +555,9 @@ export function BookForm({
                   ref={dateInputRef}
                   id="book-date"
                   type="date"
-                  value={dateISO}
+                  value={dateISO ?? ""}
+                  min={todayISO}
+                  disabled={!calendarReady}
                   onChange={(e) => setDateISO(e.target.value)}
                   aria-invalid={isPastDate}
                   aria-describedby={isPastDate ? "book-date-past-error book-date-hint" : "book-date-hint"}
@@ -535,7 +597,9 @@ export function BookForm({
 
             <fieldset className="min-w-0">
               <legend className="ui-label">Available times</legend>
-              {isPastDate ? (
+              {!calendarReady ? (
+                <p className="ui-hint mt-2">Finding the next available time…</p>
+              ) : isPastDate ? (
                 <p className="ui-hint mt-2">Pick a current or future date to see available times.</p>
               ) : pending ? (
                 <p className="ui-hint mt-2">Loading times…</p>
@@ -550,13 +614,28 @@ export function BookForm({
                 <ul className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
                   {slots.map((s) => {
                     const selected = slotStart === s.start;
+                    const isNextAvailable =
+                      nextAvailableHighlight != null &&
+                      dateISO === nextAvailableHighlight.dateISO &&
+                      s.start === nextAvailableHighlight.slotStart;
                     return (
                       <li key={s.start}>
                         <label
                           className={["ui-choice", selected ? "ui-choice-selected" : ""].join(" ")}
                         >
-                          <span className={selected ? "font-semibold text-[var(--foreground)]" : ""}>
-                            {prettyDateTime(s.start)}
+                          <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                            <span
+                              className={
+                                selected ? "font-semibold text-[var(--foreground)]" : "text-[var(--foreground)]"
+                              }
+                            >
+                              {prettyDateTime(s.start)}
+                            </span>
+                            {isNextAvailable ? (
+                              <span className="w-fit rounded-full border border-[color-mix(in_oklab,var(--accent)_45%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] px-2 py-0.5 text-xs font-medium text-[var(--accent)]">
+                                Next available
+                              </span>
+                            ) : null}
                           </span>
                           <input
                             type="radio"
@@ -590,7 +669,7 @@ export function BookForm({
           ))}
           <input type="hidden" name="username" value={username} />
           <input type="hidden" name="serviceId" value={serviceId} />
-          <input type="hidden" name="dateISO" value={dateISO} />
+          <input type="hidden" name="dateISO" value={dateISOValue} />
           <input type="hidden" name="slotStart" value={slotStart} />
 
           <div className="ui-card p-4 sm:p-7">
@@ -606,19 +685,35 @@ export function BookForm({
             </div>
 
             <div className="mt-6 grid gap-5 sm:gap-6">
-              <div className="ui-field">
-                <label className="ui-label" htmlFor="customerName">
-                  Name
-                </label>
-                <input
-                  id="customerName"
-                  name="customerName"
-                  required
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  autoComplete="name"
-                  className="ui-input"
-                />
+              <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
+                <div className="ui-field">
+                  <label className="ui-label" htmlFor="customerFirstName">
+                    First name
+                  </label>
+                  <input
+                    id="customerFirstName"
+                    name="customerFirstName"
+                    required
+                    value={customerFirstName}
+                    onChange={(e) => setCustomerFirstName(e.target.value)}
+                    autoComplete="given-name"
+                    className="ui-input"
+                  />
+                </div>
+                <div className="ui-field">
+                  <label className="ui-label" htmlFor="customerLastName">
+                    Last name
+                  </label>
+                  <input
+                    id="customerLastName"
+                    name="customerLastName"
+                    required
+                    value={customerLastName}
+                    onChange={(e) => setCustomerLastName(e.target.value)}
+                    autoComplete="family-name"
+                    className="ui-input"
+                  />
+                </div>
               </div>
               <div className="ui-field">
                 <label className="ui-label" htmlFor="customerEmail">
@@ -637,28 +732,59 @@ export function BookForm({
               </div>
               <div className="ui-field">
                 <label className="ui-label" htmlFor="customerPhone">
-                  Phone <span className="font-normal text-[var(--muted)]">(optional)</span>
+                  Phone
+                  {phoneRequired ? (
+                    <span className="text-[var(--error)]" aria-hidden>
+                      {" "}
+                      *
+                    </span>
+                  ) : (
+                    <span className="font-normal text-[var(--muted)]"> (optional)</span>
+                  )}
                 </label>
+                {!phoneRequired ? (
+                  <p id="phone-hint" className="ui-hint">
+                    Add a number if you&apos;d like a text or call from your provider.
+                  </p>
+                ) : null}
                 <input
                   id="customerPhone"
                   name="customerPhone"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
                   autoComplete="tel"
-                  className="ui-input"
+                  className={phoneRequired ? "ui-input" : "ui-input mt-1"}
+                  required={phoneRequired}
+                  aria-required={phoneRequired}
+                  aria-describedby={!phoneRequired ? "phone-hint" : undefined}
                 />
               </div>
               <div className="ui-field">
                 <label className="ui-label" htmlFor="customerNotes">
-                  Notes <span className="font-normal text-[var(--muted)]">(optional)</span>
+                  Notes
+                  {notesRequired ? (
+                    <span className="text-[var(--error)]" aria-hidden>
+                      {" "}
+                      *
+                    </span>
+                  ) : (
+                    <span className="font-normal text-[var(--muted)]"> (optional)</span>
+                  )}
                 </label>
+                {showNotesGuidance ? (
+                  <div className="ui-card-flat mt-1 px-4 py-3 text-sm leading-relaxed text-[var(--foreground)]">
+                    {notesGuidanceText}
+                  </div>
+                ) : null}
                 <textarea
                   id="customerNotes"
                   name="customerNotes"
                   rows={3}
                   value={customerNotes}
                   onChange={(e) => setCustomerNotes(e.target.value)}
-                  className="ui-textarea"
+                  className="ui-textarea mt-1"
+                  required={notesRequired}
+                  aria-required={notesRequired}
                 />
               </div>
             </div>
@@ -694,14 +820,22 @@ export function BookForm({
                 <div className="mt-4 border-t border-[var(--card-border)] pt-4">
                   <div className="ui-overline text-[var(--muted)]">Plan & price</div>
                   <div className="mt-1 text-sm text-[var(--foreground)]">
-                    {tierLabel ? <span className="font-medium">{tierLabel}</span> : null}
-                    {tierLabel && selectedAddOns.size > 0 ? " · " : null}
+                    <span
+                      className={
+                        pricingUsesSingleLevel || !tierLabel
+                          ? "text-[var(--muted)]"
+                          : "font-medium text-[var(--foreground)]"
+                      }
+                    >
+                      {pricingUsesSingleLevel ? "Service price" : tierLabel || "Standard pricing"}
+                    </span>
                     {selectedAddOns.size > 0 ? (
-                      <span className="text-[var(--muted)]">
-                        {selectedAddOns.size} add-on{selectedAddOns.size === 1 ? "" : "s"}
-                      </span>
-                    ) : !tierLabel ? (
-                      <span className="text-[var(--muted)]">Standard pricing</span>
+                      <>
+                        <span className="text-[var(--muted)]"> · </span>
+                        <span className="text-[var(--muted)]">
+                          {selectedAddOns.size} add-on{selectedAddOns.size === 1 ? "" : "s"}
+                        </span>
+                      </>
                     ) : null}
                   </div>
                   <div className="mt-2 text-lg font-semibold text-[var(--foreground)]">
@@ -814,13 +948,5 @@ export function BookForm({
         </section>
       ) : null}
     </div>
-  );
-}
-
-function LinkLike({ href, label }: { href: string; label: string }) {
-  return (
-    <a href={href} className="ui-link break-all">
-      {label}
-    </a>
   );
 }

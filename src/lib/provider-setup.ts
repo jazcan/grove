@@ -2,20 +2,10 @@ import { and, eq, gte, lte, ne, count } from "drizzle-orm";
 import { DateTime } from "luxon";
 import type { Database } from "@/db";
 import { availabilityRules, bookings, customers, providers, services } from "@/db/schema";
-import type { DashboardNextStep } from "@/components/dashboard/dashboard-next-steps";
+import type { ProviderSetupState } from "@/lib/provider-setup-model";
 
-export type ProviderSetupState = {
-  hasIdentity: boolean;
-  hasServices: boolean;
-  hasAvailability: boolean;
-  isPublished: boolean;
-  /** True when something still blocks “ready to accept bookings” (best-effort). */
-  needsSetup: boolean;
-  activeServiceCount: number;
-  pendingBookingCount: number;
-  todayBookingCount: number;
-  customerCount: number;
-};
+export type { DashboardNextStep, ProviderSetupState } from "@/lib/provider-setup-model";
+export { buildProviderSetupSteps } from "@/lib/provider-setup-model";
 
 /**
  * Single load of flags and counts for onboarding, dashboard command center, and nav hints.
@@ -97,34 +87,4 @@ export async function loadProviderSetupState(
     todayBookingCount,
     customerCount,
   };
-}
-
-/** Steps for first-run setup: services (templates + pricing) → availability → publish. */
-export function buildProviderSetupSteps(s: ProviderSetupState): DashboardNextStep[] {
-  return [
-    {
-      key: "services",
-      label: "Add your services",
-      hint: "Start from a template, set duration and price—every offer is template-backed.",
-      done: s.hasServices,
-      href: "/dashboard/services",
-      cta: "Services",
-    },
-    {
-      key: "availability",
-      label: "Set your availability",
-      hint: "Weekly hours and one-off blocks control which slots clients can book.",
-      done: s.hasAvailability,
-      href: "/dashboard/availability",
-      cta: "Availability",
-    },
-    {
-      key: "publish",
-      label: "Publish your profile",
-      hint: "Turn on your public page so your link works and clients can book.",
-      done: s.isPublished && s.hasIdentity,
-      href: "/dashboard/profile",
-      cta: "Profile",
-    },
-  ];
 }

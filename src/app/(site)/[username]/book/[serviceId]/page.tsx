@@ -54,6 +54,10 @@ export default async function PublicBookPage({ params }: Props) {
       priceAmount: services.priceAmount,
       currency: services.currency,
       prepInstructions: services.prepInstructions,
+      phoneRequired: services.phoneRequired,
+      notesRequired: services.notesRequired,
+      notesInstructions: services.notesInstructions,
+      serviceLevelsEnabled: services.serviceLevelsEnabled,
       positioningTierId: services.positioningTierId,
       steps: canonicalServiceTemplates.steps,
       addOns: canonicalServiceTemplates.addOns,
@@ -88,15 +92,23 @@ export default async function PublicBookPage({ params }: Props) {
     }
   }
 
-  const positioningTiers = tiers.map((t) => ({
+  const positioningTiersAll = tiers.map((t) => ({
     id: t.id,
     label: t.label,
     multiplier: t.multiplier,
   }));
   const defaultTierId =
-    svcRow.positioningTierId && positioningTiers.some((x) => x.id === svcRow.positioningTierId)
+    svcRow.positioningTierId && positioningTiersAll.some((x) => x.id === svcRow.positioningTierId)
       ? svcRow.positioningTierId
-      : positioningTiers[0]?.id ?? "";
+      : positioningTiersAll[0]?.id ?? "";
+  const showLevelChoice = Boolean(svcRow.serviceLevelsEnabled) && positioningTiersAll.length > 1;
+  const defaultTierRow =
+    positioningTiersAll.find((t) => t.id === defaultTierId) ?? positioningTiersAll[0];
+  const positioningTiers = showLevelChoice
+    ? positioningTiersAll
+    : defaultTierRow
+      ? [defaultTierRow]
+      : [];
 
   const csrf = await getCsrfTokenForForm();
   const pricingType = svcRow.pricingType === "hourly" ? "hourly" : "fixed";
@@ -125,7 +137,6 @@ export default async function PublicBookPage({ params }: Props) {
           csrf={serialString(csrf)}
           username={serialString(prov.username)}
           providerName={serialString(prov.businessName || prov.displayName)}
-          providerUsername={serialString(prov.username)}
           providerPaymentCash={Boolean(prov.paymentCash)}
           providerPaymentEtransfer={Boolean(prov.paymentEtransfer)}
           providerEtransferDetails={serialString(prov.etransferDetails)}
@@ -137,6 +148,10 @@ export default async function PublicBookPage({ params }: Props) {
           servicePriceAmount={serialString(svcRow.priceAmount)}
           serviceCurrency={serialString(svcRow.currency)}
           servicePrepInstructions={serialString(svcRow.prepInstructions)}
+          pricingUsesSingleLevel={!showLevelChoice}
+          phoneRequired={Boolean(svcRow.phoneRequired)}
+          notesRequired={Boolean(svcRow.notesRequired)}
+          notesInstructions={serialString(svcRow.notesInstructions)}
           positioningTiers={positioningTiers}
           defaultTierId={defaultTierId}
           templateSteps={templateSteps}

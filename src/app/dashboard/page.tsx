@@ -5,16 +5,17 @@ import { getDb } from "@/db";
 import { availabilityRules, bookings, customers, providers, services } from "@/db/schema";
 import { ActionCenter, type SmartAction } from "@/components/dashboard/action-center";
 import { CommandCenterStats } from "@/components/dashboard/command-center-stats";
-import { DashboardNextSteps } from "@/components/dashboard/dashboard-next-steps";
 import { DashboardQuickActionsBar } from "@/components/dashboard/dashboard-quick-actions";
 import { NextAppointmentsPanel, type NextAppointmentRow } from "@/components/dashboard/next-appointments-panel";
 import { PublicProfileLiveCard } from "@/components/dashboard/public-profile-live-card";
 import { TodayOverview, type TodayBookingPreview } from "@/components/dashboard/today-overview";
 import { WeeklySnapshot } from "@/components/dashboard/weekly-snapshot";
 import { getCsrfTokenForForm } from "@/lib/csrf";
+import { getActivePublicBookingFailureSignal } from "@/domain/provider-dashboard-signals";
+import { PublicBookingIssueBanner } from "@/components/dashboard/public-booking-issue-banner";
 import { computeWeeklyAvailableMinutes } from "@/lib/dashboard-metrics";
 import { getEnv } from "@/lib/env";
-import { buildProviderSetupSteps, loadProviderSetupState } from "@/lib/provider-setup";
+import { loadProviderSetupState } from "@/lib/provider-setup";
 import { requireProvider } from "@/lib/tenancy";
 
 export default async function DashboardHomePage() {
@@ -193,7 +194,7 @@ export default async function DashboardHomePage() {
   const appUrl = getEnv().APP_URL.replace(/\/$/, "");
   const profileUrl = prov?.username ? `${appUrl}/${prov.username}` : appUrl;
 
-  const setupSteps = buildProviderSetupSteps(setup);
+  const bookingFailureSignal = await getActivePublicBookingFailureSignal(db, u.providerId);
 
   const actions: SmartAction[] = [];
   if (!hasAnyBooking) {
@@ -301,6 +302,14 @@ export default async function DashboardHomePage() {
         </header>
 
         <section className="mt-8 space-y-8 pb-12 sm:mt-10 sm:space-y-10">
+          {bookingFailureSignal ? (
+            <PublicBookingIssueBanner
+              csrfToken={csrf}
+              occurrenceCount={bookingFailureSignal.occurrenceCount}
+              lastSeenAt={bookingFailureSignal.lastSeenAt}
+            />
+          ) : null}
+
           <TodayOverview
             timezone={timezone}
             todayBookings={todayBookings}
@@ -318,8 +327,6 @@ export default async function DashboardHomePage() {
           <ActionCenter actions={actions.slice(0, 5)} />
 
           <CommandCenterStats setup={setup} />
-
-          {needsSetup ? <DashboardNextSteps steps={[...setupSteps]} /> : null}
 
           {!needsSetup && published && prov?.username ? (
             <PublicProfileLiveCard username={prov.username} profileUrl={profileUrl} />

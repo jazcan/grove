@@ -61,6 +61,107 @@ function parseHm(s: string): { h: number; m: number } | null {
   return { h, m: min };
 }
 
+const MINUTES_PER_DAY = 24 * 60;
+
+function hmStringToMinutes(s: string): number | null {
+  const p = parseHm(s);
+  if (!p) return null;
+  return p.h * 60 + p.m;
+}
+
+function minutesToSlotMinTime(totalMinutes: number): string {
+  const c = Math.max(0, Math.min(MINUTES_PER_DAY - 1, Math.floor(totalMinutes)));
+  const h = Math.floor(c / 60);
+  const m = c % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
+}
+
+/** Upper bound for the time axis; allows 24:00:00 when the axis should include midnight. */
+function minutesToSlotMaxTime(totalMinutes: number): string {
+  if (totalMinutes >= MINUTES_PER_DAY) return "24:00:00";
+  const c = Math.max(0, Math.floor(totalMinutes));
+  const h = Math.floor(c / 60);
+  const m = c % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
+}
+
+/**
+ * Scrollable time range + initial scroll: focused on weekly hours (or 9–5), with padding so users
+ * can scroll earlier/later. Union with booking/block local times so nothing is clipped.
+ */
+function deriveTimeGridBounds(
+  rules: AvailabilityRule[],
+  bookings: BookingEvent[],
+  blocked: BlockedTime[],
+  timezone: string
+): { slotMinTime: string; slotMaxTime: string; scrollTime: string } {
+  const active = rules.filter((r) => r.isActive);
+  const DEFAULT_START = 9 * 60;
+  const DEFAULT_END = 17 * 60;
+  /** Extra hours shown above/below the focus window (scrollable). */
+  const FOCUS_PAD_MIN = 90;
+  const FOCUS_PAD_MAX = 120;
+  /** Margin when merging appointments/blocks into the axis. */
+  const EVENT_PAD = 30;
+
+  let focusStartM = DEFAULT_START;
+  let focusEndM = DEFAULT_END;
+
+  if (active.length > 0) {
+    let earliest = MINUTES_PER_DAY;
+    let latest = 0;
+    let any = false;
+    for (const r of active) {
+      const s = hmStringToMinutes(r.startTimeLocal);
+      const e = hmStringToMinutes(r.endTimeLocal);
+      if (s == null || e == null) continue;
+      if (e <= s) continue;
+      earliest = Math.min(earliest, s);
+      latest = Math.max(latest, e);
+      any = true;
+    }
+    if (any && earliest < latest) {
+      focusStartM = earliest;
+      focusEndM = latest;
+    }
+  }
+
+  let slotMinM = focusStartM - FOCUS_PAD_MIN;
+  let slotMaxM = focusEndM + FOCUS_PAD_MAX;
+
+  const swallowEventRange = (startIso: string, endIso: string) => {
+    const s = DateTime.fromISO(startIso, { zone: "utc" }).setZone(timezone);
+    const e = DateTime.fromISO(endIso, { zone: "utc" }).setZone(timezone);
+    const sm = s.hour * 60 + s.minute;
+    const em = e.hour * 60 + e.minute;
+    if (e.toISODate() !== s.toISODate() || em <= sm) {
+      slotMinM = Math.min(slotMinM, sm - EVENT_PAD);
+      slotMaxM = MINUTES_PER_DAY;
+      return;
+    }
+    slotMinM = Math.min(slotMinM, sm - EVENT_PAD);
+    slotMaxM = Math.max(slotMaxM, em + EVENT_PAD);
+  };
+
+  for (const b of bookings) swallowEventRange(b.startsAtISO, b.endsAtISO);
+  for (const b of blocked) swallowEventRange(b.startsAtISO, b.endsAtISO);
+
+  slotMinM = Math.max(0, slotMinM);
+  slotMaxM = Math.min(MINUTES_PER_DAY, slotMaxM);
+  if (slotMaxM <= slotMinM) {
+    slotMaxM = Math.min(MINUTES_PER_DAY, slotMinM + 8 * 60);
+  }
+
+  const desiredScroll = focusStartM - 30;
+  const scrollTimeM = Math.max(slotMinM, Math.min(desiredScroll, Math.max(slotMinM, slotMaxM - 45)));
+
+  return {
+    slotMinTime: minutesToSlotMinTime(slotMinM),
+    slotMaxTime: minutesToSlotMaxTime(slotMaxM),
+    scrollTime: minutesToSlotMinTime(scrollTimeM),
+  };
+}
+
 function bookingColors(status: BookingEvent["status"]): { bg: string; border: string; text: string } {
   switch (status) {
     case "confirmed":
@@ -99,6 +200,22 @@ export function AvailabilityCalendar(props: {
   useEffect(() => {
     setOptimisticBlocked([]);
   }, [blockedSyncKey]);
+
+  const timeGridBounds = useMemo(
+    () => deriveTimeGridBounds(rules, bookings, blocked, timezone),
+    [rules, bookings, blocked, timezone]
+  );
+
+  /** Remount when weekly hours or timezone change so slot axis + scroll apply cleanly; not on every booking/block tweak. */
+  const calendarLayoutKey = useMemo(
+    () =>
+      `${timezone}|${rules
+        .filter((r) => r.isActive)
+        .map((r) => `${r.dayOfWeek}:${r.startTimeLocal}-${r.endTimeLocal}`)
+        .sort()
+        .join(";")}`,
+    [rules, timezone]
+  );
 
   const submitBlockRange = useCallback(
     async (startsAt: Date, endsAt: Date, reason: string): Promise<BlockResult> => {
@@ -302,6 +419,7 @@ export function AvailabilityCalendar(props: {
         ) : null}
 
         <FullCalendar
+          key={calendarLayoutKey}
           plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
           initialView="timeGridWeek"
           headerToolbar={{
@@ -309,7 +427,7 @@ export function AvailabilityCalendar(props: {
             center: "title",
             right: "timeGridDay,timeGridWeek,dayGridMonth",
           }}
-          height="auto"
+          contentHeight="clamp(300px, 40dvh, 480px)"
           nowIndicator
           selectable
           selectMirror
@@ -322,10 +440,12 @@ export function AvailabilityCalendar(props: {
           eventClick={onEventClick}
           datesSet={onDatesSet}
           timeZone={timezone}
-          slotMinTime="05:00:00"
-          slotMaxTime="22:00:00"
+          slotMinTime={timeGridBounds.slotMinTime}
+          slotMaxTime={timeGridBounds.slotMaxTime}
+          scrollTime={timeGridBounds.scrollTime}
+          scrollTimeReset
           allDaySlot={false}
-          expandRows
+          expandRows={false}
           events={events}
           eventTimeFormat={{ hour: "numeric", minute: "2-digit" }}
         />

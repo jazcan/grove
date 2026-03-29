@@ -9,7 +9,6 @@ import { AvailabilityCalendar } from "@/app/dashboard/availability/availability-
 import { AvailabilityQuickBlockBar } from "@/app/dashboard/availability/availability-quick-block-bar";
 import { BlockedTimeList } from "@/app/dashboard/availability/blocked-time-list";
 import { WeeklyScheduleRow } from "@/app/dashboard/availability/weekly-schedule-row";
-import Link from "next/link";
 import {
   applyHoursToWeekdays,
   applyWorkingHoursPreset,
@@ -35,11 +34,6 @@ export default async function AvailabilityPage({ searchParams }: Props) {
     })
     .from(providers)
     .where(eq(providers.id, u.providerId))
-    .limit(1);
-  const [anyService] = await db
-    .select({ id: services.id })
-    .from(services)
-    .where(eq(services.providerId, u.providerId))
     .limit(1);
   const rules = await db
     .select()
@@ -80,10 +74,6 @@ export default async function AvailabilityPage({ searchParams }: Props) {
   const hasAvailability = rules.some((r) => r.isActive);
   const activeDayCount = new Set(rules.filter((r) => r.isActive).map((r) => r.dayOfWeek)).size;
   const suggestMoreDays = activeDayCount > 0 && activeDayCount < 2;
-  const hasServices = !!anyService;
-  const published = !!prov?.publicProfileEnabled;
-  const nextHref = !hasServices ? "/dashboard/services" : "/dashboard/profile";
-  const nextLabel = !hasServices ? "Next: add a service" : published ? "View your public profile" : "Next: publish profile";
 
   const tz = prov?.timezone ?? "UTC";
   const bookingsPaused = !!prov?.bookingsPaused;
@@ -216,32 +206,6 @@ export default async function AvailabilityPage({ searchParams }: Props) {
           </div>
         </div>
 
-        <div className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--background)] p-4 sm:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">Setup step: Availability</div>
-              <div className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
-                Set when customers can book you.
-              </div>
-            </div>
-            <div className="text-sm">
-              <span className="mr-2 inline-block w-4 text-center" aria-hidden>
-                {hasAvailability ? "✓" : "•"}
-              </span>
-              {hasAvailability ? "Complete" : "Not done yet"}
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-            <Link href={nextHref} className="font-medium text-[var(--accent)] underline underline-offset-2">
-              {nextLabel}
-            </Link>
-            {published ? (
-              <Link href={`/${prov?.username ?? ""}`} className="text-[var(--accent)] underline underline-offset-2">
-                View public profile
-              </Link>
-            ) : null}
-          </div>
-        </div>
       </header>
 
       <section className="mt-10">

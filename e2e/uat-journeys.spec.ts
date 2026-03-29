@@ -86,7 +86,8 @@ test.describe.serial("UAT plans 1–5 — end-to-end journey", () => {
     await expect(c.getByText("Loading times…")).toBeHidden({ timeout: 30_000 });
     await expect(c.locator('input[name="slotPick"]').first()).toBeVisible({ timeout: 90_000 });
     await c.locator('input[name="slotPick"]').first().click();
-    await c.getByLabel("Name").fill("UAT Customer");
+    await c.getByLabel(/^First name$/i).fill("UAT");
+    await c.getByLabel(/^Last name$/i).fill("Customer");
     await c.locator("#customerEmail").fill("uat.customer@example.test");
     const cashPay = c.locator('input[name="paymentMethod"][value="cash"]');
     if (await cashPay.isVisible()) {

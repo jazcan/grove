@@ -93,10 +93,11 @@ export default async function ProfilePage({ searchParams }: Props) {
 
   const aboutComplete = (prov?.bio?.trim().length ?? 0) >= 20;
   const previewHref = published && prov?.username ? `/${prov.username}` : null;
+  const usernameLocked = prov?.usernameLockedAt != null;
 
   return (
     <main id="main-content">
-      <ProfileShell>
+      <ProfileShell usernameLocked={usernameLocked}>
         <div className="mx-auto max-w-[720px]">
           <header className="pt-1">
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Profile</h1>
@@ -138,7 +139,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                     Public profile (identity)
                   </h2>
                   <p className="mt-2 max-w-prose text-sm leading-relaxed text-[var(--muted)]">
-                    This is what clients will see. Your page address is permanent—choose carefully.
+                    This is what clients will see on your public page.
                   </p>
                 </div>
                 <span
@@ -158,11 +159,30 @@ export default async function ProfilePage({ searchParams }: Props) {
                 <input type="hidden" name="returnTo" value="/dashboard/profile#username-form" />
                 <h3 className="text-base font-semibold text-[var(--foreground)]">Page address</h3>
                 <p className="ui-hint mt-1">Your public page lives at this path (for example, grove.com/your-name).</p>
+                {usernameLocked ? (
+                  <p className="ui-hint mt-3 text-sm leading-relaxed">
+                    Your page address is permanent and cannot be changed after it is set. It stays the same for
+                    your clients and any links you have shared.
+                  </p>
+                ) : (
+                  <p className="ui-hint mt-3 text-sm leading-relaxed">
+                    Choose carefully—you will not be able to change this address after you save it here or finish
+                    onboarding.
+                  </p>
+                )}
                 <div className="mt-4">
                   <label className="text-sm font-medium" htmlFor="username">
                     Username (URL)
                   </label>
-                  <input id="username" name="username" defaultValue={prov?.username} className={inputClass} required />
+                  <input
+                    id="username"
+                    name="username"
+                    defaultValue={prov?.username}
+                    className={[inputClass, usernameLocked ? "cursor-not-allowed opacity-90" : ""].join(" ")}
+                    required={!usernameLocked}
+                    readOnly={usernameLocked}
+                    aria-readonly={usernameLocked}
+                  />
                 </div>
               </form>
             </section>

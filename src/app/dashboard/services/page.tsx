@@ -37,7 +37,11 @@ export default async function ServicesPage({ searchParams }: Props) {
   const u = await requireProvider();
   const db = getDb();
   const [prov] = await db
-    .select({ publicProfileEnabled: providers.publicProfileEnabled, username: providers.username })
+    .select({
+      publicProfileEnabled: providers.publicProfileEnabled,
+      username: providers.username,
+      defaultServiceLevelsEnabled: providers.defaultServiceLevelsEnabled,
+    })
     .from(providers)
     .where(eq(providers.id, u.providerId))
     .limit(1);
@@ -53,6 +57,10 @@ export default async function ServicesPage({ searchParams }: Props) {
       priceAmount: services.priceAmount,
       currency: services.currency,
       prepInstructions: services.prepInstructions,
+      serviceLevelsEnabled: services.serviceLevelsEnabled,
+      phoneRequired: services.phoneRequired,
+      notesRequired: services.notesRequired,
+      notesInstructions: services.notesInstructions,
       isActive: services.isActive,
     })
     .from(services)
@@ -68,8 +76,6 @@ export default async function ServicesPage({ searchParams }: Props) {
   const hasServices = list.length > 0;
   const hasAvailability = !!anyRule;
   const published = !!prov?.publicProfileEnabled;
-  const nextHref = !hasAvailability ? "/dashboard/availability" : "/dashboard/profile";
-  const nextLabel = !hasAvailability ? "Next: set availability" : published ? "View your public profile" : "Next: publish profile";
 
   const csrf = await getCsrfTokenForForm();
 
@@ -148,34 +154,10 @@ export default async function ServicesPage({ searchParams }: Props) {
           formVisible={formVisible}
           scratchMode={scratch}
           canonicalTemplateSlug={canonicalTemplateSlug}
+          defaultServiceLevelsEnabled={Boolean(prov?.defaultServiceLevelsEnabled)}
         />
 
         <ServicePerformanceSection services={list} statsByServiceId={statsByServiceId} />
-
-        <div className="max-w-4xl rounded-xl border border-[var(--border)] bg-[var(--background)] p-5 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">Setup step: Services</div>
-              <div className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">Add at least one service customers can book.</div>
-            </div>
-            <div className="text-sm">
-              <span className="mr-2 inline-block w-4 text-center" aria-hidden>
-                {hasServices ? "✓" : "•"}
-              </span>
-              {hasServices ? "Complete" : "Not done yet"}
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <Link href={nextHref} className="font-medium text-[var(--accent)] underline underline-offset-2">
-              {nextLabel}
-            </Link>
-            {published ? (
-              <Link href={`/${prov?.username}`} className="text-[var(--accent)] underline underline-offset-2">
-                View public profile
-              </Link>
-            ) : null}
-          </div>
-        </div>
       </div>
 
       <section id="existing-services" className="mt-20 max-w-4xl scroll-mt-28">

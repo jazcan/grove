@@ -6,6 +6,7 @@ import type { PlatformEventActor } from "@/platform/enums";
  */
 export type PlatformEventName =
   | "booking.created"
+  | "booking.public_submit_failed"
   | "booking.updated"
   | "booking.cancelled"
   | "provider.updated"
@@ -31,6 +32,10 @@ export type PlatformEventPayloads = {
     positioningTierId: string | null;
     selectedAddOnIds: string[];
     paymentAmount: string | null;
+  };
+  "booking.public_submit_failed": {
+    providerId: string;
+    serviceId: string;
   };
   "booking.updated": {
     bookingId: string;
