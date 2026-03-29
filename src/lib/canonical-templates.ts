@@ -1,5 +1,6 @@
 import { and, asc, eq, ne } from "drizzle-orm";
 import { getDb } from "@/db";
+import { ensureCanonicalTemplates } from "@/db/ensure-canonical-templates";
 import { canonicalServiceTemplates } from "@/db/schema";
 import type { ServiceFormDefaults, ServiceTemplate } from "@/lib/service-templates";
 import { templateStructureSchema } from "@/platform/templates/structure";
@@ -30,6 +31,7 @@ export function rowToServiceTemplate(row: typeof canonicalServiceTemplates.$infe
 /** Active canonical templates for dashboard cards (excludes quick-start `simple`; ordered by label). */
 export async function listCanonicalTemplatesForUi(): Promise<ServiceTemplate[]> {
   const db = getDb();
+  await ensureCanonicalTemplates(db);
   const rows = await db
     .select()
     .from(canonicalServiceTemplates)
@@ -46,6 +48,7 @@ export async function getServiceDefaultsForCanonicalSlug(
 ): Promise<ServiceFormDefaults | null> {
   if (!slug) return null;
   const db = getDb();
+  await ensureCanonicalTemplates(db);
   const [row] = await db
     .select()
     .from(canonicalServiceTemplates)
@@ -62,6 +65,7 @@ export async function getServiceDefaultsForCanonicalSlug(
 
 export async function getCanonicalTemplateRowBySlug(slug: string) {
   const db = getDb();
+  await ensureCanonicalTemplates(db);
   const [row] = await db
     .select()
     .from(canonicalServiceTemplates)

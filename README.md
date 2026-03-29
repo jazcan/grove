@@ -20,6 +20,10 @@ npx drizzle-kit push
 npm run db:seed
 ```
 
+- **`drizzle-kit push`** updates the database schema only (columns, tables, types).
+- It does **not** run the `INSERT` blocks inside numbered migration files under `drizzle/` (for example the canonical template rows in `0004_canonical_service_templates.sql`).
+- **Repair:** run **`npm run db:seed`** against the target database, or rely on **automatic backfill on first read** (any code path that uses `listCanonicalTemplatesForUi`, `getServiceDefaultsForCanonicalSlug`, or `getCanonicalTemplateRowBySlug` calls `ensureCanonicalTemplates` first—e.g. opening **Dashboard → Services**).
+
 3. Run the app:
 
 ```bash

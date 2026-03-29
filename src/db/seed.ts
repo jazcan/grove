@@ -1,13 +1,16 @@
 /**
  * Run: DATABASE_URL=... npx tsx src/db/seed.ts
- * Inserts default system message templates if missing.
+ * Inserts default system message templates if missing, and canonical service templates if the
+ * table is empty (same rows as drizzle/0004 — needed when the DB was created with `db:push` only).
  */
 import { and, eq, isNull } from "drizzle-orm";
+import { ensureCanonicalTemplates } from "./ensure-canonical-templates";
 import { getDb } from "./index";
 import { messageTemplates, featureFlags } from "./schema";
 
 async function main() {
   const db = getDb();
+  await ensureCanonicalTemplates(db);
   const defaults = [
     {
       name: "Booking confirmation",
