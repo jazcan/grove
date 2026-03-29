@@ -245,49 +245,10 @@ export function MarketingWorkspace({ csrf, timezone, customers, services, campai
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Marketing</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-          Simple things you can do right now to get more bookings — follow up, plan a note, and draft content you can
-          paste wherever you talk to clients.
+          Work top to bottom: plan a campaign, create content, send a template to a segment, then reconnect one on one
+          with people who already know your work.
         </p>
       </header>
-
-      {/* —— Reconnect —— */}
-      <section className="ui-card p-5 sm:p-6" aria-labelledby="reconnect-heading">
-        <SectionHeader
-          id="reconnect-heading"
-          title="Reconnect with customers"
-          subtitle="Reach out to people who already know your work."
-        />
-        {sortedCustomers.length === 0 ? (
-          <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-8 text-center text-sm text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
-            You don&apos;t have any customers to reconnect with yet.
-          </p>
-        ) : (
-          <ul className="grid gap-3">
-            {sortedCustomers.map((c) => (
-              <li
-                key={c.id}
-                className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-4 shadow-[var(--shadow-sm)] sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <p className="font-semibold text-[var(--foreground)]">{c.fullName}</p>
-                  <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-                    Last booking: {formatDate(c.lastBookingAt, timezone)}
-                    <span className="text-[color-mix(in_oklab,var(--muted-foreground)_85%,transparent)]"> · </span>
-                    {c.bookingCount} booking{c.bookingCount === 1 ? "" : "s"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="ui-btn-primary h-11 shrink-0 px-4 text-sm font-semibold sm:self-center"
-                  onClick={() => openDraft({ id: c.id, fullName: c.fullName })}
-                >
-                  Draft message
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
 
       {/* —— Campaigns —— */}
       <section className="ui-card p-5 sm:p-6" aria-labelledby="campaigns-heading">
@@ -633,14 +594,15 @@ export function MarketingWorkspace({ csrf, timezone, customers, services, campai
         </section>
       ) : null}
 
-      {/* —— Legacy template email blast (optional) —— */}
+      {/* —— Send email to segment —— */}
       {templates.length > 0 ? (
-        <details className="ui-card p-5 sm:p-6">
-          <summary className="cursor-pointer text-sm font-semibold text-[var(--foreground)]">Send a template email to a segment</summary>
-          <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-            Existing Grove flow: picks customers who have not opted out and sends your chosen template by email.
-          </p>
-          <form action={asFormAction(sendMarketingToCustomers)} className="mt-4 grid max-w-md gap-4">
+        <section className="ui-card p-5 sm:p-6" aria-labelledby="segment-email-heading">
+          <SectionHeader
+            id="segment-email-heading"
+            title="Send email to segment"
+            subtitle="Existing Grove flow: picks customers who have not opted out and sends your chosen template by email."
+          />
+          <form action={asFormAction(sendMarketingToCustomers)} className="mt-2 grid max-w-md gap-4">
             <CsrfField token={csrf} />
             <label className="ui-field">
               <span className="ui-label">Template</span>
@@ -665,8 +627,47 @@ export function MarketingWorkspace({ csrf, timezone, customers, services, campai
               Send campaign
             </button>
           </form>
-        </details>
+        </section>
       ) : null}
+
+      {/* —— Reconnect —— */}
+      <section className="ui-card p-5 sm:p-6" aria-labelledby="reconnect-heading">
+        <SectionHeader
+          id="reconnect-heading"
+          title="Reconnect with customers"
+          subtitle="Reach out to people who already know your work."
+        />
+        {sortedCustomers.length === 0 ? (
+          <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-8 text-center text-sm text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
+            You don&apos;t have any customers to reconnect with yet.
+          </p>
+        ) : (
+          <ul className="grid gap-3">
+            {sortedCustomers.map((c) => (
+              <li
+                key={c.id}
+                className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-4 shadow-[var(--shadow-sm)] sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold text-[var(--foreground)]">{c.fullName}</p>
+                  <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
+                    Last booking: {formatDate(c.lastBookingAt, timezone)}
+                    <span className="text-[color-mix(in_oklab,var(--muted-foreground)_85%,transparent)]"> · </span>
+                    {c.bookingCount} booking{c.bookingCount === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="ui-btn-primary h-11 shrink-0 px-4 text-sm font-semibold sm:self-center"
+                  onClick={() => openDraft({ id: c.id, fullName: c.fullName })}
+                >
+                  Draft message
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <ReconnectDraftPanel
         open={panelOpen}

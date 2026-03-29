@@ -105,15 +105,19 @@ export default async function CustomersPage({ searchParams }: Props) {
 
   const headerCell =
     "px-4 py-3 text-left align-middle text-[0.6875rem] font-semibold uppercase tracking-[0.07em] text-[var(--muted-foreground)]";
+  const headerCellLast =
+    "pl-4 pr-8 py-3 text-left align-middle text-[0.6875rem] font-semibold uppercase tracking-[0.07em] text-[var(--muted-foreground)]";
   const bodyCell = "min-w-0 align-middle";
   const linkCell =
-    "block w-full px-4 py-3.5 text-inherit no-underline outline-offset-2 transition-colors focus-visible:z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ring-focus)] cursor-pointer";
+    "block min-w-0 w-full max-w-full px-4 py-3.5 text-inherit no-underline outline-offset-2 transition-colors focus-visible:z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ring-focus)] cursor-pointer";
+  const linkCellLast =
+    "block min-w-0 w-full max-w-full pl-4 pr-8 py-3.5 text-inherit no-underline outline-offset-2 transition-colors focus-visible:z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ring-focus)] cursor-pointer";
   const textSecondary = "text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]";
   const rowHover = "hover:bg-[color-mix(in_oklab,var(--foreground)_4.5%,var(--card))] transition-[background-color] duration-150";
 
   return (
     <AddCustomerModalRoot csrf={csrf}>
-      <main id="main-content" className="max-w-4xl">
+      <main id="main-content" className="min-w-0 max-w-4xl">
         <header>
           <h1 className="text-2xl font-semibold tracking-tight">Customers</h1>
           <p className="mt-2 max-w-xl text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
@@ -155,24 +159,31 @@ export default async function CustomersPage({ searchParams }: Props) {
             <AddCustomerEmptyButton className="ui-btn-primary mx-auto mt-8 min-h-12 px-6 text-sm font-semibold" />
           </div>
         ) : (
-          <div className="mt-4 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]">
-            <table className="hidden w-full table-fixed border-collapse text-sm md:table">
+          <div className="mt-4 min-w-0 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+            <table className="hidden w-full min-w-0 table-fixed border-collapse text-sm md:table">
+              <colgroup>
+                <col className="w-[22%]" />
+                <col className="w-[30%]" />
+                <col className="w-[16%]" />
+                <col className="w-[20%]" />
+                <col className="w-[12%]" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-[var(--border)] bg-[color-mix(in_oklab,var(--foreground)_2.5%,var(--card))]">
-                  <th scope="col" className={`${headerCell} w-[28%]`}>
+                  <th scope="col" className={headerCell}>
                     Name
                   </th>
-                  <th scope="col" className={`${headerCell} w-[34%]`}>
+                  <th scope="col" className={headerCell}>
                     Email
                   </th>
-                  <th scope="col" className={`${headerCell} w-[9.25rem]`}>
+                  <th scope="col" className={headerCell}>
                     Phone
                   </th>
-                  <th scope="col" className={`${headerCell} w-[8rem]`}>
+                  <th scope="col" className={headerCell}>
                     Last booking
                   </th>
-                  <th scope="col" className={`${headerCell} w-[4.75rem] text-right`}>
-                    Bookings
+                  <th scope="col" className={`${headerCellLast} text-right`}>
+                    Booking count
                   </th>
                 </tr>
               </thead>
@@ -187,7 +198,8 @@ export default async function CustomersPage({ searchParams }: Props) {
                           href={href}
                           prefetch={false}
                           aria-label={rowLabel}
-                          className={`${linkCell} font-semibold text-[var(--foreground)]`}
+                          title={c.fullName}
+                          className={`${linkCell} truncate font-semibold text-[var(--foreground)]`}
                         >
                           {c.fullName}
                         </Link>
@@ -203,13 +215,23 @@ export default async function CustomersPage({ searchParams }: Props) {
                           prefetch={false}
                           tabIndex={-1}
                           title={c.phone ?? undefined}
-                          className={`${linkCell} max-w-[9.25rem] truncate ${textSecondary}`}
+                          className={`${linkCell} truncate ${textSecondary}`}
                         >
                           {c.phone ? c.phone : emptyPlaceholder()}
                         </Link>
                       </td>
                       <td className={`${bodyCell} p-0`}>
-                        <Link href={href} prefetch={false} tabIndex={-1} className={`${linkCell} ${textSecondary} tabular-nums`}>
+                        <Link
+                          href={href}
+                          prefetch={false}
+                          tabIndex={-1}
+                          title={
+                            c.lastBookingAt
+                              ? formatShortDate(c.lastBookingAt, timezone)
+                              : "No bookings yet"
+                          }
+                          className={`${linkCell} truncate ${textSecondary} tabular-nums`}
+                        >
                           {c.lastBookingAt ? (
                             formatShortDate(c.lastBookingAt, timezone)
                           ) : (
@@ -224,7 +246,7 @@ export default async function CustomersPage({ searchParams }: Props) {
                           href={href}
                           prefetch={false}
                           tabIndex={-1}
-                          className={`${linkCell} text-right tabular-nums ${textSecondary}`}
+                          className={`${linkCellLast} text-right tabular-nums ${textSecondary}`}
                         >
                           {c.bookingCount}
                         </Link>

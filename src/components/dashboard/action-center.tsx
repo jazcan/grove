@@ -14,13 +14,13 @@ type Props = {
 
 export function ActionCenter({ actions }: Props) {
   return (
-    <section aria-labelledby="action-center-heading" className="ui-card p-5 sm:p-7">
+    <section aria-labelledby="next-best-actions-heading" className="ui-card p-5 sm:p-7">
       <div>
-        <h2 id="action-center-heading" className="text-lg font-semibold tracking-tight">
-          Action center
+        <h2 id="next-best-actions-heading" className="text-lg font-semibold tracking-tight">
+          Next best actions
         </h2>
         <p className="ui-hint mt-2">
-          Prioritized moves based on your calendar, customers, and setup—tap one to jump in.
+          A short list based on signals, your calendar, and setup—tap one to jump in.
         </p>
       </div>
 

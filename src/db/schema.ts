@@ -134,6 +134,11 @@ export const providerDashboardSignals = pgTable(
       .notNull()
       .references(() => providers.id, { onDelete: "cascade" }),
     signalKind: varchar("signal_kind", { length: 64 }).notNull(),
+    /** Latest context for this signal (e.g. contact info, error text); updated on each occurrence. */
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
     occurrenceCount: integer("occurrence_count").notNull().default(1),

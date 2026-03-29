@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { asFormAction } from "@/lib/form-action";
 import { CsrfField } from "@/components/csrf-field";
+import { TimeLocalSelect } from "@/components/time-local-select";
 import { deleteAvailabilityRule, upsertAvailabilityRule } from "@/actions/availability";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -50,13 +51,13 @@ export function WeeklyScheduleRow({
             ))}
           </select>
         </label>
-        <label className="ui-field min-w-[100px] flex-1 text-sm sm:max-w-[120px]">
+        <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[200px]">
           <span className="ui-label">Start</span>
-          <input name="startTimeLocal" className="ui-input mt-1" defaultValue={rule.startTimeLocal} />
+          <TimeLocalSelect name="startTimeLocal" defaultValue={rule.startTimeLocal} />
         </label>
-        <label className="ui-field min-w-[100px] flex-1 text-sm sm:max-w-[120px]">
+        <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[200px]">
           <span className="ui-label">End</span>
-          <input name="endTimeLocal" className="ui-input mt-1" defaultValue={rule.endTimeLocal} />
+          <TimeLocalSelect name="endTimeLocal" defaultValue={rule.endTimeLocal} />
         </label>
         <input type="hidden" name="isActive" value={active ? "on" : "off"} />
         <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium sm:pb-0.5">

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { DateTime } from "luxon";
+import { getHalfHourTimeOptions, optionForNonStandardTime } from "@/lib/time-options";
 
 type Props = {
   open: boolean;
@@ -12,18 +13,11 @@ type Props = {
   onConfirm: (payload: { startsAt: Date; endsAt: Date; reason: string }) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
-function toLocalInput(dt: DateTime): string {
-  return dt.toFormat("yyyy-MM-dd'T'HH:mm");
-}
-
-function fromLocalInput(raw: string, zone: string): DateTime | null {
-  const dt = DateTime.fromFormat(raw.trim(), "yyyy-MM-dd'T'HH:mm", { zone });
-  return dt.isValid ? dt : null;
-}
-
 export function BlockTimeModal({ open, onClose, timezone, initialStart, initialEnd, onConfirm }: Props) {
-  const [startStr, setStartStr] = useState("");
-  const [endStr, setEndStr] = useState("");
+  const standardTimes = useMemo(() => getHalfHourTimeOptions(), []);
+  const [dateStr, setDateStr] = useState("");
+  const [startHm, setStartHm] = useState("09:00");
+  const [endHm, setEndHm] = useState("10:00");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +26,9 @@ export function BlockTimeModal({ open, onClose, timezone, initialStart, initialE
     if (!open) return;
     const s = DateTime.fromJSDate(initialStart, { zone: timezone });
     const e = DateTime.fromJSDate(initialEnd, { zone: timezone });
-    setStartStr(toLocalInput(s));
-    setEndStr(toLocalInput(e));
+    setDateStr(s.toFormat("yyyy-MM-dd"));
+    setStartHm(s.toFormat("HH:mm"));
+    setEndHm(e.toFormat("HH:mm"));
     setReason("");
     setError(null);
     setSaving(false);
@@ -48,40 +43,55 @@ export function BlockTimeModal({ open, onClose, timezone, initialStart, initialE
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const startDt = useMemo(() => fromLocalInput(startStr, timezone), [startStr, timezone]);
-  const endDt = useMemo(() => fromLocalInput(endStr, timezone), [endStr, timezone]);
+  const startExtra = useMemo(() => optionForNonStandardTime(startHm, standardTimes), [startHm, standardTimes]);
+  const endExtra = useMemo(() => optionForNonStandardTime(endHm, standardTimes), [endHm, standardTimes]);
+
+  const startDt = useMemo(() => {
+    if (!dateStr) return null;
+    return DateTime.fromFormat(`${dateStr} ${startHm}`, "yyyy-MM-dd HH:mm", { zone: timezone });
+  }, [dateStr, startHm, timezone]);
+
+  const endDt = useMemo(() => {
+    if (!dateStr) return null;
+    return DateTime.fromFormat(`${dateStr} ${endHm}`, "yyyy-MM-dd HH:mm", { zone: timezone });
+  }, [dateStr, endHm, timezone]);
 
   const applyPreset = (kind: "30m" | "1h" | "rest" | "full") => {
-    const base = startDt ?? DateTime.now().setZone(timezone).startOf("hour");
+    const base = startDt?.isValid ? startDt : DateTime.now().setZone(timezone);
+    const day = base.startOf("day");
     if (kind === "30m") {
-      setStartStr(toLocalInput(base));
-      setEndStr(toLocalInput(base.plus({ minutes: 30 })));
+      setDateStr(base.toFormat("yyyy-MM-dd"));
+      setStartHm(base.toFormat("HH:mm"));
+      setEndHm(base.plus({ minutes: 30 }).toFormat("HH:mm"));
       return;
     }
     if (kind === "1h") {
-      setStartStr(toLocalInput(base));
-      setEndStr(toLocalInput(base.plus({ hours: 1 })));
+      setDateStr(base.toFormat("yyyy-MM-dd"));
+      setStartHm(base.toFormat("HH:mm"));
+      setEndHm(base.plus({ hours: 1 }).toFormat("HH:mm"));
       return;
     }
-    const day = base.startOf("day");
     if (kind === "rest") {
-      setStartStr(toLocalInput(base));
-      const endOfCalDay = day.set({ hour: 22, minute: 0 });
-      setEndStr(toLocalInput(endOfCalDay > base ? endOfCalDay : base.plus({ hours: 1 })));
+      setDateStr(base.toFormat("yyyy-MM-dd"));
+      setStartHm(base.toFormat("HH:mm"));
+      const last = day.set({ hour: 23, minute: 30, second: 0, millisecond: 0 });
+      const end = last > base ? last : base.plus({ hours: 1 });
+      setEndHm(end.toFormat("HH:mm"));
       return;
     }
-    setStartStr(toLocalInput(day.set({ hour: 5, minute: 0 })));
-    setEndStr(toLocalInput(day.set({ hour: 22, minute: 0 })));
+    setDateStr(base.toFormat("yyyy-MM-dd"));
+    setStartHm("05:00");
+    setEndHm("22:00");
   };
 
   const submit = async () => {
     setError(null);
-    if (!startDt || !endDt) {
-      setError("Check start and end times.");
+    if (!startDt || !endDt || !startDt.isValid || !endDt.isValid) {
+      setError("Check the date and times.");
       return;
     }
     if (endDt <= startDt) {
-      setError("End must be after start.");
+      setError("End time must be after start time.");
       return;
     }
     setSaving(true);
@@ -106,44 +116,67 @@ export function BlockTimeModal({ open, onClose, timezone, initialStart, initialE
       <div className="relative z-[1] flex max-h-[min(92dvh,640px)] w-full max-w-md flex-col rounded-t-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_-12px_40px_-16px_rgba(28,27,25,0.2)] sm:rounded-2xl sm:shadow-xl">
         <div className="border-b border-[var(--border)] px-5 py-4 sm:px-6">
           <h2 id="block-modal-title" className="text-lg font-semibold text-[var(--foreground)]">
-            Block off time
+            Block time
           </h2>
-          <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-            You can adjust times or add a short note.
-          </p>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-6">
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="ui-btn-secondary min-h-10 px-3 py-2 text-xs font-semibold sm:text-sm" onClick={() => applyPreset("30m")}>
-              30 minutes
+            <button type="button" className="ui-btn-secondary min-h-9 px-3 py-1.5 text-xs font-semibold" onClick={() => applyPreset("30m")}>
+              30 min
             </button>
-            <button type="button" className="ui-btn-secondary min-h-10 px-3 py-2 text-xs font-semibold sm:text-sm" onClick={() => applyPreset("1h")}>
+            <button type="button" className="ui-btn-secondary min-h-9 px-3 py-1.5 text-xs font-semibold" onClick={() => applyPreset("1h")}>
               1 hour
             </button>
-            <button type="button" className="ui-btn-secondary min-h-10 px-3 py-2 text-xs font-semibold sm:text-sm" onClick={() => applyPreset("rest")}>
+            <button type="button" className="ui-btn-secondary min-h-9 px-3 py-1.5 text-xs font-semibold" onClick={() => applyPreset("rest")}>
               Rest of day
             </button>
-            <button type="button" className="ui-btn-secondary min-h-10 px-3 py-2 text-xs font-semibold sm:text-sm" onClick={() => applyPreset("full")}>
+            <button type="button" className="ui-btn-secondary min-h-9 px-3 py-1.5 text-xs font-semibold" onClick={() => applyPreset("full")}>
               Full day
             </button>
           </div>
 
           <div className="mt-5 grid gap-4">
             <label className="ui-field text-sm">
+              <span className="ui-label">Date</span>
+              <input type="date" value={dateStr} onChange={(e) => setDateStr(e.target.value)} className="ui-input mt-1" />
+            </label>
+            <label className="ui-field text-sm">
               <span className="ui-label">Start</span>
-              <input type="datetime-local" value={startStr} onChange={(e) => setStartStr(e.target.value)} className="ui-input mt-1" />
+              <select value={startHm} onChange={(e) => setStartHm(e.target.value)} className="ui-input mt-1">
+                {startExtra ? (
+                  <option value={startExtra.value}>
+                    {startExtra.label}
+                  </option>
+                ) : null}
+                {standardTimes.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="ui-field text-sm">
               <span className="ui-label">End</span>
-              <input type="datetime-local" value={endStr} onChange={(e) => setEndStr(e.target.value)} className="ui-input mt-1" />
+              <select value={endHm} onChange={(e) => setEndHm(e.target.value)} className="ui-input mt-1">
+                {endExtra ? (
+                  <option value={endExtra.value}>
+                    {endExtra.label}
+                  </option>
+                ) : null}
+                {standardTimes.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="ui-field text-sm">
-              <span className="ui-label">Reason (optional)</span>
+              <span className="ui-label">Note (optional)</span>
               <input
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g. Appointment, travel, break"
+                placeholder="e.g. Lunch, travel"
                 className="ui-input mt-1"
               />
             </label>
@@ -161,7 +194,7 @@ export function BlockTimeModal({ open, onClose, timezone, initialStart, initialE
             Cancel
           </button>
           <button type="button" className="ui-btn-primary min-h-11 w-full px-6 text-sm font-semibold sm:w-auto" onClick={() => void submit()} disabled={saving}>
-            {saving ? "Saving…" : "Confirm block"}
+            {saving ? "Saving…" : "Block"}
           </button>
         </div>
       </div>

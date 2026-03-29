@@ -1,9 +1,9 @@
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import type { Database } from "@/db";
 import { providerDashboardSignals } from "@/db/schema";
 
-/** Customer saw the generic “couldn’t complete the booking” path (server-side failure after validation). */
-export const PUBLIC_BOOKING_SUBMIT_FAILED_KIND = "public_booking_submit_failed" as const;
+/** Public booking flow failed after validation (server error, DB, etc.). */
+export const BOOKING_FAILED_SIGNAL_KIND = "booking_failed" as const;
 
 export type ActivePublicBookingFailureSignal = {
   lastSeenAt: Date;
@@ -11,16 +11,54 @@ export type ActivePublicBookingFailureSignal = {
   occurrenceCount: number;
 };
 
-export async function recordPublicBookingSubmitFailed(
+export type ProviderSignalApiRow = {
+  id: string;
+  signalKind: string;
+  metadata: Record<string, unknown>;
+  firstSeenAt: Date;
+  lastSeenAt: Date;
+  occurrenceCount: number;
+  dismissedAt: Date | null;
+};
+
+export type ProviderSignalCta = {
+  label: string;
+  href: string;
+};
+
+/** UI-facing shape for dashboard and `GET /api/provider/signals`. */
+export type PresentedProviderSignal = {
+  id: string;
+  signalKind: string;
+  metadata: Record<string, unknown>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  occurrenceCount: number;
+  title: string;
+  description: string;
+  cta: ProviderSignalCta | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  secondaryCta: ProviderSignalCta | null;
+};
+
+/**
+ * Upsert a provider signal: same provider + kind increments count and refreshes last_seen_at
+ * and metadata (latest attempt wins for contextual fields).
+ */
+export async function logProviderSignal(
   db: Database,
-  providerId: string
+  providerId: string,
+  signalKind: string,
+  metadata: Record<string, unknown>
 ): Promise<void> {
   const now = new Date();
   await db
     .insert(providerDashboardSignals)
     .values({
       providerId,
-      signalKind: PUBLIC_BOOKING_SUBMIT_FAILED_KIND,
+      signalKind,
+      metadata,
       firstSeenAt: now,
       lastSeenAt: now,
       occurrenceCount: 1,
@@ -30,8 +68,95 @@ export async function recordPublicBookingSubmitFailed(
       set: {
         lastSeenAt: now,
         occurrenceCount: sql`${providerDashboardSignals.occurrenceCount} + 1`,
+        metadata: sql`EXCLUDED.metadata`,
       },
     });
+}
+
+export function presentProviderSignal(row: ProviderSignalApiRow): PresentedProviderSignal {
+  const base = {
+    id: row.id,
+    signalKind: row.signalKind,
+    metadata: row.metadata,
+    firstSeenAt: row.firstSeenAt.toISOString(),
+    lastSeenAt: row.lastSeenAt.toISOString(),
+    occurrenceCount: row.occurrenceCount,
+  };
+
+  if (row.signalKind === BOOKING_FAILED_SIGNAL_KIND) {
+    const meta = row.metadata ?? {};
+    const email = typeof meta.email === "string" ? meta.email : undefined;
+    const phone = typeof meta.phone === "string" ? meta.phone : undefined;
+
+    let cta: ProviderSignalCta | null = null;
+    if (email?.trim()) {
+      cta = { label: "Contact customer", href: `mailto:${encodeURIComponent(email.trim())}` };
+    } else if (phone?.trim()) {
+      const digits = phone.replace(/[^\d+]/g, "");
+      cta = digits ? { label: "Contact customer", href: `tel:${digits}` } : null;
+    }
+
+    return {
+      ...base,
+      title: "A customer couldn't complete a booking",
+      description:
+        "Someone tried to book through your public page but the request did not complete. Check your profile and availability.",
+      contactEmail: email?.trim() ?? null,
+      contactPhone: phone?.trim() ?? null,
+      cta,
+      secondaryCta: { label: "View details", href: "/dashboard/profile" },
+    };
+  }
+
+  return {
+    ...base,
+    title: row.signalKind,
+    description: "Open your dashboard for more context.",
+    contactEmail: null,
+    contactPhone: null,
+    cta: null,
+    secondaryCta: null,
+  };
+}
+
+/** Active signals (not dismissed, or new activity after dismiss), newest first. */
+export async function fetchPresentedProviderSignals(
+  db: Database,
+  providerId: string
+): Promise<PresentedProviderSignal[]> {
+  const rows = await db
+    .select({
+      id: providerDashboardSignals.id,
+      signalKind: providerDashboardSignals.signalKind,
+      metadata: providerDashboardSignals.metadata,
+      firstSeenAt: providerDashboardSignals.firstSeenAt,
+      lastSeenAt: providerDashboardSignals.lastSeenAt,
+      occurrenceCount: providerDashboardSignals.occurrenceCount,
+      dismissedAt: providerDashboardSignals.dismissedAt,
+    })
+    .from(providerDashboardSignals)
+    .where(
+      and(
+        eq(providerDashboardSignals.providerId, providerId),
+        or(
+          sql`${providerDashboardSignals.dismissedAt} is null`,
+          sql`${providerDashboardSignals.lastSeenAt} > ${providerDashboardSignals.dismissedAt}`
+        )
+      )
+    )
+    .orderBy(desc(providerDashboardSignals.lastSeenAt));
+
+  return rows.map((r) =>
+    presentProviderSignal({
+      id: r.id,
+      signalKind: r.signalKind,
+      metadata: r.metadata ?? {},
+      firstSeenAt: r.firstSeenAt,
+      lastSeenAt: r.lastSeenAt,
+      occurrenceCount: r.occurrenceCount,
+      dismissedAt: r.dismissedAt,
+    })
+  );
 }
 
 export async function getActivePublicBookingFailureSignal(
@@ -48,7 +173,7 @@ export async function getActivePublicBookingFailureSignal(
     .where(
       and(
         eq(providerDashboardSignals.providerId, providerId),
-        eq(providerDashboardSignals.signalKind, PUBLIC_BOOKING_SUBMIT_FAILED_KIND),
+        eq(providerDashboardSignals.signalKind, BOOKING_FAILED_SIGNAL_KIND),
         or(
           sql`${providerDashboardSignals.dismissedAt} is null`,
           sql`${providerDashboardSignals.lastSeenAt} > ${providerDashboardSignals.dismissedAt}`
@@ -74,7 +199,7 @@ export async function dismissPublicBookingFailureSignal(
     .where(
       and(
         eq(providerDashboardSignals.providerId, providerId),
-        eq(providerDashboardSignals.signalKind, PUBLIC_BOOKING_SUBMIT_FAILED_KIND)
+        eq(providerDashboardSignals.signalKind, BOOKING_FAILED_SIGNAL_KIND)
       )
     );
 }

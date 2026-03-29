@@ -1,18 +1,26 @@
-import Link from "next/link";
-import { and, asc, count, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { getDb } from "@/db";
-import { availabilityRules, bookings, customers, providers, services } from "@/db/schema";
+import {
+  availabilityRules,
+  bookings,
+  customers,
+  marketingSendLogs,
+  messageTemplates,
+  providers,
+  services,
+} from "@/db/schema";
 import { ActionCenter, type SmartAction } from "@/components/dashboard/action-center";
-import { CommandCenterStats } from "@/components/dashboard/command-center-stats";
-import { DashboardQuickActionsBar } from "@/components/dashboard/dashboard-quick-actions";
+import { AttentionNeededSection } from "@/components/dashboard/attention-needed";
+import {
+  DashboardRecentActivity,
+  type DashboardActivityItem,
+} from "@/components/dashboard/dashboard-recent-activity";
 import { NextAppointmentsPanel, type NextAppointmentRow } from "@/components/dashboard/next-appointments-panel";
 import { PublicProfileLiveCard } from "@/components/dashboard/public-profile-live-card";
 import { TodayOverview, type TodayBookingPreview } from "@/components/dashboard/today-overview";
-import { WeeklySnapshot } from "@/components/dashboard/weekly-snapshot";
 import { getCsrfTokenForForm } from "@/lib/csrf";
-import { getActivePublicBookingFailureSignal } from "@/domain/provider-dashboard-signals";
-import { PublicBookingIssueBanner } from "@/components/dashboard/public-booking-issue-banner";
+import { fetchPresentedProviderSignals } from "@/domain/provider-dashboard-signals";
 import { computeWeeklyAvailableMinutes } from "@/lib/dashboard-metrics";
 import { getEnv } from "@/lib/env";
 import { loadProviderSetupState } from "@/lib/provider-setup";
@@ -120,42 +128,6 @@ export default async function DashboardHomePage() {
       ? { startsAt: nextUpRows[0].startsAt, customerName: nextUpRows[0].customerName }
       : null;
 
-  const upcoming = await db
-    .select()
-    .from(bookings)
-    .where(eq(bookings.providerId, u.providerId))
-    .orderBy(desc(bookings.startsAt))
-    .limit(5);
-
-  const [wkCountRow] = await db
-    .select({ n: count() })
-    .from(bookings)
-    .where(
-      and(
-        eq(bookings.providerId, u.providerId),
-        ne(bookings.status, "cancelled"),
-        gte(bookings.startsAt, weekStart),
-        lte(bookings.startsAt, weekEnd)
-      )
-    );
-  const bookingsThisWeek = Number(wkCountRow?.n ?? 0);
-
-  const [wkRevRow] = await db
-    .select({
-      total: sql<string>`coalesce(sum((${bookings.paymentAmount})::numeric), 0)::text`,
-    })
-    .from(bookings)
-    .where(
-      and(
-        eq(bookings.providerId, u.providerId),
-        eq(bookings.paymentStatus, "paid"),
-        ne(bookings.status, "cancelled"),
-        gte(bookings.startsAt, weekStart),
-        lte(bookings.startsAt, weekEnd)
-      )
-    );
-  const revenueThisWeek = Number(wkRevRow?.total ?? 0);
-
   const availRuleRows = await db
     .select({
       dayOfWeek: availabilityRules.dayOfWeek,
@@ -194,36 +166,72 @@ export default async function DashboardHomePage() {
   const appUrl = getEnv().APP_URL.replace(/\/$/, "");
   const profileUrl = prov?.username ? `${appUrl}/${prov.username}` : appUrl;
 
-  const bookingFailureSignal = await getActivePublicBookingFailureSignal(db, u.providerId);
+  const presentedSignals = await fetchPresentedProviderSignals(db, u.providerId);
+  const hasSignals = presentedSignals.length > 0;
+
+  const recentBookingRows = await db
+    .select({
+      id: bookings.id,
+      createdAt: bookings.createdAt,
+      status: bookings.status,
+      customerName: customers.fullName,
+    })
+    .from(bookings)
+    .innerJoin(customers, eq(bookings.customerId, customers.id))
+    .where(eq(bookings.providerId, u.providerId))
+    .orderBy(desc(bookings.createdAt))
+    .limit(8);
+
+  const recentSendRows = await db
+    .select({
+      id: marketingSendLogs.id,
+      sentAt: marketingSendLogs.sentAt,
+      templateName: messageTemplates.name,
+    })
+    .from(marketingSendLogs)
+    .leftJoin(messageTemplates, eq(marketingSendLogs.templateId, messageTemplates.id))
+    .where(eq(marketingSendLogs.providerId, u.providerId))
+    .orderBy(desc(marketingSendLogs.sentAt))
+    .limit(8);
+
+  const merged: DashboardActivityItem[] = [
+    ...recentBookingRows.map((b) => ({
+      kind: "booking" as const,
+      id: b.id,
+      at: b.createdAt,
+      label: `Booking · ${b.customerName} (${b.status})`,
+      href: `/dashboard/bookings/${b.id}`,
+    })),
+    ...recentSendRows.map((s) => ({
+      kind: "campaign" as const,
+      id: s.id,
+      at: s.sentAt,
+      label: `Campaign sent · ${s.templateName ?? "Email"}`,
+      href: "/dashboard/marketing",
+    })),
+    ...presentedSignals.map((sig) => ({
+      kind: "signal" as const,
+      id: sig.id,
+      at: new Date(sig.lastSeenAt),
+      label: `Signal · ${sig.title} (${sig.occurrenceCount}×)`,
+      href: sig.secondaryCta?.href ?? "/dashboard/profile",
+    })),
+  ];
+  merged.sort((a, b) => b.at.getTime() - a.at.getTime());
+  const activityItems = merged.slice(0, 10);
 
   const actions: SmartAction[] = [];
-  if (!hasAnyBooking) {
+
+  if (hasSignals) {
     actions.push({
-      id: "no-bookings-campaign",
-      title: "You have no bookings yet",
-      body: "Create a campaign to reach new clients and fill your calendar.",
-      href: "/dashboard/marketing",
-      cta: "Create campaign",
+      id: "fix-signals",
+      title: "Resolve issues on your public booking page",
+      body: "Customers hit errors while booking—review signals and check profile, availability, and services.",
+      href: "/dashboard#attention",
+      cta: "Review signals",
     });
   }
-  if (setup.customerCount === 1 && !actions.some((a) => a.id === "no-bookings-campaign")) {
-    actions.push({
-      id: "one-customer",
-      title: "You have one customer",
-      body: "Invite them back with a follow-up, offer, or campaign from Marketing.",
-      href: "/dashboard/marketing",
-      cta: "Invite them back",
-    });
-  }
-  if (!setup.hasAvailability) {
-    actions.push({
-      id: "no-availability",
-      title: "Your availability is empty",
-      body: "Add weekly hours so clients can see open times and book you.",
-      href: "/dashboard/availability",
-      cta: "Add hours",
-    });
-  }
+
   if (setup.pendingBookingCount > 0) {
     actions.push({
       id: "pending",
@@ -233,6 +241,17 @@ export default async function DashboardHomePage() {
       cta: "Review pending",
     });
   }
+
+  if (!setup.hasAvailability) {
+    actions.push({
+      id: "no-availability",
+      title: "Your availability is empty",
+      body: "Add weekly hours so clients can see open times and book you.",
+      href: "/dashboard/availability",
+      cta: "Add hours",
+    });
+  }
+
   if (!setup.isPublished && setup.hasServices && setup.hasAvailability) {
     actions.push({
       id: "publish",
@@ -240,6 +259,41 @@ export default async function DashboardHomePage() {
       body: "Publish your public profile so your booking link works for clients.",
       href: "/dashboard/profile",
       cta: "Publish profile",
+    });
+  }
+
+  if (
+    utilizationPercent !== null &&
+    utilizationPercent < 20 &&
+    availableWeeklyMinutes > 0 &&
+    hasAnyBooking
+  ) {
+    actions.push({
+      id: "low-utilization",
+      title: "Your calendar is mostly open",
+      body: "Tweak your weekly hours or promote your link to fill more slots.",
+      href: "/dashboard/availability",
+      cta: "Adjust availability",
+    });
+  }
+
+  if (!hasAnyBooking) {
+    actions.push({
+      id: "no-bookings-campaign",
+      title: "You have no bookings yet",
+      body: "Create a campaign to reach new clients and fill your calendar.",
+      href: "/dashboard/marketing",
+      cta: "Create campaign",
+    });
+  }
+
+  if (setup.customerCount === 1 && !actions.some((a) => a.id === "no-bookings-campaign")) {
+    actions.push({
+      id: "one-customer",
+      title: "You have one customer",
+      body: "Invite them back with a follow-up, offer, or campaign from Marketing.",
+      href: "/dashboard/marketing",
+      cta: "Invite them back",
     });
   }
 
@@ -294,21 +348,15 @@ export default async function DashboardHomePage() {
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Command center</h1>
           <p className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
             {needsSetup
-              ? "Finish setup below, then use today’s overview and actions to drive bookings."
+              ? "Finish setup below, then use signals, today’s overview, and next actions to drive bookings."
               : published
-                ? "Run your day from here—bookings, revenue, and the next best move in one place."
+                ? "Signals first, then today’s numbers and the best next step—without duplicate metrics."
                 : "You’re close—publish when ready, then share your link to start filling the calendar."}
           </p>
         </header>
 
         <section className="mt-8 space-y-8 pb-12 sm:mt-10 sm:space-y-10">
-          {bookingFailureSignal ? (
-            <PublicBookingIssueBanner
-              csrfToken={csrf}
-              occurrenceCount={bookingFailureSignal.occurrenceCount}
-              lastSeenAt={bookingFailureSignal.lastSeenAt}
-            />
-          ) : null}
+          <AttentionNeededSection signals={presentedSignals} csrfToken={csrf} />
 
           <TodayOverview
             timezone={timezone}
@@ -322,11 +370,7 @@ export default async function DashboardHomePage() {
             username={prov?.username}
           />
 
-          <DashboardQuickActionsBar csrf={csrf} />
-
           <ActionCenter actions={actions.slice(0, 5)} />
-
-          <CommandCenterStats setup={setup} />
 
           {!needsSetup && published && prov?.username ? (
             <PublicProfileLiveCard username={prov.username} profileUrl={profileUrl} />
@@ -340,76 +384,13 @@ export default async function DashboardHomePage() {
             username={prov?.username}
           />
 
-          <WeeklySnapshot
-            bookingsThisWeek={bookingsThisWeek}
-            revenueThisWeek={revenueThisWeek}
-            currencyLabel={currencyLabel}
-            utilizationPercent={utilizationPercent}
-            hasAvailabilityRules={availRuleRows.some((r) => r.isActive)}
+          <DashboardRecentActivity
+            items={activityItems}
+            timezone={timezone}
+            hasAnyBooking={hasAnyBooking}
+            published={published}
+            username={prov?.username}
           />
-
-          <section
-            aria-labelledby="recent-heading"
-            className={[
-              "rounded-xl border border-dashed border-[var(--card-border)] bg-[color-mix(in_oklab,var(--surface-muted)_40%,var(--card))] p-4 sm:p-5",
-              !hasAnyBooking ? "opacity-95" : "",
-            ].join(" ")}
-          >
-            <div>
-              <h2 id="recent-heading" className="text-base font-medium tracking-tight text-[var(--muted)]">
-                Recent activity
-              </h2>
-              <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-                {hasAnyBooking
-                  ? "Latest movement on your bookings—newest first."
-                  : "Once bookings exist, you’ll see a short trail here."}
-              </p>
-            </div>
-
-            <div className="mt-4">
-              {upcoming.length ? (
-                <ul className="space-y-2 text-sm text-[var(--foreground)]">
-                  {upcoming.map((b) => (
-                    <li key={b.id}>
-                      <Link href={`/dashboard/bookings/${b.id}`} className="ui-link font-medium">
-                        {b.startsAt.toLocaleString(undefined, { timeZone: timezone })} — {b.status}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="rounded-lg border border-[var(--card-border)] bg-[var(--card)] p-4">
-                  <p className="text-sm font-medium text-[var(--foreground)]">No activity yet</p>
-                  <p className="ui-hint mt-2 text-sm leading-relaxed">
-                    Share your booking link or run a campaign—each new booking will appear here.
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {published && prov?.username ? (
-                      <Link
-                        href={`/${prov.username}`}
-                        className="ui-btn-secondary inline-flex min-h-10 items-center justify-center px-4 py-2 text-sm font-semibold no-underline"
-                      >
-                        Open public profile
-                      </Link>
-                    ) : (
-                      <Link
-                        href="/dashboard/profile"
-                        className="ui-btn-secondary inline-flex min-h-10 items-center justify-center px-4 py-2 text-sm font-semibold no-underline"
-                      >
-                        Finish profile
-                      </Link>
-                    )}
-                    <Link
-                      href="/dashboard/marketing"
-                      className="ui-btn-primary inline-flex min-h-10 items-center justify-center px-4 py-2 text-sm font-semibold no-underline"
-                    >
-                      Go to marketing
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
         </section>
       </div>
     </main>

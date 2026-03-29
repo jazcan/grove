@@ -23,7 +23,7 @@ import { plainTextFromInput } from "@/lib/sanitize";
 import { isReservedUsername } from "@/lib/reserved-usernames";
 import { enqueueNotification } from "@/lib/queue";
 import type { ActionState } from "@/domain/auth/actions";
-import { recordPublicBookingSubmitFailed } from "@/domain/provider-dashboard-signals";
+import { BOOKING_FAILED_SIGNAL_KIND, logProviderSignal } from "@/domain/provider-dashboard-signals";
 import { logAudit } from "@/lib/audit";
 import { emitPlatformEvent } from "@/platform/events/emit";
 
@@ -417,8 +417,14 @@ export async function submitPublicBooking(
       return { error: "That time was just taken. Pick another slot." };
     }
     console.error("[submitPublicBooking]", e);
+    const errorMessage = e instanceof Error ? e.message : String(e);
     try {
-      await recordPublicBookingSubmitFailed(db, prov.id);
+      await logProviderSignal(db, prov.id, BOOKING_FAILED_SIGNAL_KIND, {
+        email: customerEmail,
+        phone: customerPhone.trim() || undefined,
+        serviceId,
+        error: errorMessage,
+      });
       await logAudit({
         actorUserId: null,
         actorType: "customer",

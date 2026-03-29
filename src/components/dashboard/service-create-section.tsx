@@ -80,7 +80,7 @@ export function ServiceCreateSection({
     return (
       <section
         id="service-form"
-        className="max-w-[640px] scroll-mt-28 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] px-5 py-10 text-center shadow-[var(--shadow-card)] sm:px-8"
+        className="mx-auto w-full max-w-4xl scroll-mt-28 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] px-5 py-8 text-center shadow-[var(--shadow-card)] sm:px-8"
         aria-labelledby="create-from-scratch-heading"
       >
         <h2 id="create-from-scratch-heading" className="text-lg font-semibold text-[var(--foreground)]">
@@ -91,7 +91,7 @@ export function ServiceCreateSection({
         </p>
         <Link
           href="/dashboard/services?scratch=1#service-form"
-          className="ui-btn-secondary mt-6 inline-flex min-h-11 items-center justify-center px-6 text-sm font-semibold"
+          className="ui-btn-secondary mt-5 inline-flex min-h-11 w-full items-center justify-center px-6 text-sm font-semibold"
         >
           Create from scratch
         </Link>

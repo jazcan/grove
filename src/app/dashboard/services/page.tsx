@@ -1,5 +1,4 @@
 import { and, asc, count, eq, ne, sql } from "drizzle-orm";
-import Link from "next/link";
 import { getDb } from "@/db";
 import { availabilityRules, bookings, providers, services } from "@/db/schema";
 import { getCsrfTokenForForm } from "@/lib/csrf";
@@ -131,21 +130,9 @@ export default async function ServicesPage({ searchParams }: Props) {
         ) : null}
       </header>
 
-      <div className="mt-10 max-w-4xl space-y-14">
-        <section className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-6 sm:p-8 md:p-10">
-          <p className="text-center text-xs font-medium uppercase tracking-wide text-[color-mix(in_oklab,var(--foreground)_48%,transparent)]">
-            Start here
-          </p>
-          <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-            Choose a template below—everything is filled in for you. Prefer a blank form? Use{" "}
-            <Link href="/dashboard/services?scratch=1#service-form" className="font-medium text-[var(--accent)] underline underline-offset-2">
-              create from scratch
-            </Link>
-            .
-          </p>
-          <div className="mt-12">
-            <ServiceTemplatesHub templates={serviceTemplates} />
-          </div>
+      <div className="mt-8 max-w-4xl space-y-10">
+        <section className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-5 sm:p-6 md:p-8">
+          <ServiceTemplatesHub templates={serviceTemplates} />
         </section>
 
         <ServiceCreateSection

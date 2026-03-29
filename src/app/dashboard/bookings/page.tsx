@@ -8,6 +8,11 @@ import { getCsrfTokenForForm } from "@/lib/csrf";
 import { TodayBookingCard } from "@/components/dashboard/bookings/today-booking-card";
 import type { TodayBookingCardData } from "@/components/dashboard/bookings/today-booking-card";
 import { UpcomingBookingsGrouped, PastBookingsList } from "@/components/dashboard/bookings/upcoming-past";
+import {
+  ManualBookingModalRoot,
+  ManualBookingHeaderButton,
+  ManualBookingEmptyButton,
+} from "@/components/dashboard/bookings/add-manual-booking-modal";
 
 type Props = { searchParams: Promise<{ filter?: string }> };
 
@@ -39,13 +44,38 @@ export default async function BookingsPage({ searchParams }: Props) {
   const csrf = await getCsrfTokenForForm();
 
   const [prov] = await db
-    .select({ timezone: providers.timezone, username: providers.username })
+    .select({
+      timezone: providers.timezone,
+      username: providers.username,
+      bookingHorizonDays: providers.bookingHorizonDays,
+    })
     .from(providers)
     .where(eq(providers.id, u.providerId))
     .limit(1);
 
   const timezone = prov?.timezone ?? "America/Toronto";
   const publicProfilePath = prov?.username ? `/${prov.username}` : "/dashboard/profile";
+  const horizonDays = Math.max(1, Math.min(Number(prov?.bookingHorizonDays) || 60, 120));
+  const dayStart = DateTime.now().setZone(timezone).startOf("day");
+  const minDateISO = dayStart.toISODate()!;
+  const maxDateISO = dayStart.plus({ days: horizonDays }).toISODate()!;
+
+  const serviceOptions = await db
+    .select({ id: services.id, name: services.name })
+    .from(services)
+    .where(and(eq(services.providerId, u.providerId), eq(services.isActive, true)))
+    .orderBy(asc(services.sortOrder), asc(services.name));
+
+  const customerOptions = await db
+    .select({
+      id: customers.id,
+      fullName: customers.fullName,
+      email: customers.email,
+    })
+    .from(customers)
+    .where(eq(customers.providerId, u.providerId))
+    .orderBy(asc(customers.fullName))
+    .limit(500);
 
   const [totalRow] = await db
     .select({ n: count() })
@@ -134,59 +164,85 @@ export default async function BookingsPage({ searchParams }: Props) {
 
   if (totalBookings === 0) {
     return (
-      <main id="main-content" className="mx-auto max-w-4xl">
-        <header>
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">Bookings</h1>
-          <p className="mt-2 max-w-xl text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-            See what&apos;s scheduled and stay on top of your day.
-          </p>
-        </header>
-        <div className="mt-12 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)] px-6 py-14 text-center shadow-[var(--shadow-card)] sm:px-10">
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">You don&apos;t have any bookings yet</h2>
-          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-            Share your profile link and clients will be able to book you.
-          </p>
-          <Link
-            href={publicProfilePath}
-            className="ui-btn-primary mx-auto mt-8 inline-flex min-h-12 items-center justify-center px-6 text-sm font-semibold"
-          >
-            View your public profile
-          </Link>
-        </div>
-      </main>
+      <ManualBookingModalRoot
+        csrf={csrf}
+        services={serviceOptions}
+        customers={customerOptions}
+        timezone={timezone}
+        minDateISO={minDateISO}
+        maxDateISO={maxDateISO}
+      >
+        <main id="main-content" className="mx-auto max-w-4xl">
+          <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">Bookings</h1>
+              <p className="mt-2 max-w-xl text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
+                See what&apos;s scheduled and stay on top of your day.
+              </p>
+            </div>
+            <ManualBookingHeaderButton />
+          </header>
+          <div className="mt-12 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)] px-6 py-14 text-center shadow-[var(--shadow-card)] sm:px-10">
+            <h2 className="text-lg font-semibold text-[var(--foreground)]">You don&apos;t have any bookings yet</h2>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
+              Share your profile link and clients will be able to book you—or add an appointment yourself.
+            </p>
+            <div className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
+              <ManualBookingEmptyButton className="ui-btn-primary inline-flex min-h-12 items-center justify-center px-6 text-sm font-semibold" />
+              <Link
+                href={publicProfilePath}
+                className="ui-btn-secondary inline-flex min-h-12 items-center justify-center px-6 text-sm font-semibold"
+              >
+                View your public profile
+              </Link>
+            </div>
+          </div>
+        </main>
+      </ManualBookingModalRoot>
     );
   }
 
   return (
-    <main id="main-content" className="mx-auto max-w-4xl">
-      <header className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">Bookings</h1>
-          <p className="mt-2 max-w-xl text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-            See what&apos;s scheduled and stay on top of your day.
-          </p>
-        </div>
-        <nav className="flex shrink-0 flex-wrap gap-2" aria-label="Filter by status">
-          <Link
-            href={buildFilterHref("all")}
-            className={`${tabBase} ${filter === "all" ? tabActive : tabIdle}`}
-          >
-            All
-          </Link>
-          <Link
-            href={buildFilterHref("confirmed")}
-            className={`${tabBase} ${filter === "confirmed" ? tabActive : tabIdle}`}
-          >
-            Confirmed
-          </Link>
-          <Link
-            href={buildFilterHref("pending")}
-            className={`${tabBase} ${filter === "pending" ? tabActive : tabIdle}`}
-          >
-            Pending
-          </Link>
-        </nav>
-      </header>
+    <ManualBookingModalRoot
+      csrf={csrf}
+      services={serviceOptions}
+      customers={customerOptions}
+      timezone={timezone}
+      minDateISO={minDateISO}
+      maxDateISO={maxDateISO}
+    >
+      <main id="main-content" className="mx-auto max-w-4xl">
+        <header className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">Bookings</h1>
+              <p className="mt-2 max-w-xl text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
+                See what&apos;s scheduled and stay on top of your day.
+              </p>
+            </div>
+            <ManualBookingHeaderButton />
+          </div>
+          <nav className="flex flex-wrap gap-2" aria-label="Filter by status">
+            <Link
+              href={buildFilterHref("all")}
+              className={`${tabBase} ${filter === "all" ? tabActive : tabIdle}`}
+            >
+              All
+            </Link>
+            <Link
+              href={buildFilterHref("confirmed")}
+              className={`${tabBase} ${filter === "confirmed" ? tabActive : tabIdle}`}
+            >
+              Confirmed
+            </Link>
+            <Link
+              href={buildFilterHref("pending")}
+              className={`${tabBase} ${filter === "pending" ? tabActive : tabIdle}`}
+            >
+              Pending
+            </Link>
+          </nav>
+        </header>
 
       <section className="mt-10" aria-labelledby="bookings-today-heading">
         <h2 id="bookings-today-heading" className="text-lg font-semibold text-[var(--foreground)]">
@@ -236,6 +292,7 @@ export default async function BookingsPage({ searchParams }: Props) {
           <PastBookingsList rows={pastCards} timezone={timezone} />
         </div>
       </section>
-    </main>
+      </main>
+    </ManualBookingModalRoot>
   );
 }

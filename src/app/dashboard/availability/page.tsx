@@ -4,6 +4,7 @@ import { availabilityRules, blockedTimes, bookings, customers, providers, servic
 import { asFormAction } from "@/lib/form-action";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { CsrfField } from "@/components/csrf-field";
+import { TimeLocalSelect } from "@/components/time-local-select";
 import { requireProvider } from "@/lib/tenancy";
 import { AvailabilityCalendar } from "@/app/dashboard/availability/availability-calendar";
 import { AvailabilityQuickBlockBar } from "@/app/dashboard/availability/availability-quick-block-bar";
@@ -113,14 +114,11 @@ export default async function AvailabilityPage({ searchParams }: Props) {
   } as const;
 
   return (
-    <main id="main-content">
-      <header className="max-w-3xl">
+    <main id="main-content" className="mx-auto w-full max-w-3xl">
+      <header>
         <h1 className="text-2xl font-semibold tracking-tight">Availability</h1>
-        <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
-          Set when you&apos;re available for bookings.
-        </p>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-          Block time in one or two clicks when plans change — use Quick block, or click / drag directly on the calendar.
+        <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
+          Weekly hours, calendar blocks, and pausing new bookings.
         </p>
         {saved ? (
           <div
@@ -143,9 +141,9 @@ export default async function AvailabilityPage({ searchParams }: Props) {
             role="status"
             className="mt-4 rounded-xl border border-[color-mix(in_oklab,var(--foreground)_12%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_4%,var(--background))] px-4 py-3 text-sm"
           >
-            <div className="font-medium text-[var(--foreground)]">Smart suggestion</div>
+            <div className="font-medium text-[var(--foreground)]">Tip</div>
             <p className="mt-1 text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
-              Add at least two days of weekly hours to start getting predictable bookings — or use a preset below.
+              Add at least two days of weekly hours (or use a preset) so clients see more options.
             </p>
           </div>
         ) : suggestMoreDays ? (
@@ -153,22 +151,22 @@ export default async function AvailabilityPage({ searchParams }: Props) {
             role="status"
             className="mt-4 rounded-xl border border-[color-mix(in_oklab,var(--foreground)_12%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_4%,var(--background))] px-4 py-3 text-sm"
           >
-            <div className="font-medium text-[var(--foreground)]">Smart suggestion</div>
+            <div className="font-medium text-[var(--foreground)]">Tip</div>
             <p className="mt-1 text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
-              You only have one active day right now. Add at least two days so clients see more options.
+              You only have one active day. Add another weekday for more booking slots.
             </p>
           </div>
         ) : null}
 
-        <div className="mt-6 max-w-3xl">
+        <div className="mt-6">
           <AvailabilityQuickBlockBar csrf={csrf} timezone={tz} />
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-4 sm:p-5">
-            <div className="text-sm font-semibold text-[var(--foreground)]">Pause bookings temporarily</div>
-            <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-              Stops new online bookings instantly. Your calendar and existing appointments stay as they are.
+            <div className="text-sm font-semibold text-[var(--foreground)]">Pause new bookings</div>
+            <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
+              Stops new online bookings. Your calendar and existing appointments stay the same.
             </p>
             <form action={asFormAction(setBookingsPaused)} className="mt-4">
               <CsrfField token={csrf} />
@@ -178,14 +176,14 @@ export default async function AvailabilityPage({ searchParams }: Props) {
               </button>
             </form>
             {bookingsPaused ? (
-              <p className="mt-2 text-xs font-medium text-[var(--accent)]">Bookings are paused — your public page shows no available times.</p>
+              <p className="mt-2 text-xs font-medium text-[var(--accent)]">Paused — no times on your public page.</p>
             ) : null}
           </div>
 
           <div className="rounded-xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-4 sm:p-5">
             <div className="text-sm font-semibold text-[var(--foreground)]">Working hours presets</div>
-            <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-              One-click templates. This replaces your current weekly hours (not blocked time).
+            <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
+              Replaces weekly hours only (not blocked time).
             </p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <form action={asFormAction(applyWorkingHoursPreset)} className="min-w-0 flex-1 sm:min-w-[200px]">
@@ -199,45 +197,38 @@ export default async function AvailabilityPage({ searchParams }: Props) {
                 <CsrfField token={csrf} />
                 <input type="hidden" name="preset" value="evenings_only" />
                 <button type="submit" className="ui-btn-secondary min-h-11 w-full px-4 text-sm font-semibold">
-                  Evenings only (5–9pm)
+                  Evenings (5–9pm)
                 </button>
               </form>
             </div>
           </div>
         </div>
-
       </header>
 
       <section className="mt-10">
         <AvailabilityCalendar csrf={csrf} {...calendarProps} />
       </section>
 
-      <section id="weekly-schedule" className="mt-20 max-w-2xl scroll-mt-28">
+      <section id="weekly-schedule" className="mt-16 scroll-mt-28">
         <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">Weekly hours</h2>
-        <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-          Your usual windows for bookings. Edit inline, toggle a day off, or add another row.
-        </p>
 
         <form
           action={asFormAction(applyHoursToWeekdays)}
-          className="mt-8 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--background)] p-4 sm:p-5"
+          className="mt-6 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--background)] p-4 sm:p-5"
         >
           <CsrfField token={csrf} />
-          <p className="text-sm font-semibold text-[var(--foreground)]">Apply to all weekdays</p>
-          <p className="mt-1 text-xs text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
-            Sets Mon–Fri to the same hours. Weekend rows are left as they are.
-          </p>
+          <p className="text-sm font-semibold text-[var(--foreground)]">Apply to Mon–Fri</p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-            <label className="ui-field min-w-[100px] flex-1 text-sm sm:max-w-[120px]">
+            <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[200px]">
               <span className="ui-label">Start</span>
-              <input name="startTimeLocal" defaultValue="09:00" className="ui-input mt-1" />
+              <TimeLocalSelect name="startTimeLocal" defaultValue="09:00" />
             </label>
-            <label className="ui-field min-w-[100px] flex-1 text-sm sm:max-w-[120px]">
+            <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[200px]">
               <span className="ui-label">End</span>
-              <input name="endTimeLocal" defaultValue="17:00" className="ui-input mt-1" />
+              <TimeLocalSelect name="endTimeLocal" defaultValue="17:00" />
             </label>
             <button type="submit" className="ui-btn-primary min-h-11 w-full px-5 text-sm font-semibold sm:w-auto">
-              Apply Mon–Fri
+              Apply
             </button>
           </div>
         </form>
@@ -260,15 +251,14 @@ export default async function AvailabilityPage({ searchParams }: Props) {
             ))
           ) : (
             <p className="px-4 py-8 text-center text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-              No weekly rows yet — use a preset above or add a window below.
+              No weekly rows yet — use a preset or add a window below.
             </p>
           )}
         </div>
 
         <form action={asFormAction(upsertAvailabilityRule)} className="mt-10 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-5 shadow-[var(--shadow-card)]">
           <CsrfField token={csrf} />
-          <p className="text-sm font-semibold text-[var(--foreground)]">Add another window</p>
-          <p className="mt-1 text-xs text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">Same day can have multiple ranges (e.g. morning and evening).</p>
+          <p className="text-sm font-semibold text-[var(--foreground)]">Add a window</p>
           <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
             <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[180px]">
               <span className="ui-label">Day</span>
@@ -280,27 +270,25 @@ export default async function AvailabilityPage({ searchParams }: Props) {
                 ))}
               </select>
             </label>
-            <label className="ui-field min-w-[120px] flex-1 text-sm sm:max-w-[140px]">
+            <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[200px]">
               <span className="ui-label">Start</span>
-              <input name="startTimeLocal" defaultValue="09:00" className="ui-input mt-1" />
+              <TimeLocalSelect name="startTimeLocal" defaultValue="09:00" />
             </label>
-            <label className="ui-field min-w-[120px] flex-1 text-sm sm:max-w-[140px]">
+            <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[200px]">
               <span className="ui-label">End</span>
-              <input name="endTimeLocal" defaultValue="17:00" className="ui-input mt-1" />
+              <TimeLocalSelect name="endTimeLocal" defaultValue="17:00" />
             </label>
             <input type="hidden" name="isActive" value="on" />
             <button type="submit" className="ui-btn-primary min-h-11 w-full px-6 text-sm font-semibold sm:ml-auto sm:w-auto">
-              Add hours
+              Add
             </button>
           </div>
         </form>
       </section>
 
-      <section id="blocked-time-list" className="mt-20 max-w-2xl scroll-mt-28">
+      <section id="blocked-time-list" className="mt-16 scroll-mt-28">
         <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">Blocked time</h2>
-        <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-          One-off blocks from the calendar. Remove any that are no longer needed.
-        </p>
+        <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">Remove blocks you no longer need.</p>
         <div className="mt-6">
           <BlockedTimeList
             timezone={tz}

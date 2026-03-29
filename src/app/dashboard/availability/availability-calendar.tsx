@@ -401,8 +401,8 @@ export function AvailabilityCalendar(props: {
           <div className="text-xs font-semibold uppercase tracking-wide text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
             Calendar
           </div>
-          <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-            Click a slot for a 1-hour block. Drag to block a range — it saves immediately.
+          <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
+            Click or drag to block; saves right away. Times shown in 12-hour format.
           </p>
         </div>
 
@@ -452,10 +452,8 @@ export function AvailabilityCalendar(props: {
       </div>
 
       <aside className="h-fit rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--background)] p-4 shadow-[var(--shadow-card)] sm:p-5">
-        <p className="text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
-          Blocking is instant: you&apos;ll see a short &quot;Blocking…&quot; strip, then the confirmed block. Remove mistakes from Blocked time below.
-        </p>
-        <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium">
+        <p className="text-sm font-medium text-[var(--foreground)]">Legend</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
           <span className="rounded-md px-2 py-1" style={{ background: "rgba(34, 197, 94, 0.18)" }}>
             Available
           </span>
