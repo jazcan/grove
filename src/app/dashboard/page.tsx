@@ -1,11 +1,18 @@
 import Link from "next/link";
-import { eq, desc } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
+import { DateTime } from "luxon";
 import { getDb } from "@/db";
-import { bookings, providers } from "@/db/schema";
-import { CopyPublicProfileUrlButton } from "@/components/dashboard/copy-public-profile-url-button";
+import { availabilityRules, bookings, customers, providers, services } from "@/db/schema";
+import { ActionCenter, type SmartAction } from "@/components/dashboard/action-center";
 import { CommandCenterStats } from "@/components/dashboard/command-center-stats";
 import { DashboardNextSteps } from "@/components/dashboard/dashboard-next-steps";
+import { DashboardQuickActionsBar } from "@/components/dashboard/dashboard-quick-actions";
+import { NextAppointmentsPanel, type NextAppointmentRow } from "@/components/dashboard/next-appointments-panel";
 import { PublicProfileLiveCard } from "@/components/dashboard/public-profile-live-card";
+import { TodayOverview, type TodayBookingPreview } from "@/components/dashboard/today-overview";
+import { WeeklySnapshot } from "@/components/dashboard/weekly-snapshot";
+import { getCsrfTokenForForm } from "@/lib/csrf";
+import { computeWeeklyAvailableMinutes } from "@/lib/dashboard-metrics";
 import { getEnv } from "@/lib/env";
 import { buildProviderSetupSteps, loadProviderSetupState } from "@/lib/provider-setup";
 import { requireProvider } from "@/lib/tenancy";
@@ -13,6 +20,7 @@ import { requireProvider } from "@/lib/tenancy";
 export default async function DashboardHomePage() {
   const u = await requireProvider();
   const db = getDb();
+  const csrf = await getCsrfTokenForForm();
   const [prov] = await db
     .select()
     .from(providers)
@@ -29,6 +37,88 @@ export default async function DashboardHomePage() {
     .limit(1);
   const hasAnyBooking = !!anyBooking;
 
+  const [svcCur] = await db
+    .select({ currency: services.currency })
+    .from(services)
+    .where(eq(services.providerId, u.providerId))
+    .limit(1);
+  const currencyLabel = (svcCur?.currency ?? "CAD").toUpperCase();
+
+  const startOfToday = DateTime.now().setZone(timezone).startOf("day");
+  const endOfToday = DateTime.now().setZone(timezone).endOf("day");
+  const now = new Date();
+  const z = DateTime.now().setZone(timezone);
+  const weekStart = z.startOf("week").toJSDate();
+  const weekEnd = z.endOf("week").toJSDate();
+
+  const todayRows = await db
+    .select({
+      id: bookings.id,
+      startsAt: bookings.startsAt,
+      status: bookings.status,
+      customerName: customers.fullName,
+    })
+    .from(bookings)
+    .innerJoin(customers, eq(bookings.customerId, customers.id))
+    .where(
+      and(
+        eq(bookings.providerId, u.providerId),
+        ne(bookings.status, "cancelled"),
+        gte(bookings.startsAt, startOfToday.toJSDate()),
+        lte(bookings.startsAt, endOfToday.toJSDate())
+      )
+    )
+    .orderBy(asc(bookings.startsAt));
+
+  const todayBookings: TodayBookingPreview[] = todayRows.map((r) => ({
+    id: r.id,
+    startsAt: r.startsAt,
+    status: r.status,
+    customerName: r.customerName,
+  }));
+
+  const [revTodayRow] = await db
+    .select({
+      total: sql<string>`coalesce(sum((${bookings.paymentAmount})::numeric), 0)::text`,
+    })
+    .from(bookings)
+    .where(
+      and(
+        eq(bookings.providerId, u.providerId),
+        eq(bookings.paymentStatus, "paid"),
+        ne(bookings.status, "cancelled"),
+        gte(bookings.startsAt, startOfToday.toJSDate()),
+        lte(bookings.startsAt, endOfToday.toJSDate())
+      )
+    );
+  const revenueToday = Number(revTodayRow?.total ?? 0);
+
+  const upcomingRows = await db
+    .select({
+      id: bookings.id,
+      startsAt: bookings.startsAt,
+      status: bookings.status,
+      customerName: customers.fullName,
+    })
+    .from(bookings)
+    .innerJoin(customers, eq(bookings.customerId, customers.id))
+    .where(eq(bookings.providerId, u.providerId))
+    .orderBy(asc(bookings.startsAt))
+    .limit(40);
+
+  const nextUpRows = upcomingRows.filter((b) => b.startsAt >= now);
+  const nextAppointments: NextAppointmentRow[] = nextUpRows.slice(0, 3).map((b) => ({
+    id: b.id,
+    startsAt: b.startsAt,
+    status: b.status,
+    customerName: b.customerName,
+  }));
+
+  const nextForOverview =
+    nextUpRows[0] != null
+      ? { startsAt: nextUpRows[0].startsAt, customerName: nextUpRows[0].customerName }
+      : null;
+
   const upcoming = await db
     .select()
     .from(bookings)
@@ -36,15 +126,67 @@ export default async function DashboardHomePage() {
     .orderBy(desc(bookings.startsAt))
     .limit(5);
 
-  const now = new Date();
-  const soon = await db
-    .select()
+  const [wkCountRow] = await db
+    .select({ n: count() })
     .from(bookings)
-    .where(eq(bookings.providerId, u.providerId))
-    .orderBy(bookings.startsAt)
-    .limit(20);
+    .where(
+      and(
+        eq(bookings.providerId, u.providerId),
+        ne(bookings.status, "cancelled"),
+        gte(bookings.startsAt, weekStart),
+        lte(bookings.startsAt, weekEnd)
+      )
+    );
+  const bookingsThisWeek = Number(wkCountRow?.n ?? 0);
 
-  const nextUp = soon.filter((b) => b.startsAt >= now).slice(0, 3);
+  const [wkRevRow] = await db
+    .select({
+      total: sql<string>`coalesce(sum((${bookings.paymentAmount})::numeric), 0)::text`,
+    })
+    .from(bookings)
+    .where(
+      and(
+        eq(bookings.providerId, u.providerId),
+        eq(bookings.paymentStatus, "paid"),
+        ne(bookings.status, "cancelled"),
+        gte(bookings.startsAt, weekStart),
+        lte(bookings.startsAt, weekEnd)
+      )
+    );
+  const revenueThisWeek = Number(wkRevRow?.total ?? 0);
+
+  const availRuleRows = await db
+    .select({
+      dayOfWeek: availabilityRules.dayOfWeek,
+      startTimeLocal: availabilityRules.startTimeLocal,
+      endTimeLocal: availabilityRules.endTimeLocal,
+      isActive: availabilityRules.isActive,
+    })
+    .from(availabilityRules)
+    .where(eq(availabilityRules.providerId, u.providerId));
+
+  const weekBookingsForUtil = await db
+    .select({
+      startsAt: bookings.startsAt,
+      endsAt: bookings.endsAt,
+      status: bookings.status,
+    })
+    .from(bookings)
+    .where(
+      and(eq(bookings.providerId, u.providerId), gte(bookings.startsAt, weekStart), lte(bookings.startsAt, weekEnd))
+    );
+
+  const availableWeeklyMinutes = computeWeeklyAvailableMinutes(timezone, availRuleRows, now);
+  let bookedWeeklyMinutes = 0;
+  for (const b of weekBookingsForUtil) {
+    if (b.status === "cancelled") continue;
+    bookedWeeklyMinutes += (b.endsAt.getTime() - b.startsAt.getTime()) / 60000;
+  }
+  const utilizationPercent =
+    availableWeeklyMinutes > 0
+      ? Math.min(100, Math.round((bookedWeeklyMinutes / availableWeeklyMinutes) * 100))
+      : null;
+
   const published = setup.isPublished;
   const needsSetup = setup.needsSetup;
 
@@ -53,34 +195,128 @@ export default async function DashboardHomePage() {
 
   const setupSteps = buildProviderSetupSteps(setup);
 
+  const actions: SmartAction[] = [];
+  if (!hasAnyBooking) {
+    actions.push({
+      id: "no-bookings-campaign",
+      title: "You have no bookings yet",
+      body: "Create a campaign to reach new clients and fill your calendar.",
+      href: "/dashboard/marketing",
+      cta: "Create campaign",
+    });
+  }
+  if (setup.customerCount === 1 && !actions.some((a) => a.id === "no-bookings-campaign")) {
+    actions.push({
+      id: "one-customer",
+      title: "You have one customer",
+      body: "Invite them back with a follow-up, offer, or campaign from Marketing.",
+      href: "/dashboard/marketing",
+      cta: "Invite them back",
+    });
+  }
+  if (!setup.hasAvailability) {
+    actions.push({
+      id: "no-availability",
+      title: "Your availability is empty",
+      body: "Add weekly hours so clients can see open times and book you.",
+      href: "/dashboard/availability",
+      cta: "Add hours",
+    });
+  }
+  if (setup.pendingBookingCount > 0) {
+    actions.push({
+      id: "pending",
+      title: `${setup.pendingBookingCount} pending booking${setup.pendingBookingCount === 1 ? "" : "s"}`,
+      body: "Confirm or adjust these requests before times slip away.",
+      href: "/dashboard/bookings?filter=pending",
+      cta: "Review pending",
+    });
+  }
+  if (!setup.isPublished && setup.hasServices && setup.hasAvailability) {
+    actions.push({
+      id: "publish",
+      title: "Profile isn’t live",
+      body: "Publish your public profile so your booking link works for clients.",
+      href: "/dashboard/profile",
+      cta: "Publish profile",
+    });
+  }
+
+  const fillerActions: SmartAction[] = [
+    {
+      id: "filler-marketing",
+      title: "Stay on clients’ minds",
+      body: "Send a promotion or reusable message from Marketing.",
+      href: "/dashboard/marketing",
+      cta: "Open marketing",
+    },
+    {
+      id: "filler-services",
+      title: "Tune what you sell",
+      body: "Adjust services, timing, and pricing so bookings convert.",
+      href: "/dashboard/services",
+      cta: "Manage services",
+    },
+    {
+      id: "filler-availability",
+      title: "Protect your time",
+      body: "Block personal time or extend hours where you want more volume.",
+      href: "/dashboard/availability",
+      cta: "Edit availability",
+    },
+    {
+      id: "filler-customers",
+      title: "Grow your list",
+      body: "Add clients you already know so follow-ups stay organized.",
+      href: "/dashboard/customers",
+      cta: "View customers",
+    },
+  ];
+
+  const seenIds = new Set(actions.map((a) => a.id));
+  const hasMarketingHref = actions.some((a) => a.href === "/dashboard/marketing");
+  const hasAvailabilityHref = actions.some((a) => a.href === "/dashboard/availability");
+  for (const f of fillerActions) {
+    if (actions.length >= 5) break;
+    if (f.id === "filler-marketing" && hasMarketingHref) continue;
+    if (f.id === "filler-availability" && hasAvailabilityHref) continue;
+    if (!seenIds.has(f.id)) {
+      actions.push(f);
+      seenIds.add(f.id);
+    }
+  }
+
   return (
     <main id="main-content">
       <div className="mx-auto max-w-[800px]">
         <header className="pt-1">
-          {!hasAnyBooking ? (
-            <>
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                {needsSetup ? "Let’s finish your setup" : "You’re ready—let’s get your first booking"}
-              </h1>
-              <p className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
-                {needsSetup
-                  ? "Complete the steps below so clients can see your services and book time with you."
-                  : "You’ve set up your profile. Now let clients find you and start booking."}
-              </p>
-            </>
-          ) : (
-            <>
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Command center</h1>
-              <p className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
-                {published
-                  ? "Snapshot of your schedule, pipeline, and client base."
-                  : "You’re almost ready to start accepting bookings—finish publishing when you’re set."}
-              </p>
-            </>
-          )}
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Command center</h1>
+          <p className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
+            {needsSetup
+              ? "Finish setup below, then use today’s overview and actions to drive bookings."
+              : published
+                ? "Run your day from here—bookings, revenue, and the next best move in one place."
+                : "You’re close—publish when ready, then share your link to start filling the calendar."}
+          </p>
         </header>
 
         <section className="mt-8 space-y-8 pb-12 sm:mt-10 sm:space-y-10">
+          <TodayOverview
+            timezone={timezone}
+            todayBookings={todayBookings}
+            revenueToday={revenueToday}
+            currencyLabel={currencyLabel}
+            nextBooking={nextForOverview}
+            hasAnyBooking={hasAnyBooking}
+            published={published}
+            profileUrl={profileUrl}
+            username={prov?.username}
+          />
+
+          <DashboardQuickActionsBar csrf={csrf} />
+
+          <ActionCenter actions={actions.slice(0, 5)} />
+
           <CommandCenterStats setup={setup} />
 
           {needsSetup ? <DashboardNextSteps steps={[...setupSteps]} /> : null}
@@ -89,77 +325,21 @@ export default async function DashboardHomePage() {
             <PublicProfileLiveCard username={prov.username} profileUrl={profileUrl} />
           ) : null}
 
-          <section aria-labelledby="upcoming-heading" className="ui-card p-5 sm:p-7">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-              <div>
-                <h2 id="upcoming-heading" className="text-lg font-semibold tracking-tight">
-                  Next appointments
-                </h2>
-                <p className="ui-hint mt-2">Your upcoming schedule at a glance.</p>
-              </div>
-              <Link href="/dashboard/bookings" className="ui-link shrink-0 text-sm font-semibold">
-                View all
-              </Link>
-            </div>
+          <NextAppointmentsPanel
+            timezone={timezone}
+            appointments={nextAppointments}
+            published={published}
+            profileUrl={profileUrl}
+            username={prov?.username}
+          />
 
-            <div className="mt-6">
-              {nextUp.length ? (
-                <ul className="space-y-3">
-                  {nextUp.map((b) => (
-                    <li key={b.id}>
-                      <Link
-                        href={`/dashboard/bookings/${b.id}`}
-                        className="ui-card block px-4 py-3 shadow-none transition-colors hover:bg-[var(--surface-muted)] sm:px-5 sm:py-4"
-                      >
-                        <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="text-sm font-semibold capitalize text-[var(--foreground)]">
-                            {b.status}
-                          </span>
-                          <time className="text-sm text-[var(--muted)]" dateTime={b.startsAt.toISOString()}>
-                            {b.startsAt.toLocaleString()}
-                          </time>
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="ui-empty-state flex flex-col items-center px-5 py-8 text-center sm:flex-row sm:items-start sm:text-left">
-                  <div
-                    className="mb-4 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)] ring-1 ring-[var(--accent-soft-border)] sm:mb-0 sm:mr-5"
-                    aria-hidden
-                  >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5a2.25 2.25 0 012.25 2.25v7.5"
-                      />
-                    </svg>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold text-[var(--foreground)]">No bookings yet</div>
-                    <p className="ui-hint mt-2 leading-relaxed">
-                      When clients book you, your upcoming appointments will appear here.
-                    </p>
-                    {published && prov?.username ? (
-                      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                        <Link href={`/${prov.username}`} className="ui-btn-primary inline-flex min-h-11 justify-center text-sm no-underline">
-                          Preview your profile
-                        </Link>
-                        <CopyPublicProfileUrlButton
-                          url={profileUrl}
-                          className="ui-btn-secondary inline-flex min-h-11 justify-center px-5 py-2.5 text-sm font-semibold"
-                        >
-                          Share with clients
-                        </CopyPublicProfileUrlButton>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
+          <WeeklySnapshot
+            bookingsThisWeek={bookingsThisWeek}
+            revenueThisWeek={revenueThisWeek}
+            currencyLabel={currencyLabel}
+            utilizationPercent={utilizationPercent}
+            hasAvailabilityRules={availRuleRows.some((r) => r.isActive)}
+          />
 
           <section
             aria-labelledby="recent-heading"
@@ -174,8 +354,8 @@ export default async function DashboardHomePage() {
               </h2>
               <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
                 {hasAnyBooking
-                  ? "Updates from your latest bookings."
-                  : "When bookings come in, a short history will show here."}
+                  ? "Latest movement on your bookings—newest first."
+                  : "Once bookings exist, you’ll see a short trail here."}
               </p>
             </div>
 
@@ -185,13 +365,41 @@ export default async function DashboardHomePage() {
                   {upcoming.map((b) => (
                     <li key={b.id}>
                       <Link href={`/dashboard/bookings/${b.id}`} className="ui-link font-medium">
-                        {b.startsAt.toLocaleString()} — {b.status}
+                        {b.startsAt.toLocaleString(undefined, { timeZone: timezone })} — {b.status}
                       </Link>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-[var(--muted)]">Nothing to show yet—bookings will list here.</p>
+                <div className="rounded-lg border border-[var(--card-border)] bg-[var(--card)] p-4">
+                  <p className="text-sm font-medium text-[var(--foreground)]">No activity yet</p>
+                  <p className="ui-hint mt-2 text-sm leading-relaxed">
+                    Share your booking link or run a campaign—each new booking will appear here.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {published && prov?.username ? (
+                      <Link
+                        href={`/${prov.username}`}
+                        className="ui-btn-secondary inline-flex min-h-10 items-center justify-center px-4 py-2 text-sm font-semibold no-underline"
+                      >
+                        Open public profile
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/dashboard/profile"
+                        className="ui-btn-secondary inline-flex min-h-10 items-center justify-center px-4 py-2 text-sm font-semibold no-underline"
+                      >
+                        Finish profile
+                      </Link>
+                    )}
+                    <Link
+                      href="/dashboard/marketing"
+                      className="ui-btn-primary inline-flex min-h-10 items-center justify-center px-4 py-2 text-sm font-semibold no-underline"
+                    >
+                      Go to marketing
+                    </Link>
+                  </div>
+                </div>
               )}
             </div>
           </section>

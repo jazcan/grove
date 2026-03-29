@@ -15,19 +15,32 @@ export type WeeklyRule = {
   isActive: boolean;
 };
 
-export function WeeklyScheduleRow({ rule, csrf }: { rule: WeeklyRule; csrf: string }) {
+export function WeeklyScheduleRow({
+  rule,
+  csrf,
+  compact,
+}: {
+  rule: WeeklyRule;
+  csrf: string;
+  /** When true, sits inside a grouped list (no outer card chrome). */
+  compact?: boolean;
+}) {
   const [active, setActive] = useState(rule.isActive);
 
   useEffect(() => {
     setActive(rule.isActive);
   }, [rule.id, rule.isActive]);
 
+  const shell = compact
+    ? "bg-transparent px-3 py-3 sm:px-4 sm:py-3.5"
+    : "rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-4 shadow-[var(--shadow-card)] sm:p-5";
+
   return (
-    <div className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-4 shadow-[var(--shadow-card)] sm:p-5">
-      <form action={asFormAction(upsertAvailabilityRule)} className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end">
+    <div className={shell}>
+      <form action={asFormAction(upsertAvailabilityRule)} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <CsrfField token={csrf} />
         <input type="hidden" name="id" value={rule.id} />
-        <label className="ui-field min-w-[140px] flex-1 text-sm lg:max-w-[160px]">
+        <label className="ui-field min-w-[120px] flex-1 text-sm sm:max-w-[140px]">
           <span className="ui-label">Day</span>
           <select name="dayOfWeek" className="ui-input mt-1" defaultValue={rule.dayOfWeek}>
             {DAYS.map((d, i) => (
@@ -37,24 +50,24 @@ export function WeeklyScheduleRow({ rule, csrf }: { rule: WeeklyRule; csrf: stri
             ))}
           </select>
         </label>
-        <label className="ui-field min-w-[120px] flex-1 text-sm lg:max-w-[140px]">
+        <label className="ui-field min-w-[100px] flex-1 text-sm sm:max-w-[120px]">
           <span className="ui-label">Start</span>
           <input name="startTimeLocal" className="ui-input mt-1" defaultValue={rule.startTimeLocal} />
         </label>
-        <label className="ui-field min-w-[120px] flex-1 text-sm lg:max-w-[140px]">
+        <label className="ui-field min-w-[100px] flex-1 text-sm sm:max-w-[120px]">
           <span className="ui-label">End</span>
           <input name="endTimeLocal" className="ui-input mt-1" defaultValue={rule.endTimeLocal} />
         </label>
         <input type="hidden" name="isActive" value={active ? "on" : "off"} />
-        <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium lg:pb-2">
+        <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium sm:pb-0.5">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-4 w-4 rounded border-[var(--input-border)]" />
-          Open for bookings
+          Open
         </label>
-        <button type="submit" className="ui-btn-primary min-h-11 w-full px-6 text-sm font-semibold lg:w-auto">
+        <button type="submit" className="ui-btn-primary min-h-11 w-full px-5 text-sm font-semibold sm:ml-auto sm:w-auto">
           Save
         </button>
       </form>
-      <form action={asFormAction(deleteAvailabilityRule)} className="mt-4 flex justify-end border-t border-[var(--border)] pt-4">
+      <form action={asFormAction(deleteAvailabilityRule)} className={`mt-3 flex justify-end ${compact ? "" : "border-t border-[var(--border)] pt-3"}`}>
         <CsrfField token={csrf} />
         <input type="hidden" name="id" value={rule.id} />
         <button type="submit" className="text-sm font-semibold text-[var(--error)] hover:underline">

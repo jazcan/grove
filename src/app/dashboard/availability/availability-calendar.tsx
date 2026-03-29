@@ -8,9 +8,8 @@ import type { DateSelectArg, EventClickArg, EventInput, DatesSetArg } from "@ful
 import type { DateClickArg } from "@fullcalendar/interaction";
 import { DateTime } from "luxon";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { addBlockedTimeInline } from "@/actions/availability";
-import { BlockTimeModal } from "./block-time-modal";
 
 type AvailabilityRule = {
   id: string;
@@ -79,6 +78,8 @@ function bookingColors(status: BookingEvent["status"]): { bg: string; border: st
   }
 }
 
+type BlockResult = { ok: true } | { ok: false; error: string };
+
 export function AvailabilityCalendar(props: {
   csrf: string;
   timezone: string;
@@ -90,13 +91,8 @@ export function AvailabilityCalendar(props: {
   const router = useRouter();
   const [range, setRange] = useState<{ start: Date; end: Date } | null>(null);
   const [selected, setSelected] = useState<Selected>(null);
-  const [coarsePointer, setCoarsePointer] = useState(false);
-  const tapAnchorRef = useRef<Date | null>(null);
-  const [tapHint, setTapHint] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalStart, setModalStart] = useState<Date>(new Date());
-  const [modalEnd, setModalEnd] = useState<Date>(new Date());
   const [optimisticBlocked, setOptimisticBlocked] = useState<BlockedTime[]>([]);
+  const [blockError, setBlockError] = useState<string | null>(null);
 
   const blockedSyncKey = useMemo(() => blocked.map((b) => `${b.id}:${b.startsAtISO}`).join("|"), [blocked]);
 
@@ -104,85 +100,71 @@ export function AvailabilityCalendar(props: {
     setOptimisticBlocked([]);
   }, [blockedSyncKey]);
 
-  useEffect(() => {
-    const mq = window.matchMedia("(pointer: coarse)");
-    const apply = () => setCoarsePointer(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
-
-  const clearTapAnchor = useCallback(() => {
-    tapAnchorRef.current = null;
-    setTapHint(false);
-  }, []);
-
-  const openBlockModal = useCallback((start: Date, end: Date) => {
-    const s = start;
-    let e = end;
-    if (e <= s) {
-      e = new Date(s.getTime() + 60 * 60 * 1000);
-    }
-    setModalStart(s);
-    setModalEnd(e);
-    setModalOpen(true);
-  }, []);
-
-  const onQuickBlock = useCallback(() => {
-    const now = DateTime.now().setZone(timezone);
-    const rounded = now.set({
-      minute: Math.floor(now.minute / 15) * 15,
-      second: 0,
-      millisecond: 0,
-    });
-    const start = rounded.toJSDate();
-    const end = rounded.plus({ hours: 1 }).toJSDate();
-    openBlockModal(start, end);
-  }, [timezone, openBlockModal]);
-
-  const onDatesSet = useCallback(
-    (arg: DatesSetArg) => {
-      setRange({ start: arg.start, end: arg.end });
-      clearTapAnchor();
+  const submitBlockRange = useCallback(
+    async (startsAt: Date, endsAt: Date, reason: string): Promise<BlockResult> => {
+      const s = startsAt;
+      let e = endsAt;
+      if (e <= s) {
+        e = new Date(s.getTime() + 60 * 60 * 1000);
+      }
+      const tempId = `optimistic-${crypto.randomUUID()}`;
+      const optimisticRow: BlockedTime = {
+        id: tempId,
+        startsAtISO: s.toISOString(),
+        endsAtISO: e.toISOString(),
+        reason: reason || null,
+      };
+      setOptimisticBlocked((p) => [...p, optimisticRow]);
+      const fd = new FormData();
+      fd.set("csrf", csrf);
+      fd.set("startsAt", s.toISOString());
+      fd.set("endsAt", e.toISOString());
+      fd.set("reason", reason);
+      const r = await addBlockedTimeInline(fd);
+      if (!r.ok) {
+        setOptimisticBlocked((p) => p.filter((x) => x.id !== tempId));
+        return { ok: false as const, error: r.error };
+      }
+      setOptimisticBlocked((p) => p.filter((x) => x.id !== tempId));
+      router.refresh();
+      return { ok: true as const };
     },
-    [clearTapAnchor]
+    [csrf, router]
   );
+
+  const onDatesSet = useCallback((arg: DatesSetArg) => {
+    setRange({ start: arg.start, end: arg.end });
+    setBlockError(null);
+  }, []);
 
   const onSelect = useCallback(
     (info: DateSelectArg) => {
-      if (coarsePointer) return;
       if (info.view.type !== "timeGridWeek" && info.view.type !== "timeGridDay") {
         info.view.calendar.unselect();
         return;
       }
-      openBlockModal(info.start, info.end);
-      info.view.calendar.unselect();
+      setBlockError(null);
+      void (async () => {
+        const r = await submitBlockRange(info.start, info.end, "");
+        if (!r.ok) setBlockError(r.error);
+        info.view.calendar.unselect();
+      })();
     },
-    [coarsePointer, openBlockModal]
+    [submitBlockRange]
   );
 
   const onDateClick = useCallback(
     (arg: DateClickArg) => {
-      if (!coarsePointer) return;
       if (arg.view.type !== "timeGridWeek" && arg.view.type !== "timeGridDay") return;
-      const d = arg.date;
-      if (!tapAnchorRef.current) {
-        tapAnchorRef.current = d;
-        setTapHint(true);
-        return;
-      }
-      setTapHint(false);
-      const a = tapAnchorRef.current;
-      tapAnchorRef.current = null;
-      let start = a;
-      let end = d;
-      if (end < start) [start, end] = [end, start];
-      if (end.getTime() === start.getTime()) {
-        end = new Date(start.getTime() + 60 * 60 * 1000);
-      }
-      openBlockModal(start, end);
+      const start = arg.date;
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      setBlockError(null);
+      void (async () => {
+        const r = await submitBlockRange(start, end, "");
+        if (!r.ok) setBlockError(r.error);
+      })();
     },
-    [coarsePointer, openBlockModal]
+    [submitBlockRange]
   );
 
   const blockedEvents: EventInput[] = useMemo(() => {
@@ -295,58 +277,30 @@ export function AvailabilityCalendar(props: {
     setSelected(null);
   };
 
-  const handleModalClose = useCallback(() => {
-    setModalOpen(false);
-    clearTapAnchor();
-  }, [clearTapAnchor]);
-
-  const confirmBlock = useCallback(
-    async (payload: { startsAt: Date; endsAt: Date; reason: string }) => {
-      const tempId = `optimistic-${crypto.randomUUID()}`;
-      const optimisticRow: BlockedTime = {
-        id: tempId,
-        startsAtISO: payload.startsAt.toISOString(),
-        endsAtISO: payload.endsAt.toISOString(),
-        reason: payload.reason || null,
-      };
-      setOptimisticBlocked((p) => [...p, optimisticRow]);
-      const fd = new FormData();
-      fd.set("csrf", csrf);
-      fd.set("startsAt", payload.startsAt.toISOString());
-      fd.set("endsAt", payload.endsAt.toISOString());
-      fd.set("reason", payload.reason);
-      const r = await addBlockedTimeInline(fd);
-      if (!r.ok) {
-        setOptimisticBlocked((p) => p.filter((x) => x.id !== tempId));
-        return { ok: false as const, error: r.error };
-      }
-      setOptimisticBlocked((p) => p.filter((x) => x.id !== tempId));
-      router.refresh();
-      return { ok: true as const };
-    },
-    [csrf, router]
-  );
-
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-10">
       <div className="availabilityCalendar rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-3 shadow-[var(--shadow-card)] sm:p-4">
-        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
-              Calendar
-            </div>
-            {tapHint ? (
-              <p className="mt-1 text-sm font-medium text-[var(--accent)]">Tap the end time to finish.</p>
-            ) : (
-              <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-                {coarsePointer ? "Tap start, then end, to block." : "Drag on the grid to block time."}
-              </p>
-            )}
+        <div className="mb-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
+            Calendar
           </div>
-          <button type="button" className="ui-btn-primary min-h-11 w-full shrink-0 px-5 text-sm font-semibold sm:w-auto" onClick={onQuickBlock}>
-            Block off time
-          </button>
+          <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
+            Click a slot for a 1-hour block. Drag to block a range — it saves immediately.
+          </p>
         </div>
+
+        {blockError ? (
+          <div
+            role="alert"
+            className="mb-3 flex items-start justify-between gap-3 rounded-xl border border-[var(--error-border)] bg-[var(--error-bg)] px-3 py-2.5 text-sm text-[var(--error)]"
+          >
+            <span>{blockError}</span>
+            <button type="button" className="shrink-0 font-semibold underline underline-offset-2" onClick={() => setBlockError(null)}>
+              Dismiss
+            </button>
+          </div>
+        ) : null}
+
         <FullCalendar
           plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
           initialView="timeGridWeek"
@@ -357,9 +311,12 @@ export function AvailabilityCalendar(props: {
           }}
           height="auto"
           nowIndicator
-          selectable={!coarsePointer}
+          selectable
           selectMirror
+          selectMinDistance={6}
           longPressDelay={400}
+          slotDuration="00:15:00"
+          slotLabelInterval="01:00:00"
           select={onSelect}
           dateClick={onDateClick}
           eventClick={onEventClick}
@@ -376,7 +333,7 @@ export function AvailabilityCalendar(props: {
 
       <aside className="h-fit rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--background)] p-4 shadow-[var(--shadow-card)] sm:p-5">
         <p className="text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
-          Click or drag on the calendar to block time.
+          Blocking is instant: you&apos;ll see a short &quot;Blocking…&quot; strip, then the confirmed block. Remove mistakes from Blocked time below.
         </p>
         <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium">
           <span className="rounded-md px-2 py-1" style={{ background: "rgba(34, 197, 94, 0.18)" }}>
@@ -461,14 +418,6 @@ export function AvailabilityCalendar(props: {
         </div>
       </aside>
 
-      <BlockTimeModal
-        open={modalOpen}
-        onClose={handleModalClose}
-        timezone={timezone}
-        initialStart={modalStart}
-        initialEnd={modalEnd}
-        onConfirm={confirmBlock}
-      />
     </div>
   );
 }

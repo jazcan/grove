@@ -21,8 +21,8 @@ export type CanonicalTemplateSeedRow = {
 };
 
 /**
- * The six platform templates (same content as `drizzle/0004_canonical_service_templates.sql`).
- * Single source of truth for backfill / seed; keep slugs aligned with that migration.
+ * Platform templates (initial six match `drizzle/0004_canonical_service_templates.sql`; additional
+ * slugs are inserted by `ensureCanonicalTemplates` when the table row count is below expected).
  */
 export const CANONICAL_TEMPLATE_SEEDS: CanonicalTemplateSeedRow[] = [
   {
@@ -185,6 +185,65 @@ export const CANONICAL_TEMPLATE_SEEDS: CanonicalTemplateSeedRow[] = [
       { id: "extra-30", label: "Extra 30 minutes", suggestedPrice: "30.00", pricingType: "fixed" },
     ],
     outcomes: [{ id: "progress", label: "Actionable next steps for independent practice" }],
+  },
+  {
+    slug: "consultation-60",
+    version: 1,
+    label: "Extended Consultation (60 min)",
+    descriptionShort: "A full hour to map goals, explore options, and leave with a clear plan.",
+    name: "Extended Consultation (60 min)",
+    description:
+      "A deeper 60-minute session for complex questions, multiple stakeholders, or detailed planning. Includes structured notes and a prioritized list of next steps you can act on immediately.",
+    category: "Consultation",
+    durationMinutes: 60,
+    bufferMinutes: 15,
+    pricingType: "fixed",
+    priceAmount: "89.00",
+    currency: "CAD",
+    prepInstructions:
+      "Please share context ahead of time: goals, constraints, and any materials (docs, links, photos) that would help us use the hour well.",
+    steps: [
+      { id: "deep-dive", title: "Goals & context", order: 0 },
+      { id: "options", title: "Explore options & tradeoffs", order: 1 },
+      { id: "plan", title: "Prioritized action plan", order: 2 },
+    ],
+    addOns: [
+      {
+        id: "follow-up-call",
+        label: "15-min follow-up call",
+        description: "Quick check-in after you’ve tried the plan",
+        suggestedPrice: "25.00",
+        pricingType: "fixed",
+      },
+    ],
+    outcomes: [
+      { id: "notes", label: "Structured session notes" },
+      { id: "next", label: "Prioritized next steps you can execute" },
+    ],
+  },
+  {
+    slug: "personal-training-50",
+    version: 1,
+    label: "Personal Training (50 min)",
+    descriptionShort: "One-on-one session focused on form, progression, and your fitness goals.",
+    name: "Personal Training (50 min)",
+    description:
+      "A coached workout tailored to your level and goals. We’ll warm up, work through a focused training block, and cool down—with cues on form and how to progress between sessions.",
+    category: "Fitness",
+    durationMinutes: 50,
+    bufferMinutes: 10,
+    pricingType: "fixed",
+    priceAmount: "70.00",
+    currency: "CAD",
+    prepInstructions:
+      "Wear comfortable clothes and athletic shoes. Share any injuries, limitations, or equipment you have access to. Bring water.",
+    steps: [
+      { id: "warmup", title: "Warm-up & mobility", order: 0 },
+      { id: "block", title: "Main training block", order: 1 },
+      { id: "cooldown", title: "Cooldown & recap", order: 2 },
+    ],
+    addOns: [],
+    outcomes: [{ id: "workout", label: "A complete session plan you can repeat or build on" }],
   },
 ];
 

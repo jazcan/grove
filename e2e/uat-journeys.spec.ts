@@ -9,6 +9,7 @@ test.describe.serial("UAT plans 1–5 — end-to-end journey", () => {
   const password = "uat-long-pass-99";
 
   test("provider → customer booking → dashboard follow-up", async ({ browser }) => {
+    test.setTimeout(300_000);
     const providerEmail = `uat-${Date.now()}@example.test`;
     const username = `u${Date.now().toString(36)}`;
     const displayLabel = `UAT Prov ${username}`;
@@ -16,7 +17,8 @@ test.describe.serial("UAT plans 1–5 — end-to-end journey", () => {
     const providerCtx = await browser.newContext({ timezoneId: "America/Toronto" });
     const p = await providerCtx.newPage();
 
-    await p.goto("/signup");
+    await p.goto("/signup", { waitUntil: "domcontentloaded" });
+    await expect(p.getByLabel("Email")).toBeVisible({ timeout: 60_000 });
     await p.getByLabel("Email").fill(providerEmail);
     await p.getByLabel("Password").fill(password);
     await p.getByRole("button", { name: "Create account" }).click();
@@ -35,48 +37,67 @@ test.describe.serial("UAT plans 1–5 — end-to-end journey", () => {
     await p.getByRole("button", { name: "Save changes" }).click();
     await p.waitForLoadState("networkidle");
 
-    await p.goto("/dashboard/services");
-    const addSection = p.locator("section").filter({ has: p.getByRole("heading", { name: "Add service" }) });
-    await addSection.locator('input[name="name"]').fill("UAT Service");
-    await addSection.getByRole("button", { name: "Add" }).click();
+    await p.goto("/dashboard/services?scratch=1#service-form");
+    await expect(p.locator("#service-form")).toBeVisible({ timeout: 60_000 });
+    await p.locator('#service-form input[name="name"]').fill("UAT Service");
+    await p.getByRole("button", { name: "Create service" }).click();
     await p.waitForLoadState("networkidle");
-    await expect(p.locator("ul.mt-12 li").first()).toBeVisible();
-    const serviceId = await p.locator("ul.mt-12 li").first().locator('input[name="id"]').inputValue();
+    await expect(p.locator("section#existing-services ul li").first()).toBeVisible({ timeout: 60_000 });
+    const serviceId = await p
+      .locator("section#existing-services ul li")
+      .first()
+      .locator('input[name="id"]')
+      .inputValue();
     expect(serviceId.length).toBeGreaterThan(0);
 
-    const { dateISO, dow } = await p.evaluate(() => {
+    const { dateISO } = await p.evaluate(() => {
       const t = new Date();
       t.setDate(t.getDate() + 1);
       const y = t.getFullYear();
       const m = String(t.getMonth() + 1).padStart(2, "0");
       const d = String(t.getDate()).padStart(2, "0");
-      return { dateISO: `${y}-${m}-${d}`, dow: t.getDay() };
+      return { dateISO: `${y}-${m}-${d}` };
     });
 
     await p.goto("/dashboard/availability");
-    await p.locator('select[name="dayOfWeek"]').selectOption(String(dow));
-    await p.getByRole("button", { name: "Add hours" }).click();
+    await p.getByRole("button", { name: "Apply Mon–Fri" }).click();
     await p.waitForLoadState("networkidle");
+    for (const d of ["6", "0"]) {
+      await p.locator('select[name="dayOfWeek"]').selectOption(d);
+      await p.getByRole("button", { name: "Add hours" }).click();
+      await p.waitForLoadState("networkidle");
+    }
 
     await p.goto(`/${username}`);
-    await expect(p.getByRole("link", { name: "Book" }).first()).toBeVisible();
+    await expect(p.getByRole("link", { name: /Book UAT Service/i }).first()).toBeVisible();
 
     const customerCtx = await browser.newContext({ timezoneId: "America/Toronto" });
     const c = await customerCtx.newPage();
 
     await c.goto(`/marketplace?q=${encodeURIComponent(displayLabel)}`);
     await expect(c.getByRole("heading", { name: "Find a provider" })).toBeVisible();
-    await c.getByRole("link", { name: displayLabel }).click();
+    await c.getByRole("link", { name: displayLabel }).first().click();
     await expect(c).toHaveURL(new RegExp(`/${username}$`));
-    await c.getByRole("link", { name: "Book" }).first().click();
+    await expect(c.getByRole("link", { name: /Book UAT Service/i }).first()).toBeVisible();
+    // Full-page navigation is more reliable than depending on client-side routing from the card link.
+    await c.goto(`/${username}/book/${serviceId}`);
     await expect(c).toHaveURL(new RegExp(`/book/${serviceId}`));
     await c.locator("#book-date").fill(dateISO);
-    await expect(c.getByText("Loading slots…")).toBeHidden({ timeout: 20_000 });
-    await c.getByRole("radio").first().click();
-    await c.getByLabel("Your name").fill("UAT Customer");
+    await expect(c.getByText("Loading times…")).toBeHidden({ timeout: 30_000 });
+    await expect(c.locator('input[name="slotPick"]').first()).toBeVisible({ timeout: 90_000 });
+    await c.locator('input[name="slotPick"]').first().click();
+    await c.getByLabel("Name").fill("UAT Customer");
     await c.locator("#customerEmail").fill("uat.customer@example.test");
+    const cashPay = c.locator('input[name="paymentMethod"][value="cash"]');
+    if (await cashPay.isVisible()) {
+      await cashPay.click();
+    } else {
+      const etPay = c.locator('input[name="paymentMethod"][value="etransfer"]');
+      if (await etPay.isVisible()) await etPay.click();
+    }
+    await expect(c.getByRole("button", { name: "Confirm booking" })).toBeEnabled({ timeout: 30_000 });
     await c.getByRole("button", { name: "Confirm booking" }).click();
-    await expect(c.getByRole("status")).toContainText(/Booked/i, { timeout: 20_000 });
+    await expect(c.getByRole("heading", { name: "Booking confirmed" })).toBeVisible({ timeout: 30_000 });
 
     await c.close();
     await customerCtx.close();

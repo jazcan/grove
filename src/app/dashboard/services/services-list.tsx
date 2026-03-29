@@ -39,15 +39,15 @@ export function ServicesList({
   if (!services.length) {
     return (
       <div className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)] px-6 py-14 text-center shadow-[0_12px_40px_-24px_rgba(28,27,25,0.18)] sm:px-12">
-        <h3 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">Nothing here yet</h3>
+        <h3 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">Start earning — pick a proven service</h3>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-          Use a template or quick start above—your first service will show up here right after you save.
+          Scroll up, choose a template, and hit save—your first bookable offer appears here instantly.
         </p>
         <Link
-          href="/dashboard/services?prefill=simple#service-form"
+          href="/dashboard/services?prefill=consultation-30#service-form"
           className="ui-btn-primary mt-8 inline-flex min-h-12 w-full max-w-sm items-center justify-center px-6 text-sm font-semibold sm:w-auto"
         >
-          Create a basic service
+          Use a popular template
         </Link>
       </div>
     );

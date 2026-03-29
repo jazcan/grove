@@ -18,8 +18,15 @@ export type ServiceTemplate = {
   /** Stable slug matching `canonical_service_templates.slug`. */
   id: string;
   label: string;
+  /** One-line outcome-oriented blurb for cards. */
   descriptionShort: string;
+  /** Full client-facing description (preview / detail). */
+  description: string;
   service: ServiceFormDefaults;
+  /** What clients can expect (from canonical template). */
+  outcomes: { id: string; label: string }[];
+  /** Ordered step titles shown in preview. */
+  stepTitles: string[];
 };
 
 /** Card title without redundant duration in parentheses (duration appears on the next line). */

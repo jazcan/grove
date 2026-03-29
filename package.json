@@ -10,6 +10,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify": "npm test && npm run lint && npm run build && npm run uat:env",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -18,7 +19,8 @@
     "worker": "tsx src/worker/index.ts",
     "audit": "npm audit --audit-level=high",
     "uat:env": "tsx scripts/uat-env-check.ts",
-    "uat:e2e": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test",
+    "uat:e2e": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test e2e/uat-auth.spec.ts e2e/uat-public-routes.spec.ts",
+    "uat:e2e:full": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test",
     "playwright:install": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright install chromium"
   },
   "dependencies": {

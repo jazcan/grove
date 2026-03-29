@@ -494,6 +494,12 @@ body {
   margin-bottom: 0.75rem;
 }
 
+/* Drag-to-block: obvious selection feedback while choosing a range */
+.availabilityCalendar .fc .fc-highlight {
+  background: color-mix(in oklab, var(--accent) 28%, transparent);
+  border-radius: 4px;
+}
+
 @keyframes availability-block-pulse {
   0%,
   100% {

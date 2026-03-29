@@ -67,7 +67,7 @@ export function ServiceCreateSection({
   useEffect(() => {
     if (!formVisible) return;
     setHighlight(true);
-    const t = window.setTimeout(() => setHighlight(false), 2200);
+    const t = window.setTimeout(() => setHighlight(false), 3200);
     return () => window.clearTimeout(t);
   }, [formVisible, prefillDefaults, scratchMode]);
 
@@ -97,14 +97,23 @@ export function ServiceCreateSection({
   return (
     <section id="add-service" className="max-w-[640px] scroll-mt-28">
       <div className="mb-4">
-        <h2 className="text-lg font-semibold text-[var(--foreground)]">Review and save</h2>
+        <h2 className="text-lg font-semibold text-[var(--foreground)]">
+          {showAdjustHint ? "Your service is ready — review and save" : "Review and save"}
+        </h2>
         <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-          Create a service clients can book.
+          {showAdjustHint
+            ? "Everything below was filled from your template. Change only what you need."
+            : "Create a service clients can book."}
         </p>
         {showAdjustHint ? (
-          <p className="mt-2 rounded-lg bg-[color-mix(in_oklab,var(--accent)_8%,var(--background))] px-3 py-2 text-sm text-[color-mix(in_oklab,var(--foreground)_72%,transparent)] ring-1 ring-[color-mix(in_oklab,var(--accent)_20%,transparent)]">
-            You can adjust anything before saving.
-          </p>
+          <div className="mt-3 space-y-2 rounded-lg bg-[color-mix(in_oklab,var(--accent)_8%,var(--background))] px-3 py-3 text-sm text-[color-mix(in_oklab,var(--foreground)_74%,transparent)] ring-1 ring-[color-mix(in_oklab,var(--accent)_20%,transparent)]">
+            <p className="font-medium text-[var(--foreground)]">Easy tweaks (highlighted when you land here):</p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>Service name and short description</li>
+              <li>Duration, buffer, and price</li>
+              <li>Anything clients should do before the appointment</li>
+            </ul>
+          </div>
         ) : null}
       </div>
 

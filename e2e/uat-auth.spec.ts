@@ -6,6 +6,7 @@ test.describe("UAT plan 6 (partial) — login validation", () => {
     await page.getByLabel("Email").fill("nonexistent-uat@example.invalid");
     await page.getByLabel("Password").fill("wrong-password!");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByRole("alert")).toContainText(/invalid|password/i);
+    // Next.js also renders #__next-route-announcer__ with role="alert"; target the form error only.
+    await expect(page.locator(".ui-alert-error")).toContainText(/invalid|password/i);
   });
 });

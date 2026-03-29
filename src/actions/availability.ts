@@ -1,10 +1,10 @@
 "use server";
 
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
-import { availabilityRules, blockedTimes } from "@/db/schema";
+import { availabilityRules, blockedTimes, providers } from "@/db/schema";
 import { plainTextFromInput } from "@/lib/sanitize";
 import { logAudit } from "@/lib/audit";
 import { emitPlatformEvent } from "@/platform/events/emit";
@@ -302,4 +302,118 @@ export async function deleteBlockedTimeInline(formData: FormData): Promise<Delet
   });
   revalidatePath("/dashboard/availability");
   return { ok: true };
+}
+
+export async function setBookingsPaused(formData: FormData): Promise<ActionState> {
+  if (!(await csrfOk(formData, { action: "setBookingsPaused" }))) return { error: "Invalid security token." };
+  const ctx = await loadProviderContext();
+  const raw = formData.get("paused")?.toString();
+  if (raw !== "true" && raw !== "false") return { error: "Invalid request." };
+  const bookingsPaused = raw === "true";
+  const db = getDb();
+  await db
+    .update(providers)
+    .set({ bookingsPaused, updatedAt: new Date() })
+    .where(eq(providers.id, ctx.providerId));
+  await logAudit({
+    actorUserId: ctx.id,
+    actorType: "user",
+    tenantProviderId: ctx.providerId,
+    entityType: "provider",
+    entityId: ctx.providerId,
+    action: bookingsPaused ? "bookings_paused" : "bookings_resumed",
+  });
+  const [p] = await db
+    .select({ username: providers.username })
+    .from(providers)
+    .where(eq(providers.id, ctx.providerId))
+    .limit(1);
+  revalidatePath("/dashboard/availability");
+  if (p?.username) revalidatePath(`/${p.username}`);
+  redirect("/dashboard/availability?saved=pause");
+}
+
+const WEEKDAY_DOW = [1, 2, 3, 4, 5] as const;
+
+export async function applyWorkingHoursPreset(formData: FormData): Promise<ActionState> {
+  if (!(await csrfOk(formData, { action: "applyWorkingHoursPreset" }))) return { error: "Invalid security token." };
+  const ctx = await loadProviderContext();
+  const preset = formData.get("preset")?.toString();
+  if (preset !== "nine_to_five" && preset !== "evenings_only") {
+    return { error: "Unknown preset." };
+  }
+  const windows =
+    preset === "nine_to_five"
+      ? WEEKDAY_DOW.map((dayOfWeek) => ({
+          providerId: ctx.providerId,
+          dayOfWeek,
+          startTimeLocal: "09:00",
+          endTimeLocal: "17:00",
+          isActive: true,
+        }))
+      : WEEKDAY_DOW.map((dayOfWeek) => ({
+          providerId: ctx.providerId,
+          dayOfWeek,
+          startTimeLocal: "17:00",
+          endTimeLocal: "21:00",
+          isActive: true,
+        }));
+
+  const db = getDb();
+  await db.delete(availabilityRules).where(eq(availabilityRules.providerId, ctx.providerId));
+  await db.insert(availabilityRules).values(windows);
+  await logAudit({
+    actorUserId: ctx.id,
+    actorType: "user",
+    tenantProviderId: ctx.providerId,
+    entityType: "availability_rule",
+    entityId: "preset",
+    action: "preset_applied",
+  });
+  revalidatePath("/dashboard/availability");
+  redirect("/dashboard/availability?saved=hours#weekly-schedule");
+}
+
+export async function applyHoursToWeekdays(formData: FormData): Promise<ActionState> {
+  if (!(await csrfOk(formData, { action: "applyHoursToWeekdays" }))) return { error: "Invalid security token." };
+  const ctx = await loadProviderContext();
+  const startRaw = plainTextFromInput(formData.get("startTimeLocal")?.toString() ?? "", 8);
+  const endRaw = plainTextFromInput(formData.get("endTimeLocal")?.toString() ?? "", 8);
+  if (!/^\d{1,2}:\d{2}$/.test(startRaw) || !/^\d{1,2}:\d{2}$/.test(endRaw)) {
+    return { error: "Use HH:MM format." };
+  }
+  const startTimeLocal = normalizeTimeLocal(startRaw);
+  const endTimeLocal = normalizeTimeLocal(endRaw);
+  if (!startTimeLocal || !endTimeLocal) {
+    return { error: "Use HH:MM format." };
+  }
+  if (startTimeLocal >= endTimeLocal) {
+    return { error: "End time must be after start." };
+  }
+
+  const db = getDb();
+  await db
+    .delete(availabilityRules)
+    .where(
+      and(eq(availabilityRules.providerId, ctx.providerId), inArray(availabilityRules.dayOfWeek, [...WEEKDAY_DOW]))
+    );
+  await db.insert(availabilityRules).values(
+    WEEKDAY_DOW.map((dayOfWeek) => ({
+      providerId: ctx.providerId,
+      dayOfWeek,
+      startTimeLocal,
+      endTimeLocal,
+      isActive: true,
+    }))
+  );
+  await logAudit({
+    actorUserId: ctx.id,
+    actorType: "user",
+    tenantProviderId: ctx.providerId,
+    entityType: "availability_rule",
+    entityId: "weekdays_bulk",
+    action: "weekdays_applied",
+  });
+  revalidatePath("/dashboard/availability");
+  redirect("/dashboard/availability?saved=hours#weekly-schedule");
 }

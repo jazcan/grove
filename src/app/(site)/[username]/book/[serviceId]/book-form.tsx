@@ -108,6 +108,7 @@ export function BookForm({
   const feedbackRef = useRef<HTMLDivElement>(null);
   const [dateISO, setDateISO] = useState(() => localDateISO());
   const [slots, setSlots] = useState<{ start: string; end: string }[]>([]);
+  const [bookingsPaused, setBookingsPaused] = useState(false);
   const [slotStart, setSlotStart] = useState("");
   const [pending, startTransition] = useTransition();
   const [customerName, setCustomerName] = useState("");
@@ -538,6 +539,13 @@ export function BookForm({
                 <p className="ui-hint mt-2">Pick a current or future date to see available times.</p>
               ) : pending ? (
                 <p className="ui-hint mt-2">Loading times…</p>
+              ) : bookingsPaused ? (
+                <div className="ui-empty-state mt-3">
+                  <div className="font-semibold text-[var(--foreground)]">Bookings paused</div>
+                  <div className="ui-hint mt-1">
+                    This provider isn’t accepting new appointments right now. Check back later or contact them directly.
+                  </div>
+                </div>
               ) : slots.length ? (
                 <ul className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
                   {slots.map((s) => {

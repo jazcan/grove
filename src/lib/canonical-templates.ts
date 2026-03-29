@@ -20,26 +20,51 @@ function rowToServiceFormDefaults(row: typeof canonicalServiceTemplates.$inferSe
 }
 
 export function rowToServiceTemplate(row: typeof canonicalServiceTemplates.$inferSelect): ServiceTemplate {
+  const steps = [...row.steps].sort((a, b) => a.order - b.order);
   return {
     id: row.slug,
     label: row.label,
     descriptionShort: row.descriptionShort,
+    description: row.description,
     service: rowToServiceFormDefaults(row),
+    outcomes: row.outcomes,
+    stepTitles: steps.map((s) => s.title),
   };
 }
 
-/** Active canonical templates for dashboard cards (excludes quick-start `simple`; ordered by label). */
+/** Display order for the services hub (beginner-friendly path first, then related pairs, then the rest). */
+const TEMPLATE_HUB_ORDER: string[] = [
+  "simple",
+  "consultation-30",
+  "consultation-60",
+  "personal-training-50",
+  "tutoring-60-hourly",
+  "dog-walk-45",
+  "lawn-care-60",
+  "home-cleaning-2h",
+];
+
+function sortTemplatesForHub(templates: ServiceTemplate[]): ServiceTemplate[] {
+  return [...templates].sort((a, b) => {
+    const ia = TEMPLATE_HUB_ORDER.indexOf(a.id);
+    const ib = TEMPLATE_HUB_ORDER.indexOf(b.id);
+    if (ia === -1 && ib === -1) return a.label.localeCompare(b.label);
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+}
+
+/** Active canonical templates for dashboard (template-first path includes quick-start `simple`). */
 export async function listCanonicalTemplatesForUi(): Promise<ServiceTemplate[]> {
   const db = getDb();
   await ensureCanonicalTemplates(db);
   const rows = await db
     .select()
     .from(canonicalServiceTemplates)
-    .where(
-      and(eq(canonicalServiceTemplates.isActive, true), ne(canonicalServiceTemplates.slug, "simple"))
-    )
+    .where(eq(canonicalServiceTemplates.isActive, true))
     .orderBy(asc(canonicalServiceTemplates.label));
-  return rows.map(rowToServiceTemplate);
+  return sortTemplatesForHub(rows.map(rowToServiceTemplate));
 }
 
 /** Defaults for the service form from a canonical slug (`simple`, `consultation-30`, …). */

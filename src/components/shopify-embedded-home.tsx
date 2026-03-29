@@ -15,9 +15,9 @@ type Props = { apiKey: string };
 
 export function ShopifyEmbeddedHome({ apiKey }: Props) {
   const searchParams = useSearchParams();
-  const host = searchParams.get("host") ?? "";
-  const shop = searchParams.get("shop") ?? "";
-  const attached = searchParams.get("attached") === "1";
+  const host = searchParams?.get("host") ?? "";
+  const shop = searchParams?.get("shop") ?? "";
+  const attached = searchParams?.get("attached") === "1";
 
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);

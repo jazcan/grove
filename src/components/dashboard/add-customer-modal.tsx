@@ -104,13 +104,15 @@ export function AddCustomerModalRoot({ csrf, children }: { csrf: string; childre
   );
 }
 
-export function AddCustomerModalButton() {
+export function AddCustomerModalButton({ className }: { className?: string }) {
   const open = useOpenAddCustomerModal();
   return (
     <button
       type="button"
       onClick={() => open()}
-      className="ui-btn-primary min-h-11 shrink-0 px-5 text-sm font-semibold"
+      className={
+        className ?? "ui-btn-primary min-h-11 shrink-0 px-5 text-sm font-semibold"
+      }
     >
       Add customer
     </button>

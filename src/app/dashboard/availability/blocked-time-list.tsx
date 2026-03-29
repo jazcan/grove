@@ -47,7 +47,7 @@ export function BlockedTimeList({ blocks, timezone, csrf }: { blocks: BlockRow[]
   if (!blocks.length) {
     return (
       <p className="text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-        No blocked time yet — use the calendar or quick block above.
+        No blocked time yet — use Quick block or the calendar above.
       </p>
     );
   }

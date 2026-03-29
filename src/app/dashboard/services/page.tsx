@@ -1,20 +1,18 @@
-import { eq, asc } from "drizzle-orm";
+import { and, asc, count, eq, ne, sql } from "drizzle-orm";
 import Link from "next/link";
 import { getDb } from "@/db";
-import { availabilityRules, providers, services } from "@/db/schema";
+import { availabilityRules, bookings, providers, services } from "@/db/schema";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { requireProvider } from "@/lib/tenancy";
 import {
   getServiceDefaultsForCanonicalSlug,
   listCanonicalTemplatesForUi,
 } from "@/lib/canonical-templates";
-import {
-  formatTemplateDurationPrice,
-  QUICK_START_PREFILL_ID,
-  templateCardTitle,
-} from "@/lib/service-templates";
+import { QUICK_START_PREFILL_ID } from "@/lib/service-templates";
 import { ServicesList } from "@/app/dashboard/services/services-list";
 import { ServiceCreateSection } from "@/components/dashboard/service-create-section";
+import { ServicePerformanceSection } from "@/components/dashboard/service-performance-section";
+import { ServiceTemplatesHub } from "@/components/dashboard/service-templates-hub";
 
 type Props = { searchParams: Promise<{ saved?: string; prefill?: string; scratch?: string }> };
 
@@ -34,9 +32,7 @@ export default async function ServicesPage({ searchParams }: Props) {
 
   const serviceTemplates = await listCanonicalTemplatesForUi();
 
-  const canonicalTemplateSlug = scratch
-    ? QUICK_START_PREFILL_ID
-    : (prefillRaw ?? QUICK_START_PREFILL_ID);
+  const canonicalTemplateSlug = scratch ? QUICK_START_PREFILL_ID : (prefillRaw ?? QUICK_START_PREFILL_ID);
 
   const u = await requireProvider();
   const db = getDb();
@@ -87,15 +83,36 @@ export default async function ServicesPage({ searchParams }: Props) {
       ? "What clients book—you can edit details anytime."
       : "When you add a service, it appears here for you to manage.";
 
+  const statsRows =
+    list.length > 0
+      ? await db
+          .select({
+            serviceId: bookings.serviceId,
+            bookingCount: count(),
+            revenuePaid: sql<string>`coalesce(sum(case when ${bookings.paymentStatus} = 'paid' then ${bookings.paymentAmount}::numeric else 0 end), 0)::text`,
+          })
+          .from(bookings)
+          .where(and(eq(bookings.providerId, u.providerId), ne(bookings.status, "cancelled")))
+          .groupBy(bookings.serviceId)
+      : [];
+
+  const statsByServiceId = Object.fromEntries(
+    statsRows.map((r) => [
+      r.serviceId,
+      { bookingCount: Number(r.bookingCount), revenuePaid: r.revenuePaid },
+    ])
+  );
+
   return (
     <main id="main-content">
       <header className="max-w-4xl">
         <h1 className="text-2xl font-semibold tracking-tight">Services</h1>
         <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-          Create and manage what customers can book.
+          Pick a proven template, save, and start taking bookings—no blank page required.
         </p>
         <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
-          Most providers start with one simple service and adjust it later.
+          Templates are the default path: they pre-fill name, duration, price, and client-facing copy so you only
+          confirm or tweak. That cuts decision fatigue and gets you to &quot;bookable&quot; in under 30 seconds.
         </p>
         {saved ? (
           <div
@@ -103,70 +120,26 @@ export default async function ServicesPage({ searchParams }: Props) {
             className="mt-5 rounded-xl border border-[color-mix(in_oklab,var(--accent)_35%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))] px-4 py-3 text-sm"
           >
             <div className="font-medium">Saved</div>
-            <div className="mt-0.5 text-[color-mix(in_oklab,var(--foreground)_75%,transparent)]">
-              Your service list is up to date.
-            </div>
+            <div className="mt-0.5 text-[color-mix(in_oklab,var(--foreground)_75%,transparent)]">Your service list is up to date.</div>
           </div>
         ) : null}
       </header>
 
-      <div className="mt-16 max-w-4xl space-y-16">
+      <div className="mt-10 max-w-4xl space-y-14">
         <section className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-6 sm:p-8 md:p-10">
           <p className="text-center text-xs font-medium uppercase tracking-wide text-[color-mix(in_oklab,var(--foreground)_48%,transparent)]">
-            Add a service
+            Start here
           </p>
-          <div className="mt-10" aria-labelledby="quick-start-heading">
-            <div className="rounded-2xl border-2 border-[color-mix(in_oklab,var(--accent)_32%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_9%,var(--card))] p-6 shadow-[0_8px_28px_-16px_rgba(28,27,25,0.12)] sm:p-8">
-              <h2 id="quick-start-heading" className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">
-                Start with a simple service
-              </h2>
-              <p className="mt-3 max-w-prose text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_68%,transparent)] sm:text-base">
-                We&apos;ll fill in the basics—name, time, and price—so you only need to review and save.
-              </p>
-              <Link
-                href="/dashboard/services?prefill=simple#service-form"
-                className="ui-btn-primary mt-8 inline-flex min-h-12 min-w-[min(100%,220px)] items-center justify-center px-8 text-base font-semibold shadow-[0_4px_14px_-4px_color-mix(in_oklab,var(--accent)_40%,transparent)]"
-              >
-                Create a basic service
-              </Link>
-            </div>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
+            Choose a template below—everything is filled in for you. Prefer a blank form? Use{" "}
+            <Link href="/dashboard/services?scratch=1#service-form" className="font-medium text-[var(--accent)] underline underline-offset-2">
+              create from scratch
+            </Link>
+            .
+          </p>
+          <div className="mt-12">
+            <ServiceTemplatesHub templates={serviceTemplates} />
           </div>
-
-          <section className="mt-14 sm:mt-16" aria-labelledby="templates-heading">
-            <h2 id="templates-heading" className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">
-              Start with something simple
-            </h2>
-            <p className="mt-3 max-w-prose text-base leading-relaxed text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-              Pick a template and adjust it to fit your work.
-            </p>
-
-            <ul className="mt-10 grid grid-cols-1 gap-7 sm:gap-8 md:grid-cols-2">
-              {serviceTemplates.map((t) => (
-                <li
-                  key={t.id}
-                  className="flex flex-col rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)] p-6 shadow-[0_10px_36px_-22px_rgba(28,27,25,0.2)] transition-shadow duration-200 hover:shadow-[0_16px_40px_-20px_rgba(28,27,25,0.22)] sm:p-7"
-                >
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-lg font-semibold leading-snug text-[var(--foreground)] sm:text-xl">
-                      {templateCardTitle(t)}
-                    </h3>
-                    <p className="mt-2 text-sm font-semibold text-[var(--accent)] sm:text-[0.9375rem]">
-                      {formatTemplateDurationPrice(t.service)}
-                    </p>
-                    <p className="mt-4 text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
-                      {t.descriptionShort}
-                    </p>
-                  </div>
-                  <Link
-                    href={`/dashboard/services?prefill=${encodeURIComponent(t.id)}#service-form`}
-                    className="ui-btn-primary mt-8 inline-flex min-h-12 w-full items-center justify-center px-6 text-sm font-semibold sm:px-10"
-                  >
-                    Use template
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
         </section>
 
         <ServiceCreateSection
@@ -177,13 +150,13 @@ export default async function ServicesPage({ searchParams }: Props) {
           canonicalTemplateSlug={canonicalTemplateSlug}
         />
 
+        <ServicePerformanceSection services={list} statsByServiceId={statsByServiceId} />
+
         <div className="max-w-4xl rounded-xl border border-[var(--border)] bg-[var(--background)] p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">Setup step: Services</div>
-              <div className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-                Add at least one service customers can book.
-              </div>
+              <div className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">Add at least one service customers can book.</div>
             </div>
             <div className="text-sm">
               <span className="mr-2 inline-block w-4 text-center" aria-hidden>
@@ -205,11 +178,9 @@ export default async function ServicesPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <section id="existing-services" className="mt-24 max-w-4xl scroll-mt-28">
+      <section id="existing-services" className="mt-20 max-w-4xl scroll-mt-28">
         <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">{servicesHeading}</h2>
-        <p className="mt-2 max-w-prose text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-          {servicesSubtitle}
-        </p>
+        <p className="mt-2 max-w-prose text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">{servicesSubtitle}</p>
         <div className="mt-6">
           <ServicesList services={list} csrf={csrf} />
         </div>

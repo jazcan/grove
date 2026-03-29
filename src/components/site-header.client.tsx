@@ -19,9 +19,10 @@ function linkBase(active: boolean) {
 
 export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
   const pathname = usePathname();
+  const path = pathname ?? "";
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const marketplaceActive = pathname === "/marketplace" || pathname.startsWith("/marketplace/");
+  const marketplaceActive = path === "/marketplace" || path.startsWith("/marketplace/");
 
   useEffect(() => {
     setMenuOpen(false);
@@ -56,14 +57,14 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
               <>
                 <Link
                   href="/dashboard"
-                  className={`rounded-md px-3 py-2 text-sm transition-colors ${linkBase(pathname.startsWith("/dashboard"))}`}
+                  className={`rounded-md px-3 py-2 text-sm transition-colors ${linkBase(path.startsWith("/dashboard"))}`}
                 >
                   Dashboard
                 </Link>
                 {isAdmin ? (
                   <Link
                     href="/admin"
-                    className={`rounded-md px-3 py-2 text-sm transition-colors ${linkBase(pathname.startsWith("/admin"))}`}
+                    className={`rounded-md px-3 py-2 text-sm transition-colors ${linkBase(path.startsWith("/admin"))}`}
                   >
                     Admin
                   </Link>
@@ -130,7 +131,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
               <>
                 <Link
                   href="/dashboard"
-                  className={`rounded-lg px-3 py-3 text-sm ${linkBase(pathname.startsWith("/dashboard"))}`}
+                  className={`rounded-lg px-3 py-3 text-sm ${linkBase(path.startsWith("/dashboard"))}`}
                   onClick={() => setMenuOpen(false)}
                 >
                   Dashboard
@@ -138,7 +139,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
                 {isAdmin ? (
                   <Link
                     href="/admin"
-                    className={`rounded-lg px-3 py-3 text-sm ${linkBase(pathname.startsWith("/admin"))}`}
+                    className={`rounded-lg px-3 py-3 text-sm ${linkBase(path.startsWith("/admin"))}`}
                     onClick={() => setMenuOpen(false)}
                   >
                     Admin

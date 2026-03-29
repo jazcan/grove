@@ -27,7 +27,7 @@ export async function fetchPublicSlots(input: {
   username: string;
   serviceId: string;
   dateISO: string;
-}): Promise<{ slots: { start: string; end: string }[]; error?: string }> {
+}): Promise<{ slots: { start: string; end: string }[]; error?: string; bookingsPaused?: boolean }> {
   const uname = input.username.trim().toLowerCase();
   if (isReservedUsername(uname)) return { slots: [], error: "Not found" };
 
@@ -46,6 +46,10 @@ export async function fetchPublicSlots(input: {
       .where(eq(providers.username, uname))
       .limit(1);
     if (!prov || !prov.publicProfileEnabled) return { slots: [], error: "Not found" };
+
+    if (prov.bookingsPaused) {
+      return { slots: [], bookingsPaused: true };
+    }
 
     const [svc] = await db
       .select()
@@ -211,6 +215,9 @@ export async function submitPublicBooking(
     .where(eq(providers.username, username))
     .limit(1);
   if (!prov?.publicProfileEnabled) return { error: "Provider not available." };
+  if (prov.bookingsPaused) {
+    return { error: "This provider is not accepting new bookings right now. Try again later." };
+  }
 
   const [svc] = await db
     .select()

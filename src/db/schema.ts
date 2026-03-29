@@ -110,6 +110,8 @@ export const providers = pgTable(
     profileImageKey: text("profile_image_key"),
     bookingLeadTimeMinutes: integer("booking_lead_time_minutes").notNull().default(60),
     bookingHorizonDays: integer("booking_horizon_days").notNull().default(60),
+    /** When true, public booking pages show no slots and submissions are rejected (temporary pause). */
+    bookingsPaused: boolean("bookings_paused").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
