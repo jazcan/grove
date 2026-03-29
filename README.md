@@ -42,6 +42,20 @@ npm run clean && npm run dev
 npm run worker
 ```
 
+## Production database (e.g. Vercel + Neon)
+
+The app expects your **production** Postgres schema to match [`src/db/schema.ts`](./src/db/schema.ts). If deploys work but pages error with `column "…" does not exist`, migrations were not applied to that database.
+
+**Recommended:** from your machine, point at the production URL (Vercel → Settings → Environment Variables → `DATABASE_URL`, or Neon’s connection string) and sync the schema:
+
+```bash
+DATABASE_URL="postgresql://…" npx drizzle-kit push
+```
+
+Use the **pooled** or **direct** Neon URL your project already uses; no need to commit secrets.
+
+**Alternative:** in Neon (or any SQL client), run the statements in order from [`drizzle/`](./drizzle/) for migrations you have not applied yet—for example [`drizzle/0007_bookings_paused.sql`](./drizzle/0007_bookings_paused.sql) adds `bookings_paused` on `providers`.
+
 ## Scripts
 
 | Script        | Description                          |
