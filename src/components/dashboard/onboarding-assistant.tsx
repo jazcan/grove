@@ -71,6 +71,8 @@ function completePrimaryCta(routeId: AssistantRouteId): { label: string; href: s
 
 export type DashboardOnboardingAssistantProps = {
   setup: ProviderSetupState | null;
+  /** True when the server could not load setup (e.g. DB error); avoids misleading empty state. */
+  setupLoadFailed?: boolean;
   /** No provider row yet (pre–account onboarding). */
   preProvider: boolean;
   initialExpanded: boolean;
@@ -82,6 +84,7 @@ export type DashboardOnboardingAssistantProps = {
 
 export function DashboardOnboardingAssistant({
   setup,
+  setupLoadFailed = false,
   preProvider,
   initialExpanded,
   supportLinks,
@@ -116,6 +119,9 @@ export function DashboardOnboardingAssistant({
     totalSetupSteps > 0 ? Math.round((completedSetupSteps / totalSetupSteps) * 100) : 0;
 
   const primaryCta = useMemo(() => {
+    if (setupLoadFailed) {
+      return { label: "Reload page", href: pathname || "/dashboard" };
+    }
     if (preProvider || !setup) {
       if (routeId === "onboarding") {
         return { label: "Use the form below", href: "#main-content" };
@@ -128,9 +134,9 @@ export function DashboardOnboardingAssistant({
       return { label, href: nextIncomplete.href };
     }
     return completePrimaryCta(routeId);
-  }, [preProvider, setup, nextIncomplete, routeId]);
+  }, [setupLoadFailed, preProvider, setup, nextIncomplete, routeId, pathname]);
 
-  const showProgress = Boolean(setup);
+  const showProgress = Boolean(setup) && !setupLoadFailed;
 
   return (
     <div
@@ -165,7 +171,11 @@ export function DashboardOnboardingAssistant({
               {guide.body}
             </p>
 
-            {showProgress ? (
+            {setupLoadFailed ? (
+              <div className="mt-4 rounded-xl border border-[var(--card-border)] bg-[var(--surface-muted)] p-3 text-xs leading-relaxed text-[var(--muted)]">
+                Couldn&apos;t load setup status. Check your database connection or environment, then reload.
+              </div>
+            ) : showProgress ? (
               <div className="mt-4 rounded-xl border border-[var(--card-border)] bg-[var(--surface-muted)] p-3">
                 <div className="flex items-center justify-between gap-2 text-xs font-semibold text-[var(--muted)]">
                   <span>Setup progress</span>

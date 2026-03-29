@@ -3,7 +3,6 @@
 import { useActionState, useEffect, useState } from "react";
 import { CsrfField } from "@/components/csrf-field";
 import { updatePositioningTiers, updatePricingProfile } from "@/actions/pricing";
-import type { ActionState } from "@/domain/auth/actions";
 
 type Profile = {
   name: string;

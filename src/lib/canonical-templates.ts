@@ -1,4 +1,4 @@
-import { and, asc, eq, ne } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { ensureCanonicalTemplates } from "@/db/ensure-canonical-templates";
 import { canonicalServiceTemplates } from "@/db/schema";

@@ -212,9 +212,9 @@ export function ServiceCreateSection({
           </div>
           <p className="text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
             Service levels let clients choose between your Standard, Enhanced, and Premium options (you define names and prices under{" "}
-            <a href="/dashboard/pricing" className="font-medium text-[var(--accent)] underline underline-offset-2">
+            <Link href="/dashboard/pricing" className="font-medium text-[var(--accent)] underline underline-offset-2">
               Pricing
-            </a>
+            </Link>
             ). Turn this off if you want one simple price for this service.
           </p>
           <label className="flex items-start gap-3 text-sm leading-snug">

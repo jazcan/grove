@@ -28,19 +28,25 @@ export default async function DashboardLayout({
   const u = await requireUser();
 
   let setupState: Awaited<ReturnType<typeof loadProviderSetupState>> | null = null;
+  let setupLoadFailed = false;
   const preProvider = !u.providerId;
   if (u.providerId) {
-    const db = getDb();
-    const [prov] = await db
-      .select({ timezone: providers.timezone })
-      .from(providers)
-      .where(eq(providers.id, u.providerId))
-      .limit(1);
-    const tz = prov?.timezone ?? "America/Toronto";
-    setupState = await loadProviderSetupState(db, u.providerId, tz);
+    try {
+      const db = getDb();
+      const [prov] = await db
+        .select({ timezone: providers.timezone })
+        .from(providers)
+        .where(eq(providers.id, u.providerId))
+        .limit(1);
+      const tz = prov?.timezone ?? "America/Toronto";
+      setupState = await loadProviderSetupState(db, u.providerId, tz);
+    } catch (e) {
+      console.error("[dashboard layout] failed to load provider setup", e);
+      setupLoadFailed = true;
+    }
   }
 
-  const initialExpanded = setupState?.needsSetup ?? true;
+  const initialExpanded = setupLoadFailed ? true : (setupState?.needsSetup ?? true);
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -83,8 +89,9 @@ export default async function DashboardLayout({
 
       <Suspense fallback={null}>
         <DashboardOnboardingAssistant
-          key={[u.providerId ?? "pre", setupState?.needsSetup ? "need" : "ok"].join(":")}
+          key={[u.providerId ?? "pre", setupLoadFailed ? "err" : setupState?.needsSetup ? "need" : "ok"].join(":")}
           setup={setupState}
+          setupLoadFailed={setupLoadFailed}
           preProvider={preProvider}
           initialExpanded={initialExpanded}
         />

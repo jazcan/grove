@@ -52,6 +52,10 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
+  if (!process.env.DATABASE_URL?.trim()) {
+    console.error("[session] DATABASE_URL is not set; cannot resolve session");
+    return null;
+  }
   const db = getDb();
   const tokenHash = hashToken(token);
   const row = await db
