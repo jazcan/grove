@@ -54,7 +54,15 @@ DATABASE_URL="postgresql://…" npx drizzle-kit push
 
 Use the **pooled** or **direct** Neon URL your project already uses; no need to commit secrets.
 
-**Alternative:** in Neon (or any SQL client), run the statements in order from [`drizzle/`](./drizzle/) for migrations you have not applied yet—for example [`drizzle/0007_bookings_paused.sql`](./drizzle/0007_bookings_paused.sql) adds `bookings_paused` on `providers`.
+**Alternative:** in Neon (or any SQL client), run each [`drizzle/*.sql`](./drizzle/) file you have not applied yet, in numeric order (`0001` → `0008`). There are **two** `0008_*.sql` files—run both.
+
+| Error mentions | Likely fix (SQL files) |
+| -------------- | ---------------------- |
+| `bookings_paused` | [`0007_bookings_paused.sql`](./drizzle/0007_bookings_paused.sql) |
+| `service_levels_enabled`, `phone_required`, `notes_required`, `default_service_levels_enabled` | [`0008_service_booking_requirements.sql`](./drizzle/0008_service_booking_requirements.sql) |
+| `provider_dashboard_signals`, `username_locked_at` | [`0008_provider_signals_username_lock.sql`](./drizzle/0008_provider_signals_username_lock.sql) |
+
+Dashboard queries often select full `services` / `providers` rows, so a missing column on those tables can break **Services**, **Customers**, and other pages until the DB matches [`src/db/schema.ts`](./src/db/schema.ts).
 
 ## Scripts
 

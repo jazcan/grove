@@ -11,6 +11,9 @@ import { logAudit } from "@/lib/audit";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
 import type { ActionState } from "@/domain/auth/actions";
 
+/** Set to `true` to require verified account email before publishing (see profile forms). */
+const ENFORCE_VERIFIED_EMAIL_FOR_PUBLISH = false;
+
 export type ProfileState = ActionState;
 
 export async function updateProviderProfile(formData: FormData): Promise<ProfileState> {
@@ -31,11 +34,11 @@ export async function updateProviderProfile(formData: FormData): Promise<Profile
   const wantsPublic = formData.get("publicProfileEnabled") === "on";
   const wantsDiscoverable = formData.get("discoverable") === "on";
 
-  const [u] = await db.select().from(users).where(eq(users.id, ctx.id)).limit(1);
-  const cutoff = new Date("2026-04-01T00:00:00.000Z");
-  const enforceVerified = new Date() >= cutoff;
-  if (wantsPublic && enforceVerified && !u?.emailVerifiedAt) {
-    return { error: "Verify your email before publishing your profile." };
+  if (wantsPublic && ENFORCE_VERIFIED_EMAIL_FOR_PUBLISH) {
+    const [u] = await db.select().from(users).where(eq(users.id, ctx.id)).limit(1);
+    if (!u?.emailVerifiedAt) {
+      return { error: "Verify your email before publishing your profile." };
+    }
   }
 
   const displayName = plainTextFromInput(formData.get("displayName")?.toString() ?? "", 200);
@@ -264,11 +267,11 @@ export async function setPublicProfile(formData: FormData): Promise<ProfileState
   if (!(await csrfOk(formData, { action: "setPublicProfile" }))) return { error: "Invalid security token." };
   const ctx = await loadProviderContext();
   const db = getDb();
-  const [u] = await db.select().from(users).where(eq(users.id, ctx.id)).limit(1);
-  const cutoff = new Date("2026-04-01T00:00:00.000Z");
-  const enforceVerified = new Date() >= cutoff;
-  if (enforceVerified && !u?.emailVerifiedAt) {
-    return { error: "Verify your email before publishing your profile." };
+  if (ENFORCE_VERIFIED_EMAIL_FOR_PUBLISH) {
+    const [u] = await db.select().from(users).where(eq(users.id, ctx.id)).limit(1);
+    if (!u?.emailVerifiedAt) {
+      return { error: "Verify your email before publishing your profile." };
+    }
   }
   const enabled = formData.get("publicProfileEnabled") === "on";
   await db

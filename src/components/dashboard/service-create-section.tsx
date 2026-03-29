@@ -54,7 +54,8 @@ export function ServiceCreateSection({
 
   const values: ServiceFormDefaults = prefillDefaults ?? emptyScratchDefaults();
   const showAdjustHint = formVisible && (prefillDefaults !== null || scratchMode);
-  const pulseFields = highlight && (prefillDefaults !== null || scratchMode);
+  /** Accent wash on Basic info / Duration / Pricing: helps template flows; skip for "scratch" so it doesn’t read like a bug. */
+  const pulseFields = highlight && !scratchMode && prefillDefaults !== null;
 
   useEffect(() => {
     if (!formVisible) return;
