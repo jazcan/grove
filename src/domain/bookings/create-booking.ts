@@ -49,8 +49,8 @@ export async function createBookingAtomic(
         and(
           eq(bookings.providerId, input.providerId),
           ne(bookings.status, "cancelled"),
-          sql`${bookings.startsAt} < ${input.endsAt} + (${input.bufferAfterMinutes} * interval '1 minute')`,
-          sql`${bookings.endsAt} + (${bookings.bufferAfterMinutes} * interval '1 minute') > ${input.startsAt}`
+          sql`${bookings.startsAt} < ${input.endsAt.toISOString()}::timestamptz + (${input.bufferAfterMinutes} * interval '1 minute')`,
+          sql`${bookings.endsAt} + (${bookings.bufferAfterMinutes} * interval '1 minute') > ${input.startsAt.toISOString()}::timestamptz`
         )
       )
       .for("update");

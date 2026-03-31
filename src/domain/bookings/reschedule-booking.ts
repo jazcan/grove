@@ -43,8 +43,8 @@ export async function rescheduleBookingAtomic(db: Database, input: RescheduleBoo
           eq(bookings.providerId, input.providerId),
           ne(bookings.id, input.bookingId),
           ne(bookings.status, "cancelled"),
-          sql`${bookings.startsAt} < ${endsAt} + (${buf} * interval '1 minute')`,
-          sql`${bookings.endsAt} + (${bookings.bufferAfterMinutes} * interval '1 minute') > ${input.startsAt}`
+          sql`${bookings.startsAt} < ${endsAt.toISOString()}::timestamptz + (${buf} * interval '1 minute')`,
+          sql`${bookings.endsAt} + (${bookings.bufferAfterMinutes} * interval '1 minute') > ${input.startsAt.toISOString()}::timestamptz`
         )
       )
       .for("update");
