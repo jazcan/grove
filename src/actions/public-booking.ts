@@ -266,8 +266,8 @@ export async function submitPublicBooking(
 
   const username = formData.get("username")?.toString().trim().toLowerCase() ?? "";
   const serviceId = formData.get("serviceId")?.toString() ?? "";
-  const slotStartIso = formData.get("slotStart")?.toString() ?? "";
-  const dateISO = formData.get("dateISO")?.toString() ?? "";
+  const slotStartIso = formData.get("slotStart")?.toString().trim() ?? "";
+  const dateISO = formData.get("dateISO")?.toString().trim() ?? "";
   const customerFirst = plainTextFromInput(formData.get("customerFirstName")?.toString() ?? "", 100);
   const customerLast = plainTextFromInput(formData.get("customerLastName")?.toString() ?? "", 100);
   const legacyName = plainTextFromInput(formData.get("customerName")?.toString() ?? "", 200);
@@ -333,7 +333,14 @@ export async function submitPublicBooking(
     serviceId,
     dateISO,
   });
-  const okSlot = allowed.slots.some((s) => s.start === startsAt.toISOString());
+  if (allowed.error) {
+    return { error: allowed.error };
+  }
+  const startMs = startsAt.getTime();
+  const okSlot = allowed.slots.some((s) => {
+    const t = new Date(s.start).getTime();
+    return Number.isFinite(t) && t === startMs;
+  });
   if (!okSlot) return { error: "That time is no longer available." };
 
   const wantsPayChoice = prov.paymentCash || prov.paymentEtransfer;
@@ -382,32 +389,37 @@ export async function submitPublicBooking(
       paymentAmount: paymentAmountStr,
     });
 
-    await enqueueNotification({
-      kind: "booking_confirmation",
-      bookingId: created.bookingId,
-      idempotencyKey: `booking_confirmation:${created.bookingId}`,
-    });
-
-    const startMs = startsAt.getTime();
-    const reminder24 = prov.reminder24h
-      ? startMs - 24 * 60 * 60 * 1000 - Date.now()
-      : null;
-    if (reminder24 !== null && reminder24 > 0) {
+    // Never fail the customer after the booking row exists (queue/Redis issues, etc.).
+    try {
       await enqueueNotification({
-        kind: "booking_reminder",
+        kind: "booking_confirmation",
         bookingId: created.bookingId,
-        idempotencyKey: `booking_reminder_24:${created.bookingId}`,
-        delayMs: reminder24,
+        idempotencyKey: `booking_confirmation:${created.bookingId}`,
       });
-    }
 
-    const followupDelay = 60 * 60 * 1000;
-    await enqueueNotification({
-      kind: "booking_followup",
-      bookingId: created.bookingId,
-      idempotencyKey: `booking_followup:${created.bookingId}`,
-      delayMs: followupDelay,
-    });
+      const startMs = startsAt.getTime();
+      const reminder24 = prov.reminder24h
+        ? startMs - 24 * 60 * 60 * 1000 - Date.now()
+        : null;
+      if (reminder24 !== null && reminder24 > 0) {
+        await enqueueNotification({
+          kind: "booking_reminder",
+          bookingId: created.bookingId,
+          idempotencyKey: `booking_reminder_24:${created.bookingId}`,
+          delayMs: reminder24,
+        });
+      }
+
+      const followupDelay = 60 * 60 * 1000;
+      await enqueueNotification({
+        kind: "booking_followup",
+        bookingId: created.bookingId,
+        idempotencyKey: `booking_followup:${created.bookingId}`,
+        delayMs: followupDelay,
+      });
+    } catch (notifyErr) {
+      console.error("[submitPublicBooking] notification enqueue failed after booking created", notifyErr);
+    }
 
     return {
       success: String(created.publicReference),
@@ -446,6 +458,6 @@ export async function submitPublicBooking(
     } catch (recordErr) {
       console.error("[submitPublicBooking] provider signal / audit failed", recordErr);
     }
-    return { error: "We couldn’t complete the booking. Please try again or contact the provider." };
+    return { error: "Please try again." };
   }
 }

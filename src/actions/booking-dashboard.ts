@@ -252,9 +252,13 @@ export async function createManualBooking(_prev: ActionState, formData: FormData
   });
   if (!slotLoad.ok) return { error: "Could not validate availability." };
 
-  const startsAt = new Date(slotStartIso);
+  const startsAt = new Date(slotStartIso.trim());
   if (Number.isNaN(startsAt.getTime())) return { error: "Invalid time." };
-  const okSlot = slotLoad.slots.some((s) => s.start === startsAt.toISOString());
+  const startMs = startsAt.getTime();
+  const okSlot = slotLoad.slots.some((s) => {
+    const t = new Date(s.start).getTime();
+    return Number.isFinite(t) && t === startMs;
+  });
   if (!okSlot) return { error: "That time is not available." };
 
   const endsAt = new Date(startsAt.getTime() + svc.durationMinutes * 60_000);
