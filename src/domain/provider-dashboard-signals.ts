@@ -1,6 +1,10 @@
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import type { Database } from "@/db";
 import { providerDashboardSignals } from "@/db/schema";
+import {
+  collectPostgresErrorText,
+  isRecoverableProviderDashboardSignalsError,
+} from "@/domain/schema-health";
 
 /** Public booking flow failed after validation (server error, DB, etc.). */
 export const BOOKING_FAILED_SIGNAL_KIND = "booking_failed" as const;
@@ -53,24 +57,35 @@ export async function logProviderSignal(
   metadata: Record<string, unknown>
 ): Promise<void> {
   const now = new Date();
-  await db
-    .insert(providerDashboardSignals)
-    .values({
-      providerId,
-      signalKind,
-      metadata,
-      firstSeenAt: now,
-      lastSeenAt: now,
-      occurrenceCount: 1,
-    })
-    .onConflictDoUpdate({
-      target: [providerDashboardSignals.providerId, providerDashboardSignals.signalKind],
-      set: {
+  try {
+    await db
+      .insert(providerDashboardSignals)
+      .values({
+        providerId,
+        signalKind,
+        metadata,
+        firstSeenAt: now,
         lastSeenAt: now,
-        occurrenceCount: sql`${providerDashboardSignals.occurrenceCount} + 1`,
-        metadata: sql`EXCLUDED.metadata`,
-      },
-    });
+        occurrenceCount: 1,
+      })
+      .onConflictDoUpdate({
+        target: [providerDashboardSignals.providerId, providerDashboardSignals.signalKind],
+        set: {
+          lastSeenAt: now,
+          occurrenceCount: sql`${providerDashboardSignals.occurrenceCount} + 1`,
+          metadata: sql`EXCLUDED.metadata`,
+        },
+      });
+  } catch (e) {
+    if (isRecoverableProviderDashboardSignalsError(e)) {
+      console.warn(
+        "[logProviderSignal] Skipping signal write (schema behind migrations). Apply drizzle/0009_provider_dashboard_signals_metadata.sql —",
+        collectPostgresErrorText(e)
+      );
+      return;
+    }
+    throw e;
+  }
 }
 
 export function presentProviderSignal(row: ProviderSignalApiRow): PresentedProviderSignal {
@@ -124,39 +139,50 @@ export async function fetchPresentedProviderSignals(
   db: Database,
   providerId: string
 ): Promise<PresentedProviderSignal[]> {
-  const rows = await db
-    .select({
-      id: providerDashboardSignals.id,
-      signalKind: providerDashboardSignals.signalKind,
-      metadata: providerDashboardSignals.metadata,
-      firstSeenAt: providerDashboardSignals.firstSeenAt,
-      lastSeenAt: providerDashboardSignals.lastSeenAt,
-      occurrenceCount: providerDashboardSignals.occurrenceCount,
-      dismissedAt: providerDashboardSignals.dismissedAt,
-    })
-    .from(providerDashboardSignals)
-    .where(
-      and(
-        eq(providerDashboardSignals.providerId, providerId),
-        or(
-          sql`${providerDashboardSignals.dismissedAt} is null`,
-          sql`${providerDashboardSignals.lastSeenAt} > ${providerDashboardSignals.dismissedAt}`
+  try {
+    const rows = await db
+      .select({
+        id: providerDashboardSignals.id,
+        signalKind: providerDashboardSignals.signalKind,
+        metadata: providerDashboardSignals.metadata,
+        firstSeenAt: providerDashboardSignals.firstSeenAt,
+        lastSeenAt: providerDashboardSignals.lastSeenAt,
+        occurrenceCount: providerDashboardSignals.occurrenceCount,
+        dismissedAt: providerDashboardSignals.dismissedAt,
+      })
+      .from(providerDashboardSignals)
+      .where(
+        and(
+          eq(providerDashboardSignals.providerId, providerId),
+          or(
+            sql`${providerDashboardSignals.dismissedAt} is null`,
+            sql`${providerDashboardSignals.lastSeenAt} > ${providerDashboardSignals.dismissedAt}`
+          )
         )
       )
-    )
-    .orderBy(desc(providerDashboardSignals.lastSeenAt));
+      .orderBy(desc(providerDashboardSignals.lastSeenAt));
 
-  return rows.map((r) =>
-    presentProviderSignal({
-      id: r.id,
-      signalKind: r.signalKind,
-      metadata: r.metadata ?? {},
-      firstSeenAt: r.firstSeenAt,
-      lastSeenAt: r.lastSeenAt,
-      occurrenceCount: r.occurrenceCount,
-      dismissedAt: r.dismissedAt,
-    })
-  );
+    return rows.map((r) =>
+      presentProviderSignal({
+        id: r.id,
+        signalKind: r.signalKind,
+        metadata: r.metadata ?? {},
+        firstSeenAt: r.firstSeenAt,
+        lastSeenAt: r.lastSeenAt,
+        occurrenceCount: r.occurrenceCount,
+        dismissedAt: r.dismissedAt,
+      })
+    );
+  } catch (e) {
+    if (isRecoverableProviderDashboardSignalsError(e)) {
+      console.warn(
+        "[fetchPresentedProviderSignals] Returning no signals (schema behind migrations). Apply drizzle/0009_provider_dashboard_signals_metadata.sql —",
+        collectPostgresErrorText(e)
+      );
+      return [];
+    }
+    throw e;
+  }
 }
 
 export async function getActivePublicBookingFailureSignal(

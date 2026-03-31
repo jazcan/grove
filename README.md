@@ -61,8 +61,11 @@ Use the **pooled** or **direct** Neon URL your project already uses; no need to 
 | `bookings_paused` | [`0007_bookings_paused.sql`](./drizzle/0007_bookings_paused.sql) |
 | `service_levels_enabled`, `phone_required`, `notes_required`, `default_service_levels_enabled` | [`0008_service_booking_requirements.sql`](./drizzle/0008_service_booking_requirements.sql) |
 | `provider_dashboard_signals`, `username_locked_at` | [`0008_provider_signals_username_lock.sql`](./drizzle/0008_provider_signals_username_lock.sql) |
+| `metadata` on `provider_dashboard_signals` | [`0009_provider_dashboard_signals_metadata.sql`](./drizzle/0009_provider_dashboard_signals_metadata.sql) |
 
 Dashboard queries often select full `services` / `providers` rows, so a missing column on those tables can break **Services**, **Customers**, and other pages until the DB matches [`src/db/schema.ts`](./src/db/schema.ts).
+
+Admins can run a read-only **schema health** check against `information_schema` at **`/admin/schema-health`** (see [docs/schema-health.md](./docs/schema-health.md)); it does not apply migrations.
 
 ## Scripts
 

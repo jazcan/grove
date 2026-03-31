@@ -32,9 +32,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning: some browser extensions (e.g. screenshot tools) inject attributes on
+    // <html> before React hydrates, which would otherwise warn in dev.
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased font-sans`}
+        suppressHydrationWarning
       >
         <a
           href="#main-content"

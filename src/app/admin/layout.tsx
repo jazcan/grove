@@ -25,6 +25,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/ai" className="rounded-md px-3 py-2 hover:bg-[var(--surface-hover)]">
               AI gateway
             </Link>
+            <Link href="/admin/schema-health" className="rounded-md px-3 py-2 hover:bg-[var(--surface-hover)]">
+              Schema health
+            </Link>
           </nav>
           <form action={signOut}>
             <button type="submit" className="ui-btn-secondary min-h-10 px-4 py-2 text-sm">
