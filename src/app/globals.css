@@ -47,6 +47,190 @@
   --shadow-card: 0 1px 3px rgba(28, 27, 25, 0.06), 0 1px 2px rgba(28, 27, 25, 0.04);
 }
 
+/* -------------------------------------------------------------------------- */
+/* Handshake Local — landing only (home + header). Does not alter dashboard. */
+/* -------------------------------------------------------------------------- */
+
+body:has(main.handshake-landing) {
+  background-color: #f4f1ea;
+}
+
+.handshake-landing,
+header.handshake-landing-header {
+  --hl-paper: #f4f1ea;
+  --hl-ink: #1a1a1a;
+  --hl-ink-mid: color-mix(in oklab, #1a1a1a 22%, transparent);
+  --hl-ink-faint: color-mix(in oklab, #1a1a1a 12%, transparent);
+  --hl-accent: #2d5a3f;
+  --hl-accent-hover: #244832;
+  --background: var(--hl-paper);
+  --foreground: var(--hl-ink);
+  --card: #faf8f3;
+  --surface-muted: #f0ebe2;
+  --surface-hover: color-mix(in oklab, var(--hl-ink) 5%, var(--card));
+  --muted: #4a4743;
+  --muted-foreground: #5a5650;
+  --accent: var(--hl-accent);
+  --accent-hover: var(--hl-accent-hover);
+  --accent-foreground: #f7f6f3;
+  --accent-soft: color-mix(in oklab, var(--hl-accent) 11%, white);
+  --accent-soft-border: color-mix(in oklab, var(--hl-accent) 24%, #d0cbc0);
+  --border: color-mix(in oklab, var(--hl-ink) 11%, #e2ddd4);
+  --input-border: color-mix(in oklab, var(--hl-ink) 17%, #d2cdc3);
+  --card-border: color-mix(in oklab, var(--hl-ink) 9%, #ded8cf);
+  --ring-focus: color-mix(in oklab, var(--hl-accent) 38%, transparent);
+  --shadow-sm: 0 1px 2px rgba(26, 26, 26, 0.05);
+  --shadow-card: 0 2px 8px rgba(26, 26, 26, 0.05);
+}
+
+.handshake-landing {
+  position: relative;
+  isolation: isolate;
+  color: var(--foreground);
+}
+
+.handshake-landing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  min-height: 100%;
+  pointer-events: none;
+  opacity: 0.038;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+.handshake-landing > * {
+  position: relative;
+  z-index: 1;
+}
+
+header.handshake-landing-header {
+  border-bottom-color: var(--hl-ink-faint);
+  background-color: color-mix(in oklab, var(--hl-paper) 94%, white);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+@supports (backdrop-filter: blur(8px)) {
+  header.handshake-landing-header {
+    background-color: color-mix(in oklab, var(--hl-paper) 88%, transparent);
+    backdrop-filter: blur(10px);
+  }
+}
+
+@layer components {
+  /* Hero + section headings — readable serif, not poster-sized */
+  .handshake-landing .hl-display {
+    font-family: var(--font-handshake-display), Georgia, "Times New Roman", serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .handshake-landing .hl-overline {
+    letter-spacing: 0.14em;
+  }
+
+  .handshake-landing .hl-body {
+    letter-spacing: 0.01em;
+  }
+
+  /* Ink-outline cards (marketing) */
+  .handshake-landing .hl-card {
+    border-radius: 1rem 0.85rem 1.05rem 0.92rem / 0.92rem 1rem 0.88rem 1.02rem;
+    border: 1px solid var(--hl-ink-mid);
+    background: var(--card);
+    box-shadow: 0 2px 12px rgba(26, 26, 26, 0.05);
+  }
+
+  /* Section dividers — ink hairline, not gray SaaS */
+  .handshake-landing .hl-rule {
+    border-color: var(--hl-ink-faint);
+  }
+
+  .handshake-landing .hl-rule-thick {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--hl-ink-mid) 8%,
+      var(--hl-ink-mid) 92%,
+      transparent
+    );
+    opacity: 0.85;
+  }
+
+  /* Primary CTA — forest green + subtle inner “chalk” edge */
+  .handshake-landing .ui-btn-primary,
+  header.handshake-landing-header .ui-btn-primary {
+    border-radius: 0.55rem 0.68rem 0.58rem 0.62rem / 0.62rem 0.55rem 0.65rem 0.58rem;
+    border: 1px solid color-mix(in oklab, var(--hl-accent) 42%, var(--hl-ink));
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+      0 1px 2px rgba(26, 26, 26, 0.06);
+  }
+
+  /* Secondary / outline — ink border, no heavy shadow */
+  .handshake-landing a.hl-btn-secondary,
+  header.handshake-landing-header a.hl-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--foreground);
+    text-decoration: none;
+    background: transparent;
+    border: 1px solid var(--hl-ink-mid);
+    border-radius: 0.55rem 0.65rem 0.58rem 0.6rem / 0.6rem 0.55rem 0.62rem 0.58rem;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .handshake-landing a.hl-btn-secondary:hover,
+  header.handshake-landing-header a.hl-btn-secondary:hover {
+    background: color-mix(in oklab, var(--hl-ink) 4%, var(--card));
+    border-color: color-mix(in oklab, var(--hl-ink) 35%, var(--hl-ink-mid));
+  }
+
+  /* FAQ + panels: ink frame, light lift */
+  .handshake-landing .hl-disclosure {
+    border-radius: 0.95rem 0.82rem 1rem 0.88rem / 0.88rem 0.95rem 0.85rem 1rem;
+    border: 1px solid var(--hl-ink-faint);
+    background: var(--card);
+    box-shadow: 0 2px 10px rgba(26, 26, 26, 0.04);
+  }
+
+  .handshake-landing .hl-cta-panel {
+    border-radius: 1.15rem 0.95rem 1.2rem 1rem / 1rem 1.1rem 0.95rem 1.05rem;
+    border: 1px solid var(--hl-ink-mid);
+    background: color-mix(in oklab, var(--surface-muted) 65%, var(--card));
+    box-shadow: 0 2px 14px rgba(26, 26, 26, 0.05);
+  }
+
+  .handshake-landing .hl-icon-feature {
+    color: var(--hl-ink);
+    opacity: 0.92;
+  }
+
+  .handshake-landing .hl-icon-feature-accent {
+    color: var(--hl-accent);
+  }
+}
+
+/* Match 16px+ control text on narrow viewports (landing + home header). */
+@media (max-width: 639.98px) {
+  .handshake-landing a.hl-btn-secondary,
+  header.handshake-landing-header a.hl-btn-secondary {
+    font-size: 1rem;
+  }
+}
+
 html {
   color-scheme: light;
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { GroveLogoMark } from "@/components/brand/grove-logo-mark";
+import { HandshakeLogo } from "@/components/brand/handshake-logo";
 import { brand } from "@/config/brand";
 import { signOut } from "@/domain/auth/actions";
 
@@ -23,6 +23,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
   const path = pathname ?? "";
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const isHome = path === "/" || path === "";
   const marketplaceActive = path === "/marketplace" || path.startsWith("/marketplace/");
 
   useEffect(() => {
@@ -39,10 +40,16 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
   }, [menuOpen]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[color-mix(in_oklab,var(--foreground)_7%,transparent)] bg-[color-mix(in_oklab,var(--card)_97%,transparent)] shadow-[var(--shadow-sm)] backdrop-blur-md supports-[backdrop-filter]:bg-[color-mix(in_oklab,var(--card)_92%,transparent)]">
+    <header
+      className={
+        isHome
+          ? "handshake-landing-header sticky top-0 z-50 border-b"
+          : "sticky top-0 z-50 border-b border-[color-mix(in_oklab,var(--foreground)_7%,transparent)] bg-[color-mix(in_oklab,var(--card)_97%,transparent)] shadow-[var(--shadow-sm)] backdrop-blur-md supports-[backdrop-filter]:bg-[color-mix(in_oklab,var(--card)_92%,transparent)]"
+      }
+    >
       <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex min-w-0 shrink-0 items-center gap-2.5 rounded-lg outline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
-          <GroveLogoMark size={36} className="shrink-0" />
+          <HandshakeLogo size={40} className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" />
           <span className="text-lg font-bold tracking-tight text-[var(--foreground)]">{brand.appName}</span>
         </Link>
 
@@ -83,7 +90,11 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
               <>
                 <Link
                   href="/login"
-                  className="inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-[var(--foreground)] ring-1 ring-[color-mix(in_oklab,var(--foreground)_12%,transparent)] transition-colors hover:bg-[var(--surface-hover)]"
+                  className={
+                    isHome
+                      ? "hl-btn-secondary min-h-10 px-4 py-2 text-sm"
+                      : "inline-flex min-h-10 items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-[var(--foreground)] ring-1 ring-[color-mix(in_oklab,var(--foreground)_12%,transparent)] transition-colors hover:bg-[var(--surface-hover)]"
+                  }
                 >
                   Sign in
                 </Link>
@@ -118,7 +129,9 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
       {menuOpen ? (
         <div
           id="site-header-mobile-menu"
-          className="border-t border-[color-mix(in_oklab,var(--foreground)_7%,transparent)] bg-[var(--card)] px-4 py-4 shadow-[0_8px_24px_-12px_rgba(28,27,25,0.15)] md:hidden"
+          className={`border-t border-[color-mix(in_oklab,var(--foreground)_7%,transparent)] px-4 py-4 shadow-[0_8px_24px_-12px_rgba(28,27,25,0.12)] md:hidden ${
+            isHome ? "bg-[var(--hl-paper)]" : "bg-[var(--card)]"
+          }`}
         >
           <nav className="flex flex-col gap-1" aria-label="Main mobile">
             <Link
@@ -159,7 +172,11 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
               <>
                 <Link
                   href="/login"
-                  className="mt-1 rounded-lg px-3 py-3 text-sm font-semibold text-[var(--foreground)] ring-1 ring-[color-mix(in_oklab,var(--foreground)_12%,transparent)]"
+                  className={
+                    isHome
+                      ? "hl-btn-secondary mt-1 w-full justify-center px-3 py-3 text-sm"
+                      : "mt-1 rounded-lg px-3 py-3 text-sm font-semibold text-[var(--foreground)] ring-1 ring-[color-mix(in_oklab,var(--foreground)_12%,transparent)]"
+                  }
                   onClick={() => setMenuOpen(false)}
                 >
                   Sign in
