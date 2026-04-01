@@ -8,14 +8,20 @@ import {
   services,
 } from "@/db/schema";
 import { templateStructureSchema } from "@/platform/templates/structure";
-import { simulateServicePrice } from "./engine";
+import { applyTipToSimulatedPrice, simulateServicePrice } from "./engine";
 
 export type PublicBookingPriceResult = {
+  /** Service + add-ons before tip. */
+  subtotal: number;
+  tipPercent: number;
+  tipAmount: number;
+  /** Amount due including tip (matches `payment_amount`). */
   grandTotal: number;
   currency: string;
   tierId: string;
   selectedAddOnIds: string[];
   simulated: ReturnType<typeof simulateServicePrice>;
+  simulatedWithTip: ReturnType<typeof applyTipToSimulatedPrice>;
 };
 
 /**
@@ -30,6 +36,8 @@ export async function computePublicBookingPrice(
     /** Client-selected tier id, or null to use the service’s default tier (or first tier). */
     positioningTierId: string | null | undefined;
     selectedAddOnIds: string[];
+    /** Tip as percent of subtotal (0–30); defaults to 0. */
+    tipPercent?: number | null;
   }
 ): Promise<PublicBookingPriceResult | { error: string }> {
   const [profile] = await db
@@ -150,11 +158,19 @@ export async function computePublicBookingPrice(
     disabledAddOnIds,
   });
 
+  const rawTip =
+    input.tipPercent == null || !Number.isFinite(Number(input.tipPercent)) ? 0 : Number(input.tipPercent);
+  const simulatedWithTip = applyTipToSimulatedPrice(simulated, rawTip);
+
   return {
-    grandTotal: simulated.grandTotal,
-    currency: simulated.currency,
+    subtotal: simulatedWithTip.subtotal,
+    tipPercent: simulatedWithTip.tipPercent,
+    tipAmount: simulatedWithTip.tipAmount,
+    grandTotal: simulatedWithTip.grandTotal,
+    currency: simulatedWithTip.currency,
     tierId,
     selectedAddOnIds: uniqueSelected,
     simulated,
+    simulatedWithTip,
   };
 }

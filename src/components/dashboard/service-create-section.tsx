@@ -149,7 +149,7 @@ export function ServiceCreateSection({
           />
           <input
             name="category"
-            placeholder="e.g. Wellness, home services, tutoring"
+            placeholder="e.g. Home Services, wellness, tutoring"
             defaultValue={values.category}
             className="ui-input"
           />

@@ -1,4 +1,5 @@
 import { Worker, type ConnectionOptions } from "bullmq";
+import { brand } from "../config/brand";
 import { processNotificationJob } from "../domain/notifications/process-job";
 
 const url = process.env.REDIS_URL;
@@ -47,4 +48,4 @@ worker.on("failed", (job, err) => {
   console.error("Job failed", job?.id, err);
 });
 
-console.log("Grove notification worker started.");
+console.log(`${brand.appName} notification worker started.`);

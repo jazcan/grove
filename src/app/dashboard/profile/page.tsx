@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { brand } from "@/config/brand";
 import { getDb } from "@/db";
 import { availabilityRules, providers, services, users } from "@/db/schema";
 import { asFormAction } from "@/lib/form-action";
@@ -158,7 +159,9 @@ export default async function ProfilePage({ searchParams }: Props) {
                 <CsrfField token={csrf} />
                 <input type="hidden" name="returnTo" value="/dashboard/profile#username-form" />
                 <h3 className="text-base font-semibold text-[var(--foreground)]">Page address</h3>
-                <p className="ui-hint mt-1">Your public page lives at this path (for example, grove.com/your-name).</p>
+                <p className="ui-hint mt-1">
+                  Your public page lives at this path (for example, yourdomain.com/your-name).
+                </p>
                 {usernameLocked ? (
                   <p className="ui-hint mt-3 text-sm leading-relaxed">
                     Your page address is permanent and cannot be changed after it is set. It stays the same for
@@ -272,7 +275,9 @@ export default async function ProfilePage({ searchParams }: Props) {
                     />
                     <span>
                       <span className="font-medium text-[var(--foreground)]">Appear in marketplace search</span>
-                      <span className="mt-0.5 block text-[var(--muted)]">Helps new clients discover you in Grove.</span>
+                      <span className="mt-0.5 block text-[var(--muted)]">
+                        Helps new clients discover you in {brand.appName}.
+                      </span>
                     </span>
                   </label>
                 </div>

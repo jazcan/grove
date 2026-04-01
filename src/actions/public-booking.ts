@@ -14,6 +14,7 @@ import {
 import { generateSlots } from "@/domain/availability/slots";
 import { createBookingAtomic } from "@/domain/bookings/create-booking";
 import { computePublicBookingPrice } from "@/domain/pricing/compute-public-booking-price";
+import { clampPublicBookingTipPercent } from "@/domain/pricing/engine";
 import { ensureDefaultPricingProfile } from "@/domain/pricing/ensure-default";
 import { rankServicesByIntent } from "@/domain/public/match-services-intent";
 import { validateCsrfToken } from "@/lib/csrf";
@@ -277,6 +278,11 @@ export async function submitPublicBooking(
   const rawPay = plainTextFromInput(formData.get("paymentMethod")?.toString() ?? "", 64).toLowerCase();
   const positioningTierIdRaw = formData.get("positioningTierId")?.toString()?.trim() ?? "";
   const addOnRaw = formData.getAll("addOnIds").map((v) => String(v).trim()).filter(Boolean);
+  const tipPercentRaw = formData.get("tipPercent")?.toString().trim() ?? "";
+  const tipPercentParsed = Number(tipPercentRaw);
+  const tipPercentForPricing = clampPublicBookingTipPercent(
+    tipPercentRaw === "" || !Number.isFinite(tipPercentParsed) ? 0 : tipPercentParsed
+  );
 
   const trimmedFirst = customerFirst.trim();
   const trimmedLast = customerLast.trim();
@@ -366,12 +372,14 @@ export async function submitPublicBooking(
       serviceId: svc.id,
       positioningTierId: positioningTierIdRaw || null,
       selectedAddOnIds: addOnRaw,
+      tipPercent: tipPercentForPricing,
     });
     if ("error" in priced) {
       return { error: priced.error };
     }
 
     const paymentAmountStr = priced.grandTotal.toFixed(2);
+    const tipPercentStored = priced.tipPercent.toFixed(2);
 
     const created = await createBookingAtomic(db, {
       providerId: prov.id,
@@ -387,6 +395,7 @@ export async function submitPublicBooking(
       positioningTierId: priced.tierId,
       selectedAddOnIds: priced.selectedAddOnIds,
       paymentAmount: paymentAmountStr,
+      tipPercent: tipPercentStored,
     });
 
     // Never fail the customer after the booking row exists (queue/Redis issues, etc.).

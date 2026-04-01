@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { GroveLogoMark } from "@/components/brand/grove-logo-mark";
+import { brand } from "@/config/brand";
 import { requireAdmin } from "@/lib/tenancy";
 import { signOut } from "@/domain/auth/actions";
 
@@ -13,7 +14,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <nav className="flex flex-wrap items-center gap-x-1 gap-y-2 text-sm font-medium" aria-label="Admin">
             <span className="mr-2 flex items-center gap-2 font-bold text-[var(--foreground)]">
               <GroveLogoMark size={28} className="shrink-0 opacity-90" />
-              <span className="text-[var(--accent)]">Grove</span>
+              <span className="text-[var(--accent)]">{brand.appName}</span>
               <span className="font-semibold text-[var(--muted)]">Admin</span>
             </span>
             <Link href="/admin" className="rounded-md px-3 py-2 hover:bg-[var(--surface-hover)]">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { brand } from "@/config/brand";
 import { MarketplaceMapPreview } from "@/components/marketplace/marketplace-map-preview";
 import { MarketplaceSearchPanel } from "@/components/marketplace/marketplace-search-panel";
 import { ProviderMarketplaceCard } from "@/components/marketplace/provider-marketplace-card";
@@ -56,7 +57,7 @@ export default async function MarketplacePage({ searchParams }: Props) {
           >
             <p className="font-semibold">We couldn&apos;t load the provider directory.</p>
             <p className="mt-1 text-[color-mix(in_oklab,var(--foreground)_75%,transparent)]">
-              This is usually a database connection issue on the server. If you deploy Grove, add{" "}
+              This is usually a database connection issue on the server. If you deploy {brand.appName}, add{" "}
               <code className="rounded bg-[color-mix(in_oklab,var(--foreground)_6%,var(--card))] px-1 py-0.5 text-xs">
                 DATABASE_URL
               </code>{" "}
@@ -80,7 +81,7 @@ export default async function MarketplacePage({ searchParams }: Props) {
               </p>
             </div>
             <Link href="/signup" className="ui-link mt-2 text-sm font-semibold sm:mt-0">
-              Start offering your services on Grove
+              Start offering your services on {brand.appName}
             </Link>
           </div>
 

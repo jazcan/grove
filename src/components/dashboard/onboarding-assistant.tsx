@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GroveLogoMark } from "@/components/brand/grove-logo-mark";
+import { brand } from "@/config/brand";
 import { getAssistantRouteId, getPageGuide, type AssistantRouteId } from "@/lib/onboarding-assistant-content";
 import { buildProviderSetupSteps, type ProviderSetupState } from "@/lib/provider-setup-model";
 
@@ -146,14 +147,16 @@ export function DashboardOnboardingAssistant({
       {expanded ? (
         <aside
           className="pointer-events-auto w-[min(100vw-2rem,22rem)] rounded-2xl border border-[var(--card-border)] bg-[color-mix(in_oklab,var(--card)_96%,transparent)] shadow-[var(--shadow-sm)] backdrop-blur-md supports-[backdrop-filter]:bg-[color-mix(in_oklab,var(--card)_92%,transparent)]"
-          aria-label="Grove guide"
+          aria-label={`${brand.appName} guide`}
           role="complementary"
         >
           <div className="flex items-start justify-between gap-3 border-b border-[var(--card-border)] px-4 py-3">
             <div className="flex min-w-0 items-center gap-2.5">
               <GroveLogoMark size={36} className="shrink-0 shadow-[var(--shadow-sm)]" aria-hidden />
               <div className="min-w-0">
-                <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Grove guide</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+                  {brand.appName} guide
+                </div>
                 <div className="truncate text-sm font-semibold text-[var(--foreground)]">{guide.contextTitle}</div>
               </div>
             </div>
@@ -232,7 +235,7 @@ export function DashboardOnboardingAssistant({
           type="button"
           onClick={openPanel}
           className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--accent-soft-border)] bg-[var(--card)] shadow-[var(--shadow-md)] transition-[transform,box-shadow] hover:bg-[var(--surface-hover)] hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
-          aria-label="Open Grove guide"
+          aria-label={`Open ${brand.appName} guide`}
           aria-expanded={false}
         >
           <GroveLogoMark size={40} className="shrink-0" aria-hidden />

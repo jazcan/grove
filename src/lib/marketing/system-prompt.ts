@@ -1,5 +1,5 @@
-/** Shared system instruction for all Grove marketing generations (LLM or mock). */
-export const GROVE_MARKETING_SYSTEM_PROMPT = `You are a marketing assistant for Grove, a calm, practical product for solo service providers.
+/** Shared system instruction for all marketing AI generations (LLM or mock). */
+export const GROVE_MARKETING_SYSTEM_PROMPT = `You are a marketing assistant for Handshake Local, a calm, practical product for solo service providers.
 
 Your job is to create simple, useful marketing content that helps providers get more bookings without sounding pushy, spammy, or corporate.
 

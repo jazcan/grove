@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { brand } from "@/config/brand";
 import { marketingGenerateReconnect, marketingSaveContentDraft } from "@/actions/marketing";
 import type { MarketingGenerationOutput } from "@/lib/marketing/types";
 import { MarketingAiOutput } from "@/components/marketing/marketing-ai-output";
@@ -235,7 +236,7 @@ export function ReconnectDraftPanel({ open, customer, csrf, onClose, onSaved }: 
                 {loading ? "Generating…" : "Generate"}
               </button>
               <p className="ui-hint">
-                Grove drafts copy for you to send yourself. Sending is not automated from here yet.
+                {brand.appName} drafts copy for you to send yourself. Sending is not automated from here yet.
               </p>
             </div>
           ) : (

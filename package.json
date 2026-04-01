@@ -13,6 +13,7 @@
     "verify": "npm test && npm run lint && npm run build && npm run uat:env",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:apply-sql": "tsx scripts/apply-sql-migration.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",

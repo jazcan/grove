@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { brand } from "@/config/brand";
 
 /**
  * Static next steps shown on first-run onboarding (templates → pricing → availability → publish).
@@ -13,7 +14,7 @@ export function OnboardingRoadmap() {
         What comes next
       </h2>
       <p className="ui-hint mt-2 max-w-prose">
-        Grove is built so services come from templates, pricing lives on your offers, and availability drives what
+        {brand.appName} is built so services come from templates, pricing lives on your offers, and availability drives what
         clients can book.
       </p>
       <ol className="mt-6 list-decimal space-y-4 pl-5 text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_78%,transparent)]">

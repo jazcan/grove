@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { brand } from "@/config/brand";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { asFormAction } from "@/lib/form-action";
@@ -430,8 +431,8 @@ export function MarketingWorkspace({ csrf, timezone, customers, services, campai
               </button>
             </div>
             <p className="ui-hint">
-              Saving stores your plan in Grove. Delivery and scheduling integrations can be added later — for now, use
-              your usual email or SMS tools when it is time to send.
+              Saving stores your plan in {brand.appName}. Delivery and scheduling integrations can be added later — for
+              now, use your usual email or SMS tools when it is time to send.
             </p>
           </div>
         )}
@@ -600,7 +601,7 @@ export function MarketingWorkspace({ csrf, timezone, customers, services, campai
           <SectionHeader
             id="segment-email-heading"
             title="Send email to segment"
-            subtitle="Existing Grove flow: picks customers who have not opted out and sends your chosen template by email."
+            subtitle={`Existing ${brand.appName} flow: picks customers who have not opted out and sends your chosen template by email.`}
           />
           <form action={asFormAction(sendMarketingToCustomers)} className="mt-2 grid max-w-md gap-4">
             <CsrfField token={csrf} />

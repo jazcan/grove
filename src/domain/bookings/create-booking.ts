@@ -27,6 +27,8 @@ export type CreateBookingInput = {
   positioningTierId?: string | null;
   selectedAddOnIds?: string[];
   paymentAmount?: string | null;
+  /** Percent of subtotal (service + add-ons); stored with booking snapshot. */
+  tipPercent?: string | null;
   /** Use an existing CRM customer instead of upserting by email. */
   existingCustomerId?: string;
   /** Attach to the walk-in placeholder (no real client). */
@@ -82,11 +84,13 @@ export async function createBookingAtomic(
           emailNormalized: walkEmailNorm,
           phone: null,
           phoneNormalized: null,
+          accountReady: false,
         })
         .onConflictDoUpdate({
           target: [customers.providerId, customers.emailNormalized],
           set: {
             fullName: MANUAL_BOOKING_WALK_IN_NAME,
+            accountReady: false,
             updatedAt: new Date(),
           },
         })
@@ -105,13 +109,16 @@ export async function createBookingAtomic(
           emailNormalized: emailNorm,
           phone: input.customerPhone?.slice(0, 40) ?? null,
           phoneNormalized: phoneNorm,
+          accountReady: true,
         })
         .onConflictDoUpdate({
           target: [customers.providerId, customers.emailNormalized],
           set: {
             fullName: input.customerName.slice(0, 200),
+            email: input.customerEmail.slice(0, 320),
             phone: input.customerPhone?.slice(0, 40) ?? null,
             phoneNormalized: phoneNorm,
+            accountReady: true,
             updatedAt: new Date(),
           },
         })
@@ -133,6 +140,7 @@ export async function createBookingAtomic(
     const tierId = input.positioningTierId?.trim() || null;
     const addOnIds = input.selectedAddOnIds?.length ? [...new Set(input.selectedAddOnIds)] : [];
     const payAmt = input.paymentAmount?.trim() || null;
+    const tipPct = input.tipPercent?.trim() || "0";
 
     const initialPay =
       input.initialPaymentStatus === "paid" || input.initialPaymentStatus === "unpaid"
@@ -155,6 +163,7 @@ export async function createBookingAtomic(
         positioningTierId: tierId,
         selectedAddOnIds: addOnIds,
         paymentAmount: payAmt,
+        tipPercent: tipPct,
         ...(initialPay ? { paymentStatus: initialPay } : {}),
       })
       .returning({ id: bookings.id, publicReference: bookings.publicReference });
@@ -194,6 +203,7 @@ export async function createBookingAtomic(
           positioningTierId: tierId,
           selectedAddOnIds: addOnIds,
           paymentAmount: payAmt,
+          tipPercent: tipPct,
         },
       },
       tx

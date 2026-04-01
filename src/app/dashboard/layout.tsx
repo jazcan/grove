@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { eq } from "drizzle-orm";
 import { GroveLogoMark } from "@/components/brand/grove-logo-mark";
+import { brand } from "@/config/brand";
 import { DashboardAccountMenu } from "@/components/dashboard/dashboard-account-menu";
 import { DashboardOnboardingAssistant } from "@/components/dashboard/onboarding-assistant";
 import { getDb } from "@/db";
@@ -64,7 +65,7 @@ export default async function DashboardLayout({
             className="[grid-area:logo] flex shrink-0 items-center gap-2 text-base font-bold tracking-tight text-[var(--foreground)]"
           >
             <GroveLogoMark size={32} className="shrink-0" />
-            <span className="text-[var(--accent)]">Grove</span>
+            <span className="text-[var(--accent)]">{brand.appName}</span>
           </Link>
           <div className="[grid-area:account] justify-self-end self-center">
             <DashboardAccountMenu userEmail={u.email} />

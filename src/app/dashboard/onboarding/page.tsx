@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
+import { brand } from "@/config/brand";
 import { getDb } from "@/db";
 import { providers } from "@/db/schema";
 import { getCsrfTokenForForm } from "@/lib/csrf";
@@ -27,7 +28,7 @@ export default async function OnboardingPage() {
       className="flex min-h-[min(100dvh,880px)] flex-col items-center overflow-x-hidden px-4 py-10 sm:py-14"
     >
       <div className="w-full max-w-[min(100%,480px)]">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Welcome to Grove</h1>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Welcome to {brand.appName}</h1>
         <p className="mt-3 text-base leading-relaxed text-[var(--muted)]">
           Let&apos;s set up your public profile.
         </p>

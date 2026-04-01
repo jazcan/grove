@@ -16,6 +16,8 @@ import {
 import { relations } from "drizzle-orm";
 import {
   BOOKING_STATUSES,
+  CUSTOMER_RECOMMENDATION_STATUSES,
+  CUSTOMER_RECOMMENDATION_TIMEFRAMES,
   PAYMENT_STATUSES,
   PRICING_TYPES,
   PLATFORM_EVENT_ACTORS,
@@ -32,6 +34,16 @@ export const paymentStatusEnum = pgEnum("payment_status", PAYMENT_STATUSES);
 export const pricingTypeEnum = pgEnum("pricing_type", PRICING_TYPES);
 
 export const platformEventActorEnum = pgEnum("platform_event_actor", PLATFORM_EVENT_ACTORS);
+
+export const customerRecommendationStatusEnum = pgEnum(
+  "customer_recommendation_status",
+  CUSTOMER_RECOMMENDATION_STATUSES
+);
+
+export const customerRecommendationTimeframeEnum = pgEnum(
+  "customer_recommendation_timeframe",
+  CUSTOMER_RECOMMENDATION_TIMEFRAMES
+);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -150,7 +162,7 @@ export const providerDashboardSignals = pgTable(
   ]
 );
 
-/** Shopify Admin app install; tenant is linked via providerId after Grove attach flow. */
+/** Shopify Admin app install; tenant is linked via providerId after Handshake Local attach flow. */
 export const shopifyInstallations = pgTable(
   "shopify_installations",
   {
@@ -205,6 +217,9 @@ export const positioningTiers = pgTable(
 /**
  * Platform-owned canonical service definitions (steps, add-ons, outcomes + default pricing).
  * Provider offers are `services` rows linked via `canonicalTemplateId` (variants).
+ *
+ * TODO (roadmap): `category` is a coarse label for discovery; follow-on services / recommendations
+ * can key off `slug` + `id` rather than adding parallel category systems here.
  */
 export const canonicalServiceTemplates = pgTable(
   "canonical_service_templates",
@@ -323,6 +338,11 @@ export const blockedTimes = pgTable(
   (t) => [index("blocked_times_provider_idx").on(t.providerId)]
 );
 
+/**
+ * Provider-scoped CRM row: durable identity for bookings and provider-facing history.
+ * `account_ready`: true for real clients (including never-logged-in public bookers); false for synthetic rows (e.g. walk-in placeholder).
+ * `account_claimed_at`: set when a future customer login is linked (optional; not required for readiness).
+ */
 export const customers = pgTable(
   "customers",
   {
@@ -339,6 +359,13 @@ export const customers = pgTable(
     /** How this person prefers to be contacted (texts, call windows, language, etc.). */
     communicationNotes: text("communication_notes").notNull().default(""),
     marketingOptOut: boolean("marketing_opt_out").notNull().default(false),
+    /**
+     * When true, this row is intended as the stable profile for booking history and future customer access.
+     * The walk-in placeholder uses false so it stays out of CRM-style lists.
+     */
+    accountReady: boolean("account_ready").notNull().default(true),
+    /** Populated when the customer links a platform login to this record (future flow). */
+    accountClaimedAt: timestamp("account_claimed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -358,7 +385,11 @@ export const bookings = pgTable(
     serviceId: uuid("service_id")
       .notNull()
       .references(() => services.id, { onDelete: "restrict" }),
-    /** Denormalized from the service’s template at booking time for reporting and lifecycle analytics. */
+    /**
+     * Denormalized from the service’s template at booking time for reporting and lifecycle analytics.
+     * TODO (roadmap): post-appointment “service cards”, upsell/recommendations, and tips can attach here
+     * or via new columns while preserving existing booking rows.
+     */
     canonicalTemplateId: uuid("canonical_template_id").references(() => canonicalServiceTemplates.id, {
       onDelete: "set null",
     }),
@@ -371,6 +402,8 @@ export const bookings = pgTable(
     paymentStatus: paymentStatusEnum("payment_status").notNull().default("unpaid"),
     paymentMethod: varchar("payment_method", { length: 64 }),
     paymentAmount: decimal("payment_amount", { precision: 12, scale: 2 }),
+    /** Customer-chosen tip as % of subtotal at booking time (0 = none). */
+    tipPercent: decimal("tip_percent", { precision: 5, scale: 2 }).notNull().default("0"),
     /** Snapshot of positioning tier used for public price (Stage 6). */
     positioningTierId: uuid("positioning_tier_id").references(() => positioningTiers.id, {
       onDelete: "set null",
@@ -387,6 +420,87 @@ export const bookings = pgTable(
   (t) => [
     index("bookings_provider_starts_idx").on(t.providerId, t.startsAt),
     index("bookings_provider_overlap_idx").on(t.providerId),
+  ]
+);
+
+/**
+ * Structured post-visit record for a booking (professional service summary).
+ * One row per booking in v1; `customer_id` is denormalized for history queries.
+ */
+export const serviceCards = pgTable(
+  "service_cards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    bookingId: uuid("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    /** When the service was performed (defaults to booking start; provider may adjust). */
+    servicePerformedAt: timestamp("service_performed_at", { withTimezone: true }).notNull(),
+    /** Snapshot of the booked service name at save time (reporting / future customer view). */
+    serviceNameSnapshot: varchar("service_name_snapshot", { length: 200 }).notNull(),
+    /** Canonical template label when the booking used a template-backed service. */
+    templateLabelSnapshot: varchar("template_label_snapshot", { length: 200 }),
+    workSummary: text("work_summary").notNull().default(""),
+    observations: text("observations").notNull().default(""),
+    followUpRecommendation: text("follow_up_recommendation").notNull().default(""),
+    /** Card-only internal context (distinct from booking internal notes). */
+    internalNotes: text("internal_notes").notNull().default(""),
+    /** Text safe to show the customer later (portal / email); empty until you write it. */
+    customerVisibleSummary: text("customer_visible_summary").notNull().default(""),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("service_cards_booking_uidx").on(t.bookingId),
+    index("service_cards_provider_customer_idx").on(t.providerId, t.customerId),
+  ]
+);
+
+/**
+ * Future-facing follow-ups and professional advice, owned by the customer record.
+ * Optional links to the visit (booking and/or service card) and to a later booking when fulfilled.
+ */
+export const customerRecommendations = pgTable(
+  "customer_recommendations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    sourceBookingId: uuid("source_booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    sourceServiceCardId: uuid("source_service_card_id").references(() => serviceCards.id, {
+      onDelete: "set null",
+    }),
+    /** When the client books this recommendation; extension point for automation. */
+    fulfillmentBookingId: uuid("fulfillment_booking_id").references(() => bookings.id, {
+      onDelete: "set null",
+    }),
+    title: varchar("title", { length: 200 }).notNull(),
+    description: text("description").notNull().default(""),
+    reason: text("reason").notNull().default(""),
+    suggestedTimeframe: customerRecommendationTimeframeEnum("suggested_timeframe")
+      .notNull()
+      .default("next_visit"),
+    /** Extra nuance for seasonal/custom timing (not a full scheduler). */
+    timeframeDetail: text("timeframe_detail").notNull().default(""),
+    status: customerRecommendationStatusEnum("status").notNull().default("open"),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("customer_recommendations_provider_customer_idx").on(t.providerId, t.customerId),
+    index("customer_recommendations_customer_idx").on(t.customerId),
   ]
 );
 
@@ -545,6 +659,7 @@ export const marketingSavedContents = pgTable(
 export const usersRelations = relations(users, ({ one, many }) => ({
   provider: one(providers),
   sessions: many(sessions),
+  authoredServiceCards: many(serviceCards),
 }));
 
 export const providersRelations = relations(providers, ({ one, many }) => ({
@@ -554,6 +669,8 @@ export const providersRelations = relations(providers, ({ one, many }) => ({
   blockedTimes: many(blockedTimes),
   customers: many(customers),
   bookings: many(bookings),
+  serviceCards: many(serviceCards),
+  customerRecommendations: many(customerRecommendations),
   shopifyInstallations: many(shopifyInstallations),
   pricingProfile: one(pricingProfiles, { fields: [providers.id], references: [pricingProfiles.providerId] }),
 }));
@@ -617,9 +734,46 @@ export const bookingsRelations = relations(bookings, ({ one }) => ({
     references: [positioningTiers.id],
   }),
   customer: one(customers, { fields: [bookings.customerId], references: [customers.id] }),
+  serviceCard: one(serviceCards, { fields: [bookings.id], references: [serviceCards.bookingId] }),
+}));
+
+export const serviceCardsRelations = relations(serviceCards, ({ one }) => ({
+  provider: one(providers, { fields: [serviceCards.providerId], references: [providers.id] }),
+  booking: one(bookings, { fields: [serviceCards.bookingId], references: [bookings.id] }),
+  customer: one(customers, { fields: [serviceCards.customerId], references: [customers.id] }),
+  createdByUser: one(users, { fields: [serviceCards.createdByUserId], references: [users.id] }),
 }));
 
 export const customersRelations = relations(customers, ({ one, many }) => ({
   provider: one(providers, { fields: [customers.providerId], references: [providers.id] }),
   bookings: many(bookings),
+  serviceCards: many(serviceCards),
+  recommendations: many(customerRecommendations),
+}));
+
+export const customerRecommendationsRelations = relations(customerRecommendations, ({ one }) => ({
+  provider: one(providers, {
+    fields: [customerRecommendations.providerId],
+    references: [providers.id],
+  }),
+  customer: one(customers, {
+    fields: [customerRecommendations.customerId],
+    references: [customers.id],
+  }),
+  sourceBooking: one(bookings, {
+    fields: [customerRecommendations.sourceBookingId],
+    references: [bookings.id],
+  }),
+  fulfillmentBooking: one(bookings, {
+    fields: [customerRecommendations.fulfillmentBookingId],
+    references: [bookings.id],
+  }),
+  sourceServiceCard: one(serviceCards, {
+    fields: [customerRecommendations.sourceServiceCardId],
+    references: [serviceCards.id],
+  }),
+  createdByUser: one(users, {
+    fields: [customerRecommendations.createdByUserId],
+    references: [users.id],
+  }),
 }));

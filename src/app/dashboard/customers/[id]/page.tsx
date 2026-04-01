@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq, desc, sql, count } from "drizzle-orm";
 import { getDb } from "@/db";
-import { customers, bookings, services, providers } from "@/db/schema";
+import { customers, bookings, services, providers, serviceCards, customerRecommendations } from "@/db/schema";
 import { asFormAction } from "@/lib/form-action";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { CsrfField } from "@/components/csrf-field";
@@ -13,10 +13,15 @@ import {
   setCustomerMarketingOptOut,
   updateCustomerCommunicationNotes,
 } from "@/actions/customers";
+import { CustomerRecommendationsSection } from "@/components/dashboard/customers/customer-recommendations-section";
+
+function looksLikeUuid(s: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s.trim());
+}
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ added?: string }>;
+  searchParams: Promise<{ added?: string; bookingId?: string; serviceCardId?: string }>;
 };
 
 function bookingStatusLabel(status: string): string {
@@ -61,6 +66,12 @@ function formatMoney(amount: string | null | undefined, currency: string): strin
   }
 }
 
+function previewSnippet(text: string, max: number): string {
+  const t = text.trim();
+  if (!t) return "";
+  return t.length <= max ? t : `${t.slice(0, max - 1)}…`;
+}
+
 function formatDateTime(d: Date, tz: string): string {
   try {
     return d.toLocaleString(undefined, {
@@ -87,7 +98,15 @@ function sectionCard(children: ReactNode) {
 
 export default async function CustomerDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
-  const { added } = await searchParams;
+  const sp = await searchParams;
+  const added = sp?.added;
+  const prefilledSource =
+    (sp?.bookingId && looksLikeUuid(sp.bookingId)) || (sp?.serviceCardId && looksLikeUuid(sp.serviceCardId))
+      ? {
+          bookingId: sp?.bookingId && looksLikeUuid(sp.bookingId) ? sp.bookingId : undefined,
+          serviceCardId: sp?.serviceCardId && looksLikeUuid(sp.serviceCardId) ? sp.serviceCardId : undefined,
+        }
+      : undefined;
   const u = await requireProvider();
   const db = getDb();
 
@@ -112,6 +131,20 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
     .where(and(eq(bookings.customerId, id), eq(bookings.providerId, u.providerId)))
     .orderBy(desc(bookings.startsAt))
     .limit(80);
+
+  const serviceRecords = await db
+    .select()
+    .from(serviceCards)
+    .where(and(eq(serviceCards.customerId, id), eq(serviceCards.providerId, u.providerId)))
+    .orderBy(desc(serviceCards.servicePerformedAt))
+    .limit(40);
+
+  const recommendations = await db
+    .select()
+    .from(customerRecommendations)
+    .where(and(eq(customerRecommendations.customerId, id), eq(customerRecommendations.providerId, u.providerId)))
+    .orderBy(desc(customerRecommendations.createdAt))
+    .limit(100);
 
   const [agg] = await db
     .select({
@@ -153,6 +186,29 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
 
       <header className="space-y-4 pb-2">
         <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">{c.fullName}</h1>
+        {c.accountReady ? (
+          <p className="text-xs text-[color-mix(in_oklab,var(--foreground)_58%,transparent)]">
+            {c.accountClaimedAt ? (
+              <>
+                <span className="font-medium text-[var(--foreground)]">Account linked</span>
+                <span className="mx-1.5 text-[var(--border)]">·</span>
+                Customer login connected to this profile
+              </>
+            ) : (
+              <>
+                <span className="font-medium text-[var(--foreground)]">Customer profile on file</span>
+                <span className="mx-1.5 text-[var(--border)]">·</span>
+                Bookings stay on this record even if they never log in—ready for future access
+              </>
+            )}
+          </p>
+        ) : (
+          <p className="rounded-lg border border-[color-mix(in_oklab,var(--foreground)_12%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_4%,var(--card))] px-3 py-2 text-xs text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
+            <span className="font-medium text-[var(--foreground)]">Walk-in placeholder</span>
+            <span className="mx-1.5 text-[var(--border)]">·</span>
+            Shared profile for appointments with no named client—not a personal account record.
+          </p>
+        )}
         <div className="flex flex-col gap-1 text-sm text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
           <a href={`mailto:${encodeURIComponent(c.email)}`} className="w-fit hover:text-[var(--accent)] hover:underline">
             {c.email}
@@ -247,6 +303,59 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
 
       {sectionCard(
         <>
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">Service records</h2>
+          <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
+            Structured visit summaries from your service cards (one per appointment).
+          </p>
+          {serviceRecords.length === 0 ? (
+            <p className="mt-3 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
+              None yet. Open a booking and save a service card after the visit.
+            </p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {serviceRecords.map((card) => (
+                <li key={card.id}>
+                  <Link
+                    href={`/dashboard/bookings/${card.bookingId}`}
+                    className="block rounded-xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] px-4 py-3 transition-colors hover:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--card))]"
+                  >
+                    <div className="font-medium text-[var(--foreground)]">{card.serviceNameSnapshot}</div>
+                    {card.templateLabelSnapshot ? (
+                      <div className="mt-0.5 text-xs text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
+                        Template: {card.templateLabelSnapshot}
+                      </div>
+                    ) : null}
+                    <div className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
+                      {formatDateTime(card.servicePerformedAt, timezone)}
+                    </div>
+                    {card.workSummary.trim() ? (
+                      <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
+                        {previewSnippet(card.workSummary, 180)}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_48%,transparent)] italic">
+                        No work summary yet
+                      </p>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+
+      {sectionCard(
+        <CustomerRecommendationsSection
+          csrf={csrf}
+          customerId={c.id}
+          recommendations={recommendations}
+          prefilledSource={prefilledSource}
+        />
+      )}
+
+      {sectionCard(
+        <>
           <h2 className="text-lg font-semibold text-[var(--foreground)]">Payments</h2>
           <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
             Pulled from each booking&apos;s payment fields.
@@ -264,6 +373,11 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
                     <div className="font-medium text-[var(--foreground)]">
                       {formatMoney(booking.paymentAmount?.toString() ?? null, service.currency)}
                     </div>
+                    {Number(booking.tipPercent) > 0 ? (
+                      <div className="text-xs text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
+                        Includes {String(booking.tipPercent)}% tip from booking
+                      </div>
+                    ) : null}
                     <div className="text-xs text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
                       {service.name} · {formatDateTime(booking.startsAt, timezone)}
                     </div>

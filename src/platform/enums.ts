@@ -24,3 +24,22 @@ export type PricingType = (typeof PRICING_TYPES)[number];
 /** Who caused a platform event (distinct from audit `actorType`; includes future automation). */
 export const PLATFORM_EVENT_ACTORS = ["user", "system", "customer", "automation"] as const;
 export type PlatformEventActor = (typeof PLATFORM_EVENT_ACTORS)[number];
+
+/** Provider follow-on / upsell recommendations tracked at customer level. */
+export const CUSTOMER_RECOMMENDATION_STATUSES = [
+  "open",
+  "booked",
+  "completed",
+  "declined",
+  "archived",
+] as const;
+export type CustomerRecommendationStatus = (typeof CUSTOMER_RECOMMENDATION_STATUSES)[number];
+
+export const CUSTOMER_RECOMMENDATION_TIMEFRAMES = [
+  "asap",
+  "within_30_days",
+  "next_visit",
+  "seasonal",
+  "custom",
+] as const;
+export type CustomerRecommendationTimeframe = (typeof CUSTOMER_RECOMMENDATION_TIMEFRAMES)[number];

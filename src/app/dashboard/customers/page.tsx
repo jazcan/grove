@@ -50,17 +50,18 @@ export default async function CustomersPage({ searchParams }: Props) {
     .limit(1);
   const timezone = prov?.timezone ?? "America/Toronto";
 
+  const crmCustomersOnly = and(eq(customers.providerId, u.providerId), eq(customers.accountReady, true));
   const searchCond =
     qTrim.length > 0
       ? and(
-          eq(customers.providerId, u.providerId),
+          crmCustomersOnly,
           or(
             ilike(customers.fullName, `%${qTrim}%`),
             ilike(customers.email, `%${qTrim}%`),
             ilike(customers.phone, `%${qTrim}%`)
           )
         )
-      : eq(customers.providerId, u.providerId);
+      : crmCustomersOnly;
 
   const baseList = await db
     .select({
@@ -91,7 +92,7 @@ export default async function CustomersPage({ searchParams }: Props) {
   const [totalCustomers] = await db
     .select({ n: count() })
     .from(customers)
-    .where(eq(customers.providerId, u.providerId));
+    .where(crmCustomersOnly);
   const totalCustomerCount = Number(totalCustomers?.n ?? 0);
 
   const list: CustomerRow[] = baseList.map((c) => {

@@ -1,5 +1,5 @@
 /**
- * Grove platform foundation — enums/entities, events, actions, templates (Stage 2+).
+ * Platform foundation (Handshake Local / Grove codebase) — enums/entities, events, actions, templates (Stage 2+).
  */
 export * from "@/platform/enums";
 export * from "@/platform/entities";

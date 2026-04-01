@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { defaultEmailFromLabel } from "@/config/brand";
 import { getEnv } from "@/lib/env";
 
 export async function sendEmail(input: {
@@ -8,7 +9,7 @@ export async function sendEmail(input: {
   text?: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM ?? "Grove <onboarding@resend.dev>";
+  const from = process.env.EMAIL_FROM ?? defaultEmailFromLabel;
 
   if (!key) {
     console.info("[email:dev]", { to: input.to, subject: input.subject });

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { brand, defaultPageTitle } from "@/config/brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,9 +16,8 @@ const geistMono = Geist_Mono({
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Grove — Service bookings for solo providers",
-  description:
-    "Let clients book you, manage your schedule, and track payments in one place. Built for accessibility and mobile-first workflows.",
+  title: defaultPageTitle,
+  description: `${brand.appName} lets clients book you, manage your schedule, and track payments in one place. Built for accessibility and mobile-first workflows.`,
 };
 
 export const viewport: Viewport = {

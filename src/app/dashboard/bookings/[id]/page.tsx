@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { bookings, customers, services } from "@/db/schema";
+import { bookings, canonicalServiceTemplates, customers, providers, serviceCards, services } from "@/db/schema";
 import { asFormAction } from "@/lib/form-action";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { CsrfField } from "@/components/csrf-field";
@@ -13,6 +13,7 @@ import {
   updateBookingPayment,
   rescheduleBooking,
 } from "@/actions/booking-dashboard";
+import { ServiceCardSection } from "@/components/dashboard/bookings/service-card-section";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -25,16 +26,27 @@ export default async function BookingDetailPage({ params }: Props) {
       booking: bookings,
       customer: customers,
       service: services,
+      templateLabel: canonicalServiceTemplates.label,
     })
     .from(bookings)
     .innerJoin(customers, eq(bookings.customerId, customers.id))
     .innerJoin(services, eq(bookings.serviceId, services.id))
+    .leftJoin(canonicalServiceTemplates, eq(bookings.canonicalTemplateId, canonicalServiceTemplates.id))
     .where(and(eq(bookings.id, id), eq(bookings.providerId, u.providerId)))
     .limit(1);
 
   if (!row) notFound();
+  const [provRow] = await db
+    .select({ timezone: providers.timezone })
+    .from(providers)
+    .where(eq(providers.id, u.providerId))
+    .limit(1);
+  const timezone = provRow?.timezone ?? "America/Toronto";
+
+  const [existingCard] = await db.select().from(serviceCards).where(eq(serviceCards.bookingId, id)).limit(1);
+
   const csrf = await getCsrfTokenForForm();
-  const { booking, customer, service } = row;
+  const { booking, customer, service, templateLabel } = row;
 
   return (
     <main id="main-content" className="mx-auto max-w-3xl">
@@ -65,6 +77,32 @@ export default async function BookingDetailPage({ params }: Props) {
         </p>
       </section>
 
+      <div className="mt-8 max-w-lg">
+        <ServiceCardSection
+          csrf={csrf}
+          timezone={timezone}
+          bookingId={booking.id}
+          customerId={customer.id}
+          bookingStartsAt={booking.startsAt}
+          serviceName={service.name}
+          templateLabel={templateLabel ?? null}
+          existing={existingCard ?? null}
+        />
+        <div className="mt-4 rounded-xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_3%,var(--card))] px-4 py-4 text-sm">
+          <div className="font-medium text-[var(--foreground)]">Customer follow-up recommendation</div>
+          <p className="mt-1 text-xs leading-relaxed text-[color-mix(in_oklab,var(--foreground)_58%,transparent)]">
+            Add a future-facing recommendation on the customer&apos;s profile. It can link back to this visit
+            {existingCard ? " and its service record" : ""}—useful for repeat bookings and retention.
+          </p>
+          <Link
+            href={`/dashboard/customers/${customer.id}?bookingId=${booking.id}${existingCard ? `&serviceCardId=${existingCard.id}` : ""}#recommendations`}
+            className="mt-3 inline-flex min-h-10 items-center justify-center rounded-xl border border-[color-mix(in_oklab,var(--accent)_40%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_8%,var(--card))] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[color-mix(in_oklab,var(--accent)_14%,var(--card))]"
+          >
+            Add recommendation for this customer
+          </Link>
+        </div>
+      </div>
+
       <section className="mt-8 grid max-w-lg gap-8">
         <div className="ui-card p-5 sm:p-6">
           <h2 className="text-base font-semibold text-[var(--foreground)]">Status</h2>
@@ -90,6 +128,11 @@ export default async function BookingDetailPage({ params }: Props) {
 
         <div className="ui-card p-5 sm:p-6">
           <h2 className="text-base font-semibold text-[var(--foreground)]">Payment</h2>
+          {Number(booking.tipPercent) > 0 ? (
+            <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
+              Tip recorded at booking: {String(booking.tipPercent)}% (included in the amount below if unchanged).
+            </p>
+          ) : null}
           <form action={asFormAction(updateBookingPayment)} className="mt-4 grid gap-3">
             <CsrfField token={csrf} />
             <input type="hidden" name="id" value={booking.id} />

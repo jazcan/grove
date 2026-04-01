@@ -2,6 +2,41 @@
  * Types and display helpers for service templates. Canonical definitions live in
  * `canonical_service_templates` (see `src/lib/canonical-templates.ts`).
  */
+
+/** Platform template taxonomy (`canonical_service_templates.category`) — three top-level buckets only. */
+export const SERVICE_TEMPLATE_TOP_LEVEL_CATEGORIES = [
+  "Home Services",
+  "Personal Services",
+  "Professional Services",
+] as const;
+
+export type ServiceTemplateTopLevelCategory = (typeof SERVICE_TEMPLATE_TOP_LEVEL_CATEGORIES)[number];
+
+/**
+ * Maps legacy seed categories to the current taxonomy so filters work before/without DB migration.
+ * Provider-defined `services.category` strings are separate and are not listed here.
+ */
+const LEGACY_CANONICAL_CATEGORY_TO_TOP_LEVEL: Record<string, ServiceTemplateTopLevelCategory> = {
+  Cleaning: "Home Services",
+  "Lawn Care": "Home Services",
+  "Pet Care": "Personal Services",
+  Fitness: "Personal Services",
+  Consultation: "Professional Services",
+  Tutoring: "Professional Services",
+  General: "Professional Services",
+};
+
+/** Resolves a canonical template row’s `category` to a top-level bucket for dashboard filtering. */
+export function resolveCanonicalTemplateCategoryBucket(
+  category: string
+): ServiceTemplateTopLevelCategory | null {
+  const t = category.trim();
+  if ((SERVICE_TEMPLATE_TOP_LEVEL_CATEGORIES as readonly string[]).includes(t)) {
+    return t as ServiceTemplateTopLevelCategory;
+  }
+  return LEGACY_CANONICAL_CATEGORY_TO_TOP_LEVEL[t] ?? null;
+}
+
 export type ServiceFormDefaults = {
   name: string;
   description: string;

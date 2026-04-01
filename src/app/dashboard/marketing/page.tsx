@@ -33,7 +33,7 @@ export default async function MarketingPage() {
       fullName: customers.fullName,
     })
     .from(customers)
-    .where(eq(customers.providerId, u.providerId))
+    .where(and(eq(customers.providerId, u.providerId), eq(customers.accountReady, true)))
     .orderBy(asc(customers.fullName))
     .limit(400);
 

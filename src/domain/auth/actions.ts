@@ -20,6 +20,7 @@ import { sendEmail, appUrl } from "@/lib/email";
 import { isAdminEmail } from "@/lib/env";
 import { isSafeInternalPath } from "@/lib/safe-internal-path";
 import { logAudit } from "@/lib/audit";
+import { brand } from "@/config/brand";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -75,7 +76,7 @@ export async function signUp(prev: ActionState, formData: FormData): Promise<Act
   const link = `${appUrl()}/verify-email?token=${encodeURIComponent(raw)}`;
   await sendEmail({
     to: email,
-    subject: "Verify your Grove account",
+    subject: `Verify your ${brand.appName} account`,
     html: `<p>Verify your email: <a href="${link}">${link}</a></p>`,
     text: `Verify your email: ${link}`,
   });
@@ -169,7 +170,7 @@ export async function requestPasswordReset(
     const link = `${appUrl()}/reset-password?token=${encodeURIComponent(raw)}`;
     await sendEmail({
       to: email,
-      subject: "Reset your Grove password",
+      subject: `Reset your ${brand.appName} password`,
       html: `<p><a href="${link}">Reset password</a></p>`,
       text: link,
     });

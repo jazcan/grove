@@ -12,9 +12,49 @@ export type SimulatedPrice = {
   adjustedBase: number;
   lineItems: PriceLineItem[];
   addOnsTotal: number;
+  /** Service + add-ons (before tip). */
   grandTotal: number;
   currency: string;
 };
+
+/** Max tip % allowed on public booking (slider upper bound). */
+export const PUBLIC_BOOKING_MAX_TIP_PERCENT = 30;
+
+export type SimulatedPriceWithTip = SimulatedPrice & {
+  /** Same as pre-tip `grandTotal` from `simulateServicePrice`. */
+  subtotal: number;
+  tipPercent: number;
+  tipAmount: number;
+  /** Subtotal + tip (amount due). */
+  grandTotal: number;
+};
+
+/**
+ * Clamps a client-supplied tip % to [0, PUBLIC_BOOKING_MAX_TIP_PERCENT] with cent precision on the rate.
+ */
+export function clampPublicBookingTipPercent(n: number): number {
+  if (!Number.isFinite(n) || n < 0) return 0;
+  const capped = Math.min(PUBLIC_BOOKING_MAX_TIP_PERCENT, n);
+  return Math.round(capped * 100) / 100;
+}
+
+/**
+ * Applies a percentage tip on top of a simulated subtotal. If subtotal ≤ 0, tip is forced to 0.
+ */
+export function applyTipToSimulatedPrice(sim: SimulatedPrice, tipPercent: number): SimulatedPriceWithTip {
+  const pct = clampPublicBookingTipPercent(tipPercent);
+  const subtotal = sim.grandTotal;
+  const tipAmount =
+    subtotal <= 0 ? 0 : Math.round(subtotal * (pct / 100) * 100) / 100;
+  const grandTotal = Math.round((subtotal + tipAmount) * 100) / 100;
+  return {
+    ...sim,
+    subtotal,
+    tipPercent: pct,
+    tipAmount,
+    grandTotal,
+  };
+}
 
 function parseMoney(s: string | null | undefined): number {
   if (s == null || s === "") return 0;

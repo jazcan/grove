@@ -4,7 +4,11 @@ import { useActionState, useEffect, useMemo, useRef, useState, useTransition, ty
 import { CsrfField } from "@/components/csrf-field";
 import { fetchPublicSlots, submitPublicBooking, suggestPublicBookingSlot } from "@/actions/public-booking";
 import type { ActionState } from "@/domain/auth/actions";
-import { simulateServicePrice } from "@/domain/pricing/engine";
+import {
+  applyTipToSimulatedPrice,
+  PUBLIC_BOOKING_MAX_TIP_PERCENT,
+  simulateServicePrice,
+} from "@/domain/pricing/engine";
 import type { TemplateAddOn, TemplateOutcome, TemplateStep } from "@/platform/templates/structure";
 
 type TierOption = { id: string; label: string; multiplier: string };
@@ -155,6 +159,7 @@ export function BookForm({
       : positioningTiers[0]?.id ?? "";
   const [tierId, setTierId] = useState(initialTier);
   const [selectedAddOns, setSelectedAddOns] = useState<Set<string>>(new Set());
+  const [tipPercent, setTipPercent] = useState(0);
 
   const tierMultiplier = useMemo(() => {
     const t = positioningTiers.find((x) => x.id === tierId);
@@ -201,6 +206,11 @@ export function BookForm({
     priceOverrides,
     disabledAddOnIds,
   ]);
+
+  const priceWithTip = useMemo(
+    () => applyTipToSimulatedPrice(priceSim, tipPercent),
+    [priceSim, tipPercent]
+  );
 
   const tierLabel = positioningTiers.find((t) => t.id === tierId)?.label ?? "";
 
@@ -429,7 +439,7 @@ export function BookForm({
                 <div>
                   <div className="ui-overline text-[var(--muted)]">Estimated total</div>
                   <div className="mt-1 text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">
-                    {formatMoney(priceSim.grandTotal, priceSim.currency)}
+                    {formatMoney(priceWithTip.grandTotal, priceWithTip.currency)}
                   </div>
                   <p className="ui-hint mt-1 max-w-prose">
                     {pricingUsesSingleLevel
@@ -438,7 +448,8 @@ export function BookForm({
                         : `Based on the service price shown above${selectedAddOns.size > 0 ? ", plus selected add-ons" : ""}.`
                       : servicePricingType === "hourly"
                         ? `Price reflects the level you choose${tierLabel ? ` (${tierLabel})` : ""}${selectedAddOns.size > 0 ? " and selected add-ons" : ""}.`
-                        : `Price reflects the level you choose${tierLabel ? ` (${tierLabel})` : ""}${selectedAddOns.size > 0 ? " and selected add-ons" : ""}.`}
+                        : `Price reflects the level you choose${tierLabel ? ` (${tierLabel})` : ""}${selectedAddOns.size > 0 ? " and selected add-ons" : ""}.`}{" "}
+                    Add or change an optional tip in the last step; the total above includes your current tip choice.
                   </p>
                 </div>
                 <div className="text-right text-sm text-[var(--muted)]">
@@ -509,7 +520,7 @@ export function BookForm({
                     <div className="mt-3 text-sm text-[var(--muted)]">
                       Estimated total booked:{" "}
                       <span className="font-semibold text-[var(--foreground)]">
-                        {formatMoney(priceSim.grandTotal, priceSim.currency)}
+                        {formatMoney(priceWithTip.grandTotal, priceWithTip.currency)}
                       </span>
                     </div>
                   </div>
@@ -671,6 +682,7 @@ export function BookForm({
           <input type="hidden" name="serviceId" value={serviceId} />
           <input type="hidden" name="dateISO" value={dateISOValue} />
           <input type="hidden" name="slotStart" value={slotStart} />
+          <input type="hidden" name="tipPercent" value={String(tipPercent)} />
 
           <div className="ui-card p-4 sm:p-7">
             <div className="flex gap-3 sm:gap-4">
@@ -838,8 +850,54 @@ export function BookForm({
                       </>
                     ) : null}
                   </div>
-                  <div className="mt-2 text-lg font-semibold text-[var(--foreground)]">
-                    {formatMoney(priceSim.grandTotal, priceSim.currency)} estimated
+                  <div className="mt-3 space-y-2 text-sm">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="text-[var(--muted)]">Subtotal (estimated)</span>
+                      <span className="font-medium tabular-nums text-[var(--foreground)]">
+                        {formatMoney(priceWithTip.subtotal, priceWithTip.currency)}
+                      </span>
+                    </div>
+                    <div className="ui-field pt-1">
+                      <label htmlFor="booking-tip-slider" className="ui-label">
+                        Tip (optional)
+                      </label>
+                      <p id="booking-tip-hint" className="ui-hint">
+                        {servicePricingType === "hourly"
+                          ? "Tip is a percentage of this booking’s estimated total (rate, level, and add-ons)."
+                          : "Tip is a percentage of this booking’s estimated total (service, level, and add-ons)."}
+                      </p>
+                      <div className="mt-3 flex items-center gap-3">
+                        <input
+                          id="booking-tip-slider"
+                          type="range"
+                          min={0}
+                          max={PUBLIC_BOOKING_MAX_TIP_PERCENT}
+                          step={1}
+                          value={tipPercent}
+                          onChange={(e) => setTipPercent(Number(e.target.value))}
+                          className="h-2 w-full min-w-0 flex-1 cursor-pointer accent-[var(--accent)]"
+                          aria-valuemin={0}
+                          aria-valuemax={PUBLIC_BOOKING_MAX_TIP_PERCENT}
+                          aria-valuenow={tipPercent}
+                          aria-describedby="booking-tip-hint"
+                        />
+                        <span className="w-12 shrink-0 text-right text-sm font-medium tabular-nums text-[var(--foreground)]">
+                          {tipPercent}%
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2 text-sm">
+                        <span className="text-[var(--muted)]">Tip amount</span>
+                        <span className="font-medium tabular-nums text-[var(--foreground)]">
+                          {formatMoney(priceWithTip.tipAmount, priceWithTip.currency)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-[var(--card-border)] pt-3">
+                      <span className="text-base font-semibold text-[var(--foreground)]">Total (estimated)</span>
+                      <span className="text-lg font-semibold tabular-nums text-[var(--foreground)]">
+                        {formatMoney(priceWithTip.grandTotal, priceWithTip.currency)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

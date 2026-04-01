@@ -1,3 +1,4 @@
+import { brand } from "@/config/brand";
 import { getDb } from "@/db";
 import { aiUsageLogs } from "@/db/schema";
 import { desc } from "drizzle-orm";
@@ -21,7 +22,7 @@ export default async function AdminAiPage() {
       </p>
       <p className="mt-4 max-w-prose text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
         All LLM calls must go through a server-side gateway with quotas and logging. No public AI endpoints ship in
-        Grove v1; this page surfaces usage once recorded.
+        {brand.appName} v1; this page surfaces usage once recorded.
       </p>
       <h2 className="mt-8 text-lg font-medium">Recent usage</h2>
       <ul className="mt-4 space-y-2 text-sm">

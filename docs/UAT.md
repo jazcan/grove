@@ -1,4 +1,4 @@
-# Grove UAT test plans
+# Handshake Local — UAT test plans
 
 Use these as runnable scripts during UAT. Record **Pass / Fail / Blocked**, notes, and screenshots for failures. Paths below are relative to your app origin (for example `http://localhost:3000`).
 

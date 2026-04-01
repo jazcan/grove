@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { GroveLogoMark } from "@/components/brand/grove-logo-mark";
+import { brand } from "@/config/brand";
 import { signOut } from "@/domain/auth/actions";
 
 type Props = {
@@ -42,7 +43,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
       <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex min-w-0 shrink-0 items-center gap-2.5 rounded-lg outline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
           <GroveLogoMark size={36} className="shrink-0" />
-          <span className="text-lg font-bold tracking-tight text-[var(--foreground)]">Grove</span>
+          <span className="text-lg font-bold tracking-tight text-[var(--foreground)]">{brand.appName}</span>
         </Link>
 
         <nav className="absolute left-1/2 hidden -translate-x-1/2 md:flex md:items-center md:gap-1" aria-label="Main">

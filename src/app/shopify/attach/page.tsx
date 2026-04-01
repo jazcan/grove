@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { and, eq, gt, isNotNull } from "drizzle-orm";
+import { brand } from "@/config/brand";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
 import { shopifyInstallations } from "@/db/schema";
@@ -24,7 +25,7 @@ export default async function ShopifyAttachPage({ searchParams }: Props) {
         <h1 className="text-lg font-semibold">Invalid link</h1>
         <p className="mt-2 text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
           This attach link is missing parameters. Open{" "}
-          <strong>Link Grove account</strong> again from the app in Shopify Admin.
+          <strong>Link {brand.appName} account</strong> again from the app in Shopify Admin.
         </p>
       </main>
     );
@@ -44,7 +45,7 @@ export default async function ShopifyAttachPage({ searchParams }: Props) {
       >
         <h1 className="text-lg font-semibold">Provider account required</h1>
         <p className="mt-2 text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
-          Sign in with a Grove provider account (not only an admin account), complete onboarding if
+          Sign in with a {brand.appName} provider account (not only an admin account), complete onboarding if
           needed, then use the link from Shopify again.
         </p>
         <p className="mt-4">
@@ -81,8 +82,8 @@ export default async function ShopifyAttachPage({ searchParams }: Props) {
       >
         <h1 className="text-lg font-semibold">Link expired</h1>
         <p className="mt-2 text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
-          This one-time link is invalid or expired. Go back to Shopify Admin, open Grove, and choose{" "}
-          <strong>Link Grove account</strong> again.
+          This one-time link is invalid or expired. Go back to Shopify Admin, open {brand.appName}, and choose{" "}
+          <strong>Link {brand.appName} account</strong> again.
         </p>
       </main>
     );
@@ -96,7 +97,7 @@ export default async function ShopifyAttachPage({ searchParams }: Props) {
       >
         <h1 className="text-lg font-semibold">Already linked</h1>
         <p className="mt-2 text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
-          This Shopify store is connected to a different Grove provider. Contact support if you need
+          This Shopify store is connected to a different {brand.appName} provider. Contact support if you need
           to move the connection.
         </p>
       </main>

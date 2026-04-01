@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { brand } from "@/config/brand";
 import { BookingPreviewMock } from "./booking-preview-mock";
 import { HeroGroveBackdrop } from "./hero-grove-backdrop";
 import { LandingCard } from "./landing-card";
@@ -87,14 +88,14 @@ const PERSONAS = [
   },
   {
     title: "Freelancers",
-    body: "Ship the work; let Grove handle the booking admin in the background.",
+    body: `Ship the work; let ${brand.appName} handle the booking admin in the background.`,
   },
 ] as const;
 
 const FAQ = [
   {
     q: "Do I need a website?",
-    a: "No. Your Grove profile can be the simple, professional page clients use to learn about you and book. If you already have a site, you can use both.",
+    a: `No. Your ${brand.appName} profile can be the simple, professional page clients use to learn about you and book. If you already have a site, you can use both.`,
   },
   {
     q: "Can I manage offline payments?",
@@ -105,8 +106,8 @@ const FAQ = [
     a: "Yes. You set your hours and availability so clients only see times that work for you.",
   },
   {
-    q: "Can clients find me through Grove?",
-    a: "If you opt into discovery, clients can find you in the Grove marketplace. You can still work with clients who reach you elsewhere.",
+    q: `Can clients find me through ${brand.appName}?`,
+    a: `If you opt into discovery, clients can find you in the ${brand.appName} marketplace. You can still work with clients who reach you elsewhere.`,
   },
 ] as const;
 
@@ -120,7 +121,7 @@ export function MarketingHome() {
           <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(280px,420px)] lg:gap-12 xl:gap-16">
             <div className="max-w-xl lg:max-w-[34rem]">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--accent)] sm:text-sm">
-                Grove
+                {brand.appName}
               </p>
               <h1 className="mt-3 text-[2rem] font-semibold leading-[1.12] tracking-tight text-[var(--foreground)] sm:text-5xl sm:leading-[1.08] lg:text-[3.25rem] lg:leading-[1.06]">
                 Run your service business without the scheduling chaos

@@ -32,6 +32,8 @@ export type PlatformEventPayloads = {
     positioningTierId: string | null;
     selectedAddOnIds: string[];
     paymentAmount: string | null;
+    /** Tip % of subtotal at booking; "0.00" when none. */
+    tipPercent: string;
   };
   "booking.public_submit_failed": {
     providerId: string;

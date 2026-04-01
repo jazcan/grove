@@ -269,6 +269,7 @@ export async function createManualBooking(_prev: ActionState, formData: FormData
     serviceId: svc.id,
     positioningTierId: null,
     selectedAddOnIds: [],
+    tipPercent: 0,
   });
   if ("error" in priced) {
     return { error: priced.error };
@@ -285,6 +286,7 @@ export async function createManualBooking(_prev: ActionState, formData: FormData
     positioningTierId: priced.tierId,
     selectedAddOnIds: priced.selectedAddOnIds,
     paymentAmount: priced.grandTotal.toFixed(2),
+    tipPercent: priced.tipPercent.toFixed(2),
     createdByProviderUserId: ctx.id,
     initialPaymentStatus: paymentStatus,
   };

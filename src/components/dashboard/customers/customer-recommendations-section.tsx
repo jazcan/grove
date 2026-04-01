@@ -1,0 +1,195 @@
+import Link from "next/link";
+import type { InferSelectModel } from "drizzle-orm";
+import { customerRecommendations } from "@/db/schema";
+import { asFormAction } from "@/lib/form-action";
+import { CsrfField } from "@/components/csrf-field";
+import {
+  createCustomerRecommendation,
+  updateCustomerRecommendationStatus,
+} from "@/actions/customer-recommendations";
+import { CUSTOMER_RECOMMENDATION_TIMEFRAMES } from "@/platform/enums";
+
+type Row = InferSelectModel<typeof customerRecommendations>;
+
+const TIMEFRAME_LABEL: Record<string, string> = {
+  asap: "ASAP",
+  within_30_days: "Within 30 days",
+  next_visit: "Next visit",
+  seasonal: "Seasonal",
+  custom: "Custom",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  open: "Open",
+  booked: "Booked",
+  completed: "Completed",
+  declined: "Declined",
+  archived: "Archived",
+};
+
+type Props = {
+  csrf: string;
+  customerId: string;
+  recommendations: Row[];
+  /** When opening from a booking or service card context */
+  prefilledSource?: { bookingId?: string; serviceCardId?: string };
+};
+
+export function CustomerRecommendationsSection({
+  csrf,
+  customerId,
+  recommendations,
+  prefilledSource,
+}: Props) {
+  const srcBooking = prefilledSource?.bookingId ?? "";
+  const srcCard = prefilledSource?.serviceCardId ?? "";
+
+  return (
+    <section id="recommendations" className="scroll-mt-24">
+      <h2 className="text-lg font-semibold text-[var(--foreground)]">Recommendations &amp; follow-ups</h2>
+      <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
+        Track future services and advice for this customer. Each item lives on their profile—not inside a single
+        appointment—so you can book it later or automate follow-up over time.
+      </p>
+
+      <form action={asFormAction(createCustomerRecommendation)} className="mt-5 grid max-w-lg gap-3 rounded-xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_3%,var(--card))] p-4 sm:p-5">
+        <CsrfField token={csrf} />
+        <input type="hidden" name="customerId" value={customerId} />
+        {srcBooking ? <input type="hidden" name="sourceBookingId" value={srcBooking} /> : null}
+        {srcCard ? <input type="hidden" name="sourceServiceCardId" value={srcCard} /> : null}
+
+        <div className="text-xs font-medium uppercase tracking-wide text-[color-mix(in_oklab,var(--foreground)_50%,transparent)]">
+          New recommendation
+        </div>
+        {(srcBooking || srcCard) && (
+          <p className="text-xs text-[color-mix(in_oklab,var(--foreground)_58%,transparent)]">
+            {srcBooking ? (
+              <>
+                Linked to{" "}
+                <Link href={`/dashboard/bookings/${srcBooking}`} className="text-[var(--accent)] underline-offset-2 hover:underline">
+                  a booking
+                </Link>
+              </>
+            ) : null}
+            {srcBooking && srcCard ? " · " : null}
+            {srcCard ? "Linked to a service record from that visit." : null}
+            {!srcBooking && srcCard ? "Linked to a service record." : null}
+          </p>
+        )}
+
+        <label className="ui-field text-sm">
+          <span className="text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">Title</span>
+          <input name="title" required className="ui-input mt-1" placeholder="e.g. Follow-up trim, seasonal tune-up" />
+        </label>
+        <label className="ui-field text-sm">
+          <span className="text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">What to book / do</span>
+          <textarea name="description" rows={3} className="ui-textarea mt-1" placeholder="Short description of the suggested service or next step" />
+        </label>
+        <label className="ui-field text-sm">
+          <span className="text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">Why (rationale)</span>
+          <textarea name="reason" rows={2} className="ui-textarea mt-1" placeholder="Why this matters for them—professional context" />
+        </label>
+        <label className="ui-field text-sm">
+          <span className="text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">Suggested timing</span>
+          <select name="suggestedTimeframe" className="ui-input mt-1" defaultValue="next_visit">
+            {CUSTOMER_RECOMMENDATION_TIMEFRAMES.map((tf) => (
+              <option key={tf} value={tf}>
+                {TIMEFRAME_LABEL[tf] ?? tf}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="ui-field text-sm">
+          <span className="text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">Timing detail (optional)</span>
+          <input
+            name="timeframeDetail"
+            className="ui-input mt-1"
+            placeholder="e.g. Before winter, when budget allows"
+          />
+        </label>
+        <button type="submit" className="ui-btn-primary w-fit min-h-10 px-4 text-sm font-semibold">
+          Save recommendation
+        </button>
+      </form>
+
+      <div className="mt-4 rounded-lg border border-dashed border-[color-mix(in_oklab,var(--foreground)_14%,var(--border))] px-4 py-3 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
+        <span className="font-medium text-[var(--foreground)]">Book this later:</span> use{" "}
+        <Link href="/dashboard/availability" className="text-[var(--accent)] underline-offset-2 hover:underline">
+          availability
+        </Link>{" "}
+        to schedule, then mark the recommendation as <strong className="text-[var(--foreground)]">Booked</strong> or{" "}
+        <strong className="text-[var(--foreground)]">Completed</strong> here. Linking a new appointment to this row
+        automatically is planned—this keeps today&apos;s workflow simple.
+      </div>
+
+      {recommendations.length === 0 ? (
+        <p className="mt-6 text-sm text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
+          No recommendations yet. Add one above or from a booking&apos;s service card area.
+        </p>
+      ) : (
+        <ul className="mt-6 space-y-4">
+          {recommendations.map((r) => (
+            <li
+              key={r.id}
+              className="rounded-xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] px-4 py-4"
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="font-medium text-[var(--foreground)]">{r.title}</div>
+                  <div className="mt-1 text-xs text-[color-mix(in_oklab,var(--foreground)_52%,transparent)]">
+                    {TIMEFRAME_LABEL[r.suggestedTimeframe] ?? r.suggestedTimeframe}
+                    {r.timeframeDetail.trim() ? ` · ${r.timeframeDetail.trim()}` : null}
+                  </div>
+                  {r.description.trim() ? (
+                    <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_78%,transparent)]">{r.description}</p>
+                  ) : null}
+                  {r.reason.trim() ? (
+                    <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
+                      <span className="font-medium text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">Why:</span>{" "}
+                      {r.reason}
+                    </p>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[color-mix(in_oklab,var(--foreground)_50%,transparent)]">
+                    {r.sourceBookingId ? (
+                      <Link
+                        href={`/dashboard/bookings/${r.sourceBookingId}`}
+                        className="text-[var(--accent)] underline-offset-2 hover:underline"
+                      >
+                        Source booking
+                      </Link>
+                    ) : null}
+                    {r.sourceServiceCardId && r.sourceBookingId ? (
+                      <Link
+                        href={`/dashboard/bookings/${r.sourceBookingId}`}
+                        className="text-[var(--accent)] underline-offset-2 hover:underline"
+                      >
+                        Source service record (visit)
+                      </Link>
+                    ) : null}
+                  </div>
+                </div>
+                <form action={asFormAction(updateCustomerRecommendationStatus)} className="flex shrink-0 flex-wrap items-center gap-2">
+                  <CsrfField token={csrf} />
+                  <input type="hidden" name="id" value={r.id} />
+                  <label className="sr-only" htmlFor={`rec-status-${r.id}`}>
+                    Status
+                  </label>
+                  <select id={`rec-status-${r.id}`} name="status" defaultValue={r.status} className="ui-input py-1.5 text-sm">
+                    {Object.entries(STATUS_LABEL).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="submit" className="ui-btn-secondary min-h-9 px-3 text-xs font-semibold">
+                    Update
+                  </button>
+                </form>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}

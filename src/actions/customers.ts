@@ -109,6 +109,7 @@ export async function createCustomerManual(_prev: ActionState, formData: FormDat
       phone: phoneRaw ? phoneRaw.slice(0, 40) : null,
       phoneNormalized: phoneNorm,
       notes,
+      accountReady: true,
     })
     .returning({ id: customers.id });
 
@@ -155,7 +156,13 @@ export async function sendMarketingToCustomers(formData: FormData): Promise<Acti
   let list = await db
     .select()
     .from(customers)
-    .where(and(eq(customers.providerId, ctx.providerId), eq(customers.marketingOptOut, false)));
+    .where(
+      and(
+        eq(customers.providerId, ctx.providerId),
+        eq(customers.marketingOptOut, false),
+        eq(customers.accountReady, true)
+      )
+    );
 
   if (segment === "all" || !segment) {
     /* keep full opted-in list */

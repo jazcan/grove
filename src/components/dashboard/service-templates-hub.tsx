@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { ServiceTemplate } from "@/lib/service-templates";
 import {
   formatTemplateDurationPrice,
+  resolveCanonicalTemplateCategoryBucket,
   templateCardTitle,
 } from "@/lib/service-templates";
 import {
@@ -14,41 +15,48 @@ import {
   type ServiceTemplateUiTag,
 } from "@/lib/service-template-ui";
 
-/** Maps canonical `service.category` values to dashboard filter buckets. */
-type TemplateCategoryFilter =
-  | "all"
-  | "cleaning"
-  | "home-services"
-  | "personal-services"
-  | "professional-services";
+/** Dashboard filter keys → canonical `category` bucket. */
+type TemplateCategoryFilter = "all" | "home" | "personal" | "professional";
+
+const FILTER_TABS: { value: TemplateCategoryFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "home", label: "Home Services" },
+  { value: "personal", label: "Personal Services" },
+  { value: "professional", label: "Professional Services" },
+];
+
+const FILTER_TO_BUCKET: Record<Exclude<TemplateCategoryFilter, "all">, string> = {
+  home: "Home Services",
+  personal: "Personal Services",
+  professional: "Professional Services",
+};
 
 function templateMatchesCategoryFilter(
   template: ServiceTemplate,
   filter: TemplateCategoryFilter
 ): boolean {
   if (filter === "all") return true;
-  const c = template.service.category.trim();
-  switch (filter) {
-    case "cleaning":
-      return c === "Cleaning";
-    case "home-services":
-      return c === "Lawn Care";
-    case "personal-services":
-      return c === "Pet Care" || c === "Fitness";
-    case "professional-services":
-      return c === "Consultation" || c === "Tutoring" || c === "General";
-    default:
-      return true;
-  }
+  const bucket = resolveCanonicalTemplateCategoryBucket(template.service.category);
+  return bucket === FILTER_TO_BUCKET[filter];
 }
 
-const CATEGORY_FILTER_OPTIONS: { value: TemplateCategoryFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "cleaning", label: "Cleaning" },
-  { value: "home-services", label: "Home services" },
-  { value: "personal-services", label: "Personal services" },
-  { value: "professional-services", label: "Professional services" },
-];
+function templateMatchesSearch(template: ServiceTemplate, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const title = templateCardTitle(template);
+  const blob = [
+    template.id,
+    template.label,
+    template.descriptionShort,
+    template.description,
+    template.service.name,
+    template.service.category,
+    title,
+  ]
+    .join(" ")
+    .toLowerCase();
+  return blob.includes(q);
+}
 
 function TagPill({ tag }: { tag: ServiceTemplateUiTag }) {
   return (
@@ -186,12 +194,26 @@ function PreviewDialog({
 }
 
 export function ServiceTemplatesHub({ templates }: { templates: ServiceTemplate[] }) {
-  const { smart, rest } = partitionSmartAndRest(templates);
   const [categoryFilter, setCategoryFilter] = useState<TemplateCategoryFilter>("all");
-  const filteredRest = useMemo(
-    () => rest.filter((t) => templateMatchesCategoryFilter(t, categoryFilter)),
-    [rest, categoryFilter]
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const baseFiltered = useMemo(
+    () =>
+      templates.filter(
+        (t) => templateMatchesCategoryFilter(t, categoryFilter) && templateMatchesSearch(t, searchQuery)
+      ),
+    [templates, categoryFilter, searchQuery]
   );
+
+  const showFeaturedStrip = categoryFilter === "all" && !searchQuery.trim();
+
+  const { smart, rest } = useMemo(() => {
+    if (!showFeaturedStrip) {
+      return { smart: [] as ServiceTemplate[], rest: baseFiltered };
+    }
+    return partitionSmartAndRest(baseFiltered);
+  }, [showFeaturedStrip, baseFiltered]);
+
   const [preview, setPreview] = useState<ServiceTemplate | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -218,47 +240,89 @@ export function ServiceTemplatesHub({ templates }: { templates: ServiceTemplate[
 
   return (
     <div className="space-y-8 sm:space-y-10">
-      <section aria-labelledby="smart-templates-heading">
-        <h2 id="smart-templates-heading" className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">
-          Smart templates
-        </h2>
-        <ul className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
-          {smart.map((t) => (
-            <TemplateCard
-              key={t.id}
-              template={t}
-              onPreview={openPreview}
-              highlightLabel={smartLabels[t.id]}
-            />
-          ))}
-        </ul>
-      </section>
-
-      <section aria-labelledby="all-templates-heading">
-        <label className="ui-field mb-4 block max-w-[min(100%,20rem)] text-sm">
-          <span className="mb-1 block text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Filter by category</span>
-          <select
-            className="ui-input w-full"
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value as TemplateCategoryFilter)}
-            aria-label="Filter by category"
-          >
-            {CATEGORY_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+      <div className="space-y-4">
+        <label className="ui-field block">
+          <span className="mb-1 block text-sm text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Search templates</span>
+          <input
+            type="search"
+            role="searchbox"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name, topic, or category"
+            className="ui-input w-full max-w-xl"
+            aria-label="Search templates"
+          />
         </label>
-        <h2 id="all-templates-heading" className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">
-          All templates
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div
+            role="tablist"
+            aria-label="Filter by service category"
+            className="flex flex-wrap gap-2"
+          >
+            {FILTER_TABS.map((tab) => {
+              const selected = categoryFilter === tab.value;
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setCategoryFilter(tab.value)}
+                  className={[
+                    "rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors",
+                    selected
+                      ? "border-[color-mix(in_oklab,var(--accent)_45%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_12%,var(--card))] text-[var(--foreground)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_22%,transparent)]"
+                      : "border-[color-mix(in_oklab,var(--foreground)_12%,var(--border))] bg-[var(--card)] text-[color-mix(in_oklab,var(--foreground)_88%,transparent)] hover:border-[color-mix(in_oklab,var(--foreground)_22%,var(--border))]",
+                  ].join(" ")}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+          <Link
+            href="/dashboard/services?scratch=1#service-form"
+            className="inline-flex shrink-0 items-center justify-center rounded-xl border border-[color-mix(in_oklab,var(--foreground)_12%,var(--border))] bg-[var(--card)] px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-[color-mix(in_oklab,var(--foreground)_22%,var(--border))] lg:mt-0"
+          >
+            Start from scratch
+          </Link>
+        </div>
+      </div>
+
+      {showFeaturedStrip && smart.length > 0 ? (
+        <section aria-labelledby="smart-templates-heading">
+          <h2 id="smart-templates-heading" className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">
+            Smart templates
+          </h2>
+          <ul className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
+            {smart.map((t) => (
+              <TemplateCard
+                key={t.id}
+                template={t}
+                onPreview={openPreview}
+                highlightLabel={smartLabels[t.id]}
+              />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <section aria-labelledby={showFeaturedStrip ? "all-templates-heading" : "filtered-templates-heading"}>
+        <h2
+          id={showFeaturedStrip ? "all-templates-heading" : "filtered-templates-heading"}
+          className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl"
+        >
+          {showFeaturedStrip ? "All templates" : "Templates"}
         </h2>
         <ul className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
-          {filteredRest.length ? (
-            filteredRest.map((t) => <TemplateCard key={t.id} template={t} onPreview={openPreview} />)
+          {rest.length ? (
+            rest.map((t) => <TemplateCard key={t.id} template={t} onPreview={openPreview} />)
           ) : (
             <li className="col-span-full rounded-xl border border-dashed border-[color-mix(in_oklab,var(--foreground)_18%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] px-4 py-6 text-center text-sm text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
-              No templates in this category. Try &quot;All&quot; or another filter.
+              {baseFiltered.length === 0
+                ? "No templates match your search or filter. Try clearing the search or choose “All”."
+                : "No additional templates in this view."}
             </li>
           )}
         </ul>

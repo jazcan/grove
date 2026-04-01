@@ -23,6 +23,8 @@ export type CanonicalTemplateSeedRow = {
 /**
  * Platform templates (initial six match `drizzle/0004_canonical_service_templates.sql`; additional
  * slugs are inserted by `ensureCanonicalTemplates` when the table row count is below expected).
+ * Use only three top-level `category` values: Home Services, Personal Services, Professional Services
+ * (see `drizzle/0010_canonical_template_category_taxonomy.sql` for normalizing older DB rows).
  */
 export const CANONICAL_TEMPLATE_SEEDS: CanonicalTemplateSeedRow[] = [
   {
@@ -33,7 +35,7 @@ export const CANONICAL_TEMPLATE_SEEDS: CanonicalTemplateSeedRow[] = [
     name: "My service",
     description:
       "Book online at a time that works for you. You can rename this and adjust the details anytime.",
-    category: "General",
+    category: "Professional Services",
     durationMinutes: 60,
     bufferMinutes: 10,
     pricingType: "fixed",
@@ -59,7 +61,7 @@ export const CANONICAL_TEMPLATE_SEEDS: CanonicalTemplateSeedRow[] = [
     name: "Initial Consultation (30 min)",
     description:
       "A focused 30-minute consultation to understand your goals, answer questions, and recommend next steps. Includes a short follow-up summary with actionable recommendations.",
-    category: "Consultation",
+    category: "Professional Services",
     durationMinutes: 30,
     bufferMinutes: 10,
     pricingType: "fixed",
@@ -91,7 +93,7 @@ export const CANONICAL_TEMPLATE_SEEDS: CanonicalTemplateSeedRow[] = [
     name: "Home Cleaning (2 hours)",
     description:
       "Standard home cleaning for kitchens, bathrooms, and living areas. Includes surfaces, floors, and general tidying. You can add notes for priority areas when you book.",
-    category: "Cleaning",
+    category: "Home Services",
     durationMinutes: 120,
     bufferMinutes: 15,
     pricingType: "fixed",
@@ -120,7 +122,7 @@ export const CANONICAL_TEMPLATE_SEEDS: CanonicalTemplateSeedRow[] = [
     name: "Lawn Mowing + Edging (60 min)",
     description:
       "Front and back lawn mowing with clean edging along walkways/driveway. Includes quick tidy-up of clippings on hard surfaces.",
-    category: "Lawn Care",
+    category: "Home Services",
     durationMinutes: 60,
     bufferMinutes: 10,
     pricingType: "fixed",
@@ -144,7 +146,7 @@ export const CANONICAL_TEMPLATE_SEEDS: CanonicalTemplateSeedRow[] = [
     name: "Dog Walk (45 min)",
     description:
       "A 45-minute walk tailored to your dog's pace and preferences. Includes fresh water refill and a short update after the walk.",
-    category: "Pet Care",
+    category: "Personal Services",
     durationMinutes: 45,
     bufferMinutes: 5,
     pricingType: "fixed",
@@ -168,7 +170,7 @@ export const CANONICAL_TEMPLATE_SEEDS: CanonicalTemplateSeedRow[] = [
     name: "Tutoring Session (60 min)",
     description:
       "One hour of 1:1 tutoring focused on your specific goals. We'll review concepts, practice problems, and leave you with next steps to keep improving.",
-    category: "Tutoring",
+    category: "Professional Services",
     durationMinutes: 60,
     bufferMinutes: 10,
     pricingType: "hourly",
@@ -194,7 +196,7 @@ export const CANONICAL_TEMPLATE_SEEDS: CanonicalTemplateSeedRow[] = [
     name: "Extended Consultation (60 min)",
     description:
       "A deeper 60-minute session for complex questions, multiple stakeholders, or detailed planning. Includes structured notes and a prioritized list of next steps you can act on immediately.",
-    category: "Consultation",
+    category: "Professional Services",
     durationMinutes: 60,
     bufferMinutes: 15,
     pricingType: "fixed",
@@ -229,7 +231,7 @@ export const CANONICAL_TEMPLATE_SEEDS: CanonicalTemplateSeedRow[] = [
     name: "Personal Training (50 min)",
     description:
       "A coached workout tailored to your level and goals. We’ll warm up, work through a focused training block, and cool down—with cues on form and how to progress between sessions.",
-    category: "Fitness",
+    category: "Personal Services",
     durationMinutes: 50,
     bufferMinutes: 10,
     pricingType: "fixed",

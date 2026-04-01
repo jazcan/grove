@@ -12,7 +12,7 @@ export type AssistantRouteId =
   | "other";
 
 export type PageGuide = {
-  /** Shown under “Grove guide” */
+  /** Shown under the product guide header (see `brand.appName` in onboarding assistant). */
   contextTitle: string;
   /** Concise, actionable copy for this screen */
   body: string;

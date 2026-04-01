@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { brand } from "@/config/brand";
 import { useSearchParams } from "next/navigation";
 import createApp from "@shopify/app-bridge";
 import { getSessionToken } from "@shopify/app-bridge/utilities/session-token";
@@ -108,10 +109,10 @@ export function ShopifyEmbeddedHome({ apiKey }: Props) {
   if (!host) {
     return (
       <main className="p-6 font-sans text-sm">
-        <h1 className="text-lg font-semibold">Grove (Shopify)</h1>
+        <h1 className="text-lg font-semibold">{brand.appName} (Shopify)</h1>
         <p className="mt-2 text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
-          Open this app from the Shopify Admin to sign in with your shop session—no separate Grove
-          password required here.
+          Open this app from the Shopify Admin to sign in with your shop session—no separate{" "}
+          {brand.appName} password required here.
         </p>
         {shop ? (
           <p className="mt-4 text-xs text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
@@ -124,10 +125,10 @@ export function ShopifyEmbeddedHome({ apiKey }: Props) {
 
   return (
     <main className="p-6 font-sans text-sm">
-      <h1 className="text-lg font-semibold">Grove</h1>
+      <h1 className="text-lg font-semibold">{brand.appName}</h1>
       {attached ? (
         <p className="mt-3 rounded-md border border-[var(--accent)] bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] px-3 py-2">
-          Grove account linked. Return to Shopify Admin and open Grove again if the page does not
+          {brand.appName} account linked. Return to Shopify Admin and open {brand.appName} again if the page does not
           refresh automatically.
         </p>
       ) : null}
@@ -143,14 +144,14 @@ export function ShopifyEmbeddedHome({ apiKey }: Props) {
           </p>
           {me.linked ? (
             <p>
-              This shop is linked to your Grove provider. Use the full Grove site for mobile and
+              This shop is linked to your {brand.appName} provider. Use the full {brand.appName} site for mobile and
               public booking pages.
             </p>
           ) : (
             <div className="space-y-2">
               <p>
-                Link this Shopify store to your Grove provider account (the one you use on the web).
-                You will sign in to Grove once in a new tab, then return here.
+                Link this Shopify store to your {brand.appName} provider account (the one you use on the web).
+                You will sign in to {brand.appName} once in a new tab, then return here.
               </p>
               <button
                 type="button"
@@ -158,7 +159,7 @@ export function ShopifyEmbeddedHome({ apiKey }: Props) {
                 onClick={() => void startLink()}
                 className="rounded-lg bg-[var(--accent)] px-4 py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60"
               >
-                {linkBusy ? "Opening…" : "Link Grove account"}
+                {linkBusy ? "Opening…" : `Link ${brand.appName} account`}
               </button>
             </div>
           )}

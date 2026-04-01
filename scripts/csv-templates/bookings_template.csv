@@ -1,0 +1,2 @@
+id,public_reference,provider_id,service_id,canonical_template_id,customer_id,starts_at,ends_at,status,payment_status,payment_method,payment_amount,positioning_tier_id,selected_add_on_ids,payment_note,customer_notes,internal_notes,buffer_after_minutes,created_at,updated_at
+,00000000-0000-4000-8000-000000000002,00000000-0000-4000-8000-000000000001,00000000-0000-4000-8000-000000000003,,00000000-0000-4000-8000-000000000004,2026-04-15T14:00:00.000Z,2026-04-15T15:00:00.000Z,confirmed,paid,cash,120.00,,[],,Thanks!,,15,,
