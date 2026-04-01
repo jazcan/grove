@@ -18,13 +18,30 @@ import {
 } from "@/components/dashboard/dashboard-recent-activity";
 import { NextAppointmentsPanel, type NextAppointmentRow } from "@/components/dashboard/next-appointments-panel";
 import { PublicProfileLiveCard } from "@/components/dashboard/public-profile-live-card";
-import { TodayOverview, type TodayBookingPreview } from "@/components/dashboard/today-overview";
+import {
+  TodayOverview,
+  type OutreachReminder,
+  type TodayBookingPreview,
+} from "@/components/dashboard/today-overview";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { fetchPresentedProviderSignals } from "@/domain/provider-dashboard-signals";
 import { computeWeeklyAvailableMinutes } from "@/lib/dashboard-metrics";
 import { getEnv } from "@/lib/env";
 import { loadProviderSetupState } from "@/lib/provider-setup";
 import { requireProvider } from "@/lib/tenancy";
+
+function buildOutreachReminder(
+  customerCount: number,
+  lastMarketingSentAt: Date | null,
+  pendingBookingCount: number
+): OutreachReminder | null {
+  if (pendingBookingCount > 0) return null;
+  if (customerCount < 1) return null;
+  if (!lastMarketingSentAt) return { kind: "never" };
+  const days = Math.floor((Date.now() - lastMarketingSentAt.getTime()) / (24 * 60 * 60 * 1000));
+  if (days >= 10) return { kind: "stale", daysSince: days };
+  return null;
+}
 
 export default async function DashboardHomePage() {
   const u = await requireProvider();
@@ -108,9 +125,11 @@ export default async function DashboardHomePage() {
       startsAt: bookings.startsAt,
       status: bookings.status,
       customerName: customers.fullName,
+      serviceName: services.name,
     })
     .from(bookings)
     .innerJoin(customers, eq(bookings.customerId, customers.id))
+    .innerJoin(services, eq(bookings.serviceId, services.id))
     .where(eq(bookings.providerId, u.providerId))
     .orderBy(asc(bookings.startsAt))
     .limit(40);
@@ -125,7 +144,11 @@ export default async function DashboardHomePage() {
 
   const nextForOverview =
     nextUpRows[0] != null
-      ? { startsAt: nextUpRows[0].startsAt, customerName: nextUpRows[0].customerName }
+      ? {
+          startsAt: nextUpRows[0].startsAt,
+          customerName: nextUpRows[0].customerName,
+          serviceName: nextUpRows[0].serviceName,
+        }
       : null;
 
   const availRuleRows = await db
@@ -168,6 +191,21 @@ export default async function DashboardHomePage() {
 
   const presentedSignals = await fetchPresentedProviderSignals(db, u.providerId);
   const hasSignals = presentedSignals.length > 0;
+
+  const [lastMarketingSendRow] = await db
+    .select({ sentAt: marketingSendLogs.sentAt })
+    .from(marketingSendLogs)
+    .where(eq(marketingSendLogs.providerId, u.providerId))
+    .orderBy(desc(marketingSendLogs.sentAt))
+    .limit(1);
+  const lastMarketingSentAt = lastMarketingSendRow?.sentAt ?? null;
+
+  const weeklyOpenMinutes = Math.max(0, availableWeeklyMinutes - bookedWeeklyMinutes);
+  const outreachReminder = buildOutreachReminder(
+    setup.customerCount,
+    lastMarketingSentAt,
+    setup.pendingBookingCount
+  );
 
   const recentBookingRows = await db
     .select({
@@ -226,19 +264,9 @@ export default async function DashboardHomePage() {
     actions.push({
       id: "fix-signals",
       title: "Resolve issues on your public booking page",
-      body: "Customers hit errors while booking—review signals and check profile, availability, and services.",
+      body: "People are running into booking issues—review and make sure everything is clear and available.",
       href: "/dashboard#attention",
       cta: "Review signals",
-    });
-  }
-
-  if (setup.pendingBookingCount > 0) {
-    actions.push({
-      id: "pending",
-      title: `${setup.pendingBookingCount} pending booking${setup.pendingBookingCount === 1 ? "" : "s"}`,
-      body: "Confirm or adjust these requests before times slip away.",
-      href: "/dashboard/bookings?filter=pending",
-      cta: "Review pending",
     });
   }
 
@@ -301,14 +329,14 @@ export default async function DashboardHomePage() {
     {
       id: "filler-marketing",
       title: "Stay on clients’ minds",
-      body: "Send a promotion or reusable message from Marketing.",
+      body: "Reach out and stay top of mind in your community.",
       href: "/dashboard/marketing",
       cta: "Open marketing",
     },
     {
       id: "filler-services",
       title: "Tune what you sell",
-      body: "Adjust services, timing, and pricing so bookings convert.",
+      body: "Fine-tune what you offer so more people say yes.",
       href: "/dashboard/services",
       cta: "Manage services",
     },
@@ -348,10 +376,10 @@ export default async function DashboardHomePage() {
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Command center</h1>
           <p className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
             {needsSetup
-              ? "Finish setup below, then use signals, today’s overview, and next actions to drive bookings."
+              ? "Finish the basics below, then lean on this page to spot issues, see your day, and pick one sensible next step."
               : published
-                ? "Signals first, then today’s numbers and the best next step—without duplicate metrics."
-                : "You’re close—publish when ready, then share your link to start filling the calendar."}
+                ? "Your home base—see what needs a human touch, what’s on for today, and what to do next."
+                : "Almost there—publish when it feels right, then share your link so neighbors can book."}
           </p>
         </header>
 
@@ -368,6 +396,11 @@ export default async function DashboardHomePage() {
             published={published}
             profileUrl={profileUrl}
             username={prov?.username}
+            pendingBookingCount={setup.pendingBookingCount}
+            customerCount={setup.customerCount}
+            lastMarketingSentAt={lastMarketingSentAt}
+            weeklyOpenMinutes={weeklyOpenMinutes}
+            outreachReminder={outreachReminder}
           />
 
           <ActionCenter actions={actions.slice(0, 5)} />

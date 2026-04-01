@@ -57,7 +57,7 @@ export default async function AnalyticsPage() {
 
   return (
     <main id="main-content">
-      <h1 className="text-2xl font-semibold">Analytics</h1>
+      <h1 className="text-2xl font-semibold">Your business at a glance</h1>
 
       {allMetricsZero ? (
         <div className="mt-10 max-w-lg rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)] px-6 py-12 text-center shadow-[var(--shadow-card)] sm:px-10">

@@ -5,15 +5,18 @@ import {
   customers,
   marketingCampaigns,
   marketingSavedContents,
+  marketingSendLogs,
   messageTemplates,
   providers,
   services,
 } from "@/db/schema";
 import { getCsrfTokenForForm } from "@/lib/csrf";
+import { buildReconnectContextLine, scoreReconnectCustomer } from "@/lib/marketing/reconnect-priority";
 import { requireProvider } from "@/lib/tenancy";
 import { MarketingWorkspace } from "@/components/marketing/marketing-workspace";
 
-const RECONNECT_LIMIT = 60;
+/** Max customers passed to the reconnect UI (prioritized); “View all” links to /dashboard/customers. */
+const RECONNECT_LIST_CAP = 120;
 
 export default async function MarketingPage() {
   const u = await requireProvider();
@@ -49,33 +52,60 @@ export default async function MarketingPage() {
 
   const statsMap = new Map(statsRows.map((r) => [r.customerId, { cnt: Number(r.cnt), lastAt: r.lastAt }]));
 
+  const sendLogRows = await db
+    .select({ customerIds: marketingSendLogs.customerIds, sentAt: marketingSendLogs.sentAt })
+    .from(marketingSendLogs)
+    .where(eq(marketingSendLogs.providerId, u.providerId))
+    .orderBy(desc(marketingSendLogs.sentAt))
+    .limit(600);
+
+  const lastMarketingByCustomer = new Map<string, Date>();
+  for (const log of sendLogRows) {
+    for (const cid of log.customerIds) {
+      const prev = lastMarketingByCustomer.get(cid);
+      if (!prev || log.sentAt > prev) lastMarketingByCustomer.set(cid, log.sentAt);
+    }
+  }
+
   type Row = {
     id: string;
     fullName: string;
     lastBookingAt: string | null;
     bookingCount: number;
+    contextLine: string;
+    priorityScore: number;
   };
 
+  const nowMs = Date.now();
   const withStats: Row[] = baseCustomers.map((c) => {
     const s = statsMap.get(c.id);
+    const bookingCount = s?.cnt ?? 0;
+    const lastBookingAt = s?.lastAt ? s.lastAt.toISOString() : null;
+    const lastM = lastMarketingByCustomer.get(c.id);
+    const lastMarketingSentAt = lastM ? lastM.toISOString() : null;
+    const statsInput = { lastBookingAt, bookingCount, lastMarketingSentAt };
     return {
       id: c.id,
       fullName: c.fullName,
-      bookingCount: s?.cnt ?? 0,
-      lastBookingAt: s?.lastAt ? s.lastAt.toISOString() : null,
+      bookingCount,
+      lastBookingAt,
+      contextLine: buildReconnectContextLine(statsInput, timezone),
+      priorityScore: scoreReconnectCustomer(statsInput, nowMs),
     };
   });
 
   withStats.sort((a, b) => {
-    const ta = a.lastBookingAt ? new Date(a.lastBookingAt).getTime() : 0;
-    const tb = b.lastBookingAt ? new Date(b.lastBookingAt).getTime() : 0;
-    if (!a.lastBookingAt && !b.lastBookingAt) return a.fullName.localeCompare(b.fullName);
-    if (!a.lastBookingAt) return -1;
-    if (!b.lastBookingAt) return 1;
-    return ta - tb;
+    if (b.priorityScore !== a.priorityScore) return b.priorityScore - a.priorityScore;
+    return a.fullName.localeCompare(b.fullName);
   });
 
-  const reconnectCustomers = withStats.slice(0, RECONNECT_LIMIT);
+  const reconnectCustomers = withStats.slice(0, RECONNECT_LIST_CAP).map((r) => ({
+    id: r.id,
+    fullName: r.fullName,
+    lastBookingAt: r.lastBookingAt,
+    bookingCount: r.bookingCount,
+    contextLine: r.contextLine,
+  }));
 
   const serviceRows = await db
     .select({ id: services.id, name: services.name })

@@ -29,7 +29,7 @@ export function UpcomingBookingsGrouped({
   const nowYear = DateTime.now().setZone(timezone).year;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {keys.map((key) => {
         const day = DateTime.fromISO(key, { zone: timezone });
         const dayHead =
@@ -38,7 +38,7 @@ export function UpcomingBookingsGrouped({
         return (
           <section key={key}>
             <h3 className="text-sm font-semibold text-[var(--foreground)]">{dayHead}</h3>
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-2 space-y-1.5">
               {items.map((row) => {
                 const start = DateTime.fromMillis(row.startsAt.getTime(), { zone: "utc" }).setZone(timezone);
                 return (
@@ -46,7 +46,7 @@ export function UpcomingBookingsGrouped({
                     <Link
                       href={`/dashboard/bookings/${row.id}`}
                       prefetch={false}
-                      className="flex flex-col gap-2 rounded-lg border border-[color-mix(in_oklab,var(--foreground)_6%,var(--border))] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-sm)] transition-colors hover:bg-[color-mix(in_oklab,var(--foreground)_3%,var(--card))] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                      className="flex flex-col gap-1.5 rounded-lg border border-[color-mix(in_oklab,var(--foreground)_5%,var(--border))] bg-[var(--card)] px-3 py-2.5 shadow-[var(--shadow-sm)] transition-colors hover:bg-[color-mix(in_oklab,var(--foreground)_3%,var(--card))] sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4"
                     >
                       <div className="min-w-0 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-2">
                         <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--foreground)]">

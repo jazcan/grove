@@ -64,7 +64,7 @@ export function PricingProfileForm({
     >
       <h2 className="text-lg font-semibold text-[var(--foreground)]">Pricing profile</h2>
       <p className="ui-hint max-w-prose">
-        One profile per business anchors currency; positioning tiers scale your list prices.
+        Set your currency and how your pricing scales across service levels.
       </p>
       <CsrfField token={csrf} />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -127,8 +127,7 @@ export function PositioningTiersForm({
     >
       <h2 className="text-lg font-semibold text-[var(--foreground)]">Positioning tiers</h2>
       <p className="ui-hint max-w-prose">
-        Multipliers apply to your service list price (fixed) or starting hourly rate. New services default to the first
-        tier.
+        These adjust your pricing across different service levels.
       </p>
       <CsrfField token={csrf} />
       <input type="hidden" name="tierCount" value={tiers.length} />

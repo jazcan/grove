@@ -87,7 +87,7 @@ export function ServiceCreateSection({
           Create from scratch
         </h2>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-          Build every field yourself when you already know exactly what you want.
+          Build it your way if you already know exactly what you want to offer.
         </p>
         <Link
           href="/dashboard/services?scratch=1#service-form"
@@ -107,7 +107,7 @@ export function ServiceCreateSection({
         </h2>
         <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
           {showAdjustHint
-            ? "Everything below was filled from your template. Change only what you need."
+            ? "We&apos;ve filled this in for you—change only what matters."
             : "Create a service clients can book."}
         </p>
         {showAdjustHint ? (
@@ -271,7 +271,7 @@ export function ServiceCreateSection({
           </div>
           <textarea
             name="prepInstructions"
-            placeholder="Anything clients should know or bring beforehand"
+            placeholder="Before we meet, share anything that helps me show up prepared…"
             rows={3}
             defaultValue={values.prepInstructions}
             className="ui-textarea"

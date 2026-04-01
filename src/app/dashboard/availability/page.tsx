@@ -114,11 +114,11 @@ export default async function AvailabilityPage({ searchParams }: Props) {
   } as const;
 
   return (
-    <main id="main-content" className="mx-auto w-full max-w-3xl">
+    <main id="main-content" className="mx-auto w-full max-w-5xl">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Availability</h1>
         <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-          Weekly hours, calendar blocks, and pausing new bookings.
+          Set when you&apos;re available and when you&apos;re not.
         </p>
         {saved ? (
           <div
@@ -158,15 +158,11 @@ export default async function AvailabilityPage({ searchParams }: Props) {
           </div>
         ) : null}
 
-        <div className="mt-6">
-          <AvailabilityQuickBlockBar csrf={csrf} timezone={tz} />
-        </div>
-
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-4 sm:p-5">
             <div className="text-sm font-semibold text-[var(--foreground)]">Pause new bookings</div>
             <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-              Stops new online bookings. Your calendar and existing appointments stay the same.
+              Temporarily stop new bookings while keeping your schedule intact.
             </p>
             <form action={asFormAction(setBookingsPaused)} className="mt-4">
               <CsrfField token={csrf} />
@@ -205,58 +201,69 @@ export default async function AvailabilityPage({ searchParams }: Props) {
         </div>
       </header>
 
-      <section className="mt-10">
-        <AvailabilityCalendar csrf={csrf} {...calendarProps} />
+      <section className="mt-8">
+        <AvailabilityCalendar
+          csrf={csrf}
+          {...calendarProps}
+          quickBlock={<AvailabilityQuickBlockBar csrf={csrf} timezone={tz} />}
+        />
       </section>
 
-      <section id="weekly-schedule" className="mt-16 scroll-mt-28">
+      <section id="weekly-schedule" className="mt-14 scroll-mt-28">
         <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">Weekly hours</h2>
+        <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
+          Turn days on or off and set start and end times. Use Apply to Mon–Fri for a quick batch update.
+        </p>
 
-        <form
-          action={asFormAction(applyHoursToWeekdays)}
-          className="mt-6 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--background)] p-4 sm:p-5"
-        >
-          <CsrfField token={csrf} />
-          <p className="text-sm font-semibold text-[var(--foreground)]">Apply to Mon–Fri</p>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-            <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[200px]">
-              <span className="ui-label">Start</span>
-              <TimeLocalSelect name="startTimeLocal" defaultValue="09:00" />
-            </label>
-            <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[200px]">
-              <span className="ui-label">End</span>
-              <TimeLocalSelect name="endTimeLocal" defaultValue="17:00" />
-            </label>
-            <button type="submit" className="ui-btn-primary min-h-11 w-full px-5 text-sm font-semibold sm:w-auto">
-              Apply
-            </button>
+        <div className="mt-6 overflow-hidden rounded-xl border border-[color-mix(in_oklab,var(--foreground)_7%,var(--border))] bg-[var(--card)] shadow-[var(--shadow-sm)]">
+          <form
+            action={asFormAction(applyHoursToWeekdays)}
+            className="border-b border-[color-mix(in_oklab,var(--foreground)_5%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2.5%,var(--background))] px-4 py-3 sm:px-5"
+          >
+            <CsrfField token={csrf} />
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
+              <p className="text-sm font-semibold text-[var(--foreground)] sm:shrink-0">Apply to Mon–Fri</p>
+              <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-end sm:gap-3">
+                <label className="ui-field min-w-[120px] flex-1 text-sm sm:max-w-[160px]">
+                  <span className="ui-label">Start</span>
+                  <TimeLocalSelect name="startTimeLocal" defaultValue="09:00" />
+                </label>
+                <label className="ui-field min-w-[120px] flex-1 text-sm sm:max-w-[160px]">
+                  <span className="ui-label">End</span>
+                  <TimeLocalSelect name="endTimeLocal" defaultValue="17:00" />
+                </label>
+                <button type="submit" className="ui-btn-primary min-h-10 w-full px-5 text-sm font-semibold sm:w-auto">
+                  Apply
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <div className="divide-y divide-[color-mix(in_oklab,var(--foreground)_6%,var(--border))] px-0 py-0 sm:px-1">
+            {rules.length ? (
+              rules.map((r) => (
+                <WeeklyScheduleRow
+                  key={r.id}
+                  csrf={csrf}
+                  compact
+                  rule={{
+                    id: r.id,
+                    dayOfWeek: r.dayOfWeek,
+                    startTimeLocal: r.startTimeLocal,
+                    endTimeLocal: r.endTimeLocal,
+                    isActive: r.isActive,
+                  }}
+                />
+              ))
+            ) : (
+              <p className="px-3 py-8 text-center text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
+                No weekly rows yet — use a preset or add a window below.
+              </p>
+            )}
           </div>
-        </form>
-
-        <div className="mt-6 overflow-hidden rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] shadow-[var(--shadow-card)] divide-y divide-[var(--border)]">
-          {rules.length ? (
-            rules.map((r) => (
-              <WeeklyScheduleRow
-                key={r.id}
-                csrf={csrf}
-                compact
-                rule={{
-                  id: r.id,
-                  dayOfWeek: r.dayOfWeek,
-                  startTimeLocal: r.startTimeLocal,
-                  endTimeLocal: r.endTimeLocal,
-                  isActive: r.isActive,
-                }}
-              />
-            ))
-          ) : (
-            <p className="px-4 py-8 text-center text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-              No weekly rows yet — use a preset or add a window below.
-            </p>
-          )}
         </div>
 
-        <form action={asFormAction(upsertAvailabilityRule)} className="mt-10 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-5 shadow-[var(--shadow-card)]">
+        <form action={asFormAction(upsertAvailabilityRule)} className="mt-6 rounded-xl border border-[color-mix(in_oklab,var(--foreground)_7%,var(--border))] bg-[var(--card)] p-4 shadow-[var(--shadow-sm)] sm:p-5">
           <CsrfField token={csrf} />
           <p className="text-sm font-semibold text-[var(--foreground)]">Add a window</p>
           <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">

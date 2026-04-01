@@ -48,20 +48,24 @@ const STEPS = [
 
 const PERSONAS = [
   {
-    title: "Consultants",
-    body: "Sell clarity, not calendar chaos—let clients book you when it works for both of you.",
+    title: "Home service providers",
+    body: "Cleaning, lawn care, and home upkeep—let people nearby book you without the back and forth.",
   },
   {
-    title: "Therapists",
-    body: "Keep sessions private, organized, and easy for clients to schedule.",
+    title: "Personal & wellness services",
+    body: "From fitness to beauty, make it easy for clients to book and come back again.",
   },
   {
-    title: "Freelancers",
-    body: `Ship the work; let ${brand.appName} handle the booking admin in the background.`,
+    title: "Pet care & everyday services",
+    body: "Walks, sitting, and daily help—stay organized and visible to people nearby.",
   },
 ] as const;
 
 const FAQ = [
+  {
+    q: "Is Handshake Local free to use?",
+    a: "Handshake Local is currently free for providers and clients as we grow the network and refine the experience.",
+  },
   {
     q: "Do I need a website?",
     a: `No. Your ${brand.appName} profile can be the simple, professional page clients use to learn about you and book. If you already have a site, you can use both.`,

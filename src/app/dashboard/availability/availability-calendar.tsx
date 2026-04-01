@@ -8,6 +8,7 @@ import type { DateSelectArg, EventClickArg, EventInput, DatesSetArg } from "@ful
 import type { DateClickArg } from "@fullcalendar/interaction";
 import { DateTime } from "luxon";
 import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addBlockedTimeInline } from "@/actions/availability";
 
@@ -187,8 +188,10 @@ export function AvailabilityCalendar(props: {
   rules: AvailabilityRule[];
   blocked: BlockedTime[];
   bookings: BookingEvent[];
+  /** Rendered after the legend (e.g. Quick block). */
+  quickBlock?: ReactNode;
 }) {
-  const { csrf, timezone, rules, blocked, bookings } = props;
+  const { csrf, timezone, rules, blocked, bookings, quickBlock } = props;
   const router = useRouter();
   const [range, setRange] = useState<{ start: Date; end: Date } | null>(null);
   const [selected, setSelected] = useState<Selected>(null);
@@ -395,14 +398,14 @@ export function AvailabilityCalendar(props: {
   };
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-10">
-      <div className="availabilityCalendar rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-3 shadow-[var(--shadow-card)] sm:p-4">
-        <div className="mb-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
+    <div className="flex flex-col gap-6">
+      <div className="availabilityCalendar rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_9%,var(--border))] bg-[var(--card)] p-3 shadow-[var(--shadow-card)] sm:p-5">
+        <div className="mb-2 sm:mb-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-[color-mix(in_oklab,var(--foreground)_50%,transparent)]">
             Calendar
           </div>
-          <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
-            Click or drag to block; saves right away. Times shown in 12-hour format.
+          <p className="mt-0.5 max-w-2xl text-sm text-[color-mix(in_oklab,var(--foreground)_58%,transparent)]">
+            Click or drag to block time—it saves instantly. Times shown in 12-hour format.
           </p>
         </div>
 
@@ -427,7 +430,7 @@ export function AvailabilityCalendar(props: {
             center: "title",
             right: "timeGridDay,timeGridWeek,dayGridMonth",
           }}
-          contentHeight="clamp(300px, 40dvh, 480px)"
+          contentHeight="clamp(340px, 52dvh, 560px)"
           nowIndicator
           selectable
           selectMirror
@@ -451,32 +454,39 @@ export function AvailabilityCalendar(props: {
         />
       </div>
 
-      <aside className="h-fit rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--background)] p-4 shadow-[var(--shadow-card)] sm:p-5">
-        <p className="text-sm font-medium text-[var(--foreground)]">Legend</p>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
-          <span className="rounded-md px-2 py-1" style={{ background: "rgba(34, 197, 94, 0.18)" }}>
-            Available
-          </span>
-          <span className="rounded-md px-2 py-1" style={{ background: "rgba(239, 68, 68, 0.35)" }}>
-            Blocked
-          </span>
-          <span className="rounded-md px-2 py-1 text-white" style={{ background: bookingColors("confirmed").bg }}>
-            Booked
-          </span>
+      <div className="flex flex-col gap-2 rounded-lg border border-[color-mix(in_oklab,var(--foreground)_5%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--background))] px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.06em] text-[color-mix(in_oklab,var(--foreground)_48%,transparent)]">
+            Legend
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5 text-[0.7rem] font-medium leading-none">
+            <span className="rounded px-1.5 py-0.5" style={{ background: "rgba(34, 197, 94, 0.18)" }}>
+              Available
+            </span>
+            <span className="rounded px-1.5 py-0.5" style={{ background: "rgba(239, 68, 68, 0.35)" }}>
+              Blocked
+            </span>
+            <span className="rounded px-1.5 py-0.5 text-white" style={{ background: bookingColors("confirmed").bg }}>
+              Booked
+            </span>
+          </div>
         </div>
-
         <button
           type="button"
-          className="ui-btn-secondary mt-6 min-h-11 w-full text-sm font-semibold"
+          className="ui-btn-secondary min-h-9 shrink-0 px-3 text-xs font-semibold sm:self-center sm:px-4 sm:text-sm"
           onClick={() => document.getElementById("weekly-schedule")?.scrollIntoView({ behavior: "smooth", block: "start" })}
         >
           Weekly hours
         </button>
+      </div>
 
-        <div className="mt-8 border-t border-[var(--border)] pt-5">
+      {quickBlock ? <div className="w-full">{quickBlock}</div> : null}
+
+      <aside className="rounded-xl border border-[color-mix(in_oklab,var(--foreground)_6%,var(--border))] bg-[var(--card)] p-3 sm:p-4">
+        <div>
           <h3 className="text-sm font-semibold text-[var(--foreground)]">Details</h3>
           {!selected ? (
-            <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">Select a booking or block to see details.</p>
+            <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">Select a booking or block to see details.</p>
           ) : selected.kind === "booking" ? (
             <div className="mt-3 space-y-2 text-sm">
               <div className="flex items-center justify-between gap-2">
@@ -535,7 +545,6 @@ export function AvailabilityCalendar(props: {
           )}
         </div>
       </aside>
-
     </div>
   );
 }

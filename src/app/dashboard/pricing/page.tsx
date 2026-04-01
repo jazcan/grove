@@ -87,8 +87,7 @@ export default async function PricingPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Pricing</h1>
         <p className="mt-2 max-w-prose text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-          Profiles and positioning tiers attach to your template-based services. List prices live on each service;
-          tiers scale what you charge for a given positioning level.
+          Set how your services are priced and positioned.
         </p>
       </header>
 
@@ -105,8 +104,7 @@ export default async function PricingPage() {
         <section className="ui-card p-5 sm:p-7">
           <h2 className="text-lg font-semibold text-[var(--foreground)]">Suggestions</h2>
           <p className="ui-hint mt-2 max-w-prose">
-            Suggested list price at your first tier (Standard) from the template default—adjust on each service as
-            needed.
+            Suggested starting prices based on your services—adjust as needed.
           </p>
           <ul className="mt-4 space-y-2 text-sm">
             {recommendations.map((r) => (

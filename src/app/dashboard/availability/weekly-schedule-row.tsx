@@ -33,15 +33,27 @@ export function WeeklyScheduleRow({
   }, [rule.id, rule.isActive]);
 
   const shell = compact
-    ? "bg-transparent px-3 py-3 sm:px-4 sm:py-3.5"
+    ? "bg-transparent px-2 py-1.5 sm:px-3 sm:py-1.5"
     : "rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-4 shadow-[var(--shadow-card)] sm:p-5";
+
+  const formClass = compact
+    ? "flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-2 sm:gap-y-1.5"
+    : "flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end";
+
+  const fieldClass = compact
+    ? "ui-field min-w-0 flex-1 text-sm sm:max-w-[7.5rem] sm:shrink-0 [&_.ui-label]:text-[0.7rem]"
+    : "ui-field min-w-[120px] flex-1 text-sm sm:max-w-[140px]";
+
+  const timeFieldClass = compact
+    ? "ui-field min-w-0 flex-1 text-sm sm:max-w-[9rem] [&_.ui-label]:text-[0.7rem]"
+    : "ui-field min-w-[140px] flex-1 text-sm sm:max-w-[200px]";
 
   return (
     <div className={shell}>
-      <form action={asFormAction(upsertAvailabilityRule)} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+      <form action={asFormAction(upsertAvailabilityRule)} className={formClass}>
         <CsrfField token={csrf} />
         <input type="hidden" name="id" value={rule.id} />
-        <label className="ui-field min-w-[120px] flex-1 text-sm sm:max-w-[140px]">
+        <label className={fieldClass}>
           <span className="ui-label">Day</span>
           <select name="dayOfWeek" className="ui-input mt-1" defaultValue={rule.dayOfWeek}>
             {DAYS.map((d, i) => (
@@ -51,27 +63,50 @@ export function WeeklyScheduleRow({
             ))}
           </select>
         </label>
-        <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[200px]">
+        <label className={timeFieldClass}>
           <span className="ui-label">Start</span>
           <TimeLocalSelect name="startTimeLocal" defaultValue={rule.startTimeLocal} />
         </label>
-        <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[200px]">
+        <label className={timeFieldClass}>
           <span className="ui-label">End</span>
           <TimeLocalSelect name="endTimeLocal" defaultValue={rule.endTimeLocal} />
         </label>
         <input type="hidden" name="isActive" value={active ? "on" : "off"} />
-        <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium sm:pb-0.5">
+        <label
+          className={
+            compact
+              ? "flex min-h-9 shrink-0 cursor-pointer items-center gap-2 pb-0.5 text-sm font-medium sm:pb-0.5"
+              : "flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium sm:pb-0.5"
+          }
+        >
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-4 w-4 rounded border-[var(--input-border)]" />
           Open
         </label>
-        <button type="submit" className="ui-btn-primary min-h-11 w-full px-5 text-sm font-semibold sm:ml-auto sm:w-auto">
+        <button
+          type="submit"
+          className={
+            compact
+              ? "ui-btn-primary min-h-9 w-full px-3 text-sm font-semibold sm:ml-auto sm:w-auto sm:shrink-0"
+              : "ui-btn-primary min-h-11 w-full px-5 text-sm font-semibold sm:ml-auto sm:w-auto"
+          }
+        >
           Save
         </button>
       </form>
-      <form action={asFormAction(deleteAvailabilityRule)} className={`mt-3 flex justify-end ${compact ? "" : "border-t border-[var(--border)] pt-3"}`}>
+      <form
+        action={asFormAction(deleteAvailabilityRule)}
+        className={compact ? "mt-1 flex justify-end sm:mt-0.5" : `mt-3 flex justify-end border-t border-[var(--border)] pt-3`}
+      >
         <CsrfField token={csrf} />
         <input type="hidden" name="id" value={rule.id} />
-        <button type="submit" className="text-sm font-semibold text-[var(--error)] hover:underline">
+        <button
+          type="submit"
+          className={
+            compact
+              ? "text-[0.6875rem] font-medium text-[color-mix(in_oklab,var(--foreground)_45%,transparent)] underline-offset-2 hover:text-[var(--error)] hover:underline sm:text-xs"
+              : "text-sm font-semibold text-[var(--error)] hover:underline"
+          }
+        >
           Remove hours
         </button>
       </form>

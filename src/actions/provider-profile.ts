@@ -8,6 +8,7 @@ import { providers, users } from "@/db/schema";
 import { plainTextFromInput } from "@/lib/sanitize";
 import { isValidUsername, isReservedUsername } from "@/lib/reserved-usernames";
 import { logAudit } from "@/lib/audit";
+import { geocodeProviderAddress } from "@/lib/geocoding/geocode-provider-address";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
 import type { ActionState } from "@/domain/auth/actions";
 
@@ -46,6 +47,16 @@ export async function updateProviderProfile(formData: FormData): Promise<Profile
   const bio = plainTextFromInput(formData.get("bio")?.toString() ?? "", 5000);
   const category = plainTextFromInput(formData.get("category")?.toString() ?? "", 120);
   const city = plainTextFromInput(formData.get("city")?.toString() ?? "", 120);
+  const region = plainTextFromInput(formData.get("region")?.toString() ?? "", 120);
+  const rawCountry = plainTextFromInput(formData.get("countryCode")?.toString() ?? "", 2).toUpperCase();
+  const countryCode = rawCountry === "US" || rawCountry === "CA" ? rawCountry : null;
+  const rawPostal = plainTextFromInput(formData.get("postalCode")?.toString() ?? "", 20);
+  const postalCode =
+    rawPostal.length === 0
+      ? ""
+      : countryCode === "US"
+        ? rawPostal.replace(/\s/g, "").toUpperCase()
+        : rawPostal.replace(/\s+/g, " ").toUpperCase();
   const serviceArea = plainTextFromInput(formData.get("serviceArea")?.toString() ?? "", 2000);
   const contactEmail = plainTextFromInput(formData.get("contactEmail")?.toString() ?? "", 320);
   const contactPhone = plainTextFromInput(formData.get("contactPhone")?.toString() ?? "", 40);
@@ -92,6 +103,35 @@ export async function updateProviderProfile(formData: FormData): Promise<Profile
       updatedAt: new Date(),
     })
     .where(eq(providers.id, ctx.providerId));
+
+  const geo =
+    countryCode && (postalCode || city)
+      ? await geocodeProviderAddress({
+          postalCode,
+          city,
+          region,
+          countryCode,
+        })
+      : null;
+  if (geo) {
+    await db
+      .update(providers)
+      .set({
+        latitude: geo.lat,
+        longitude: geo.lon,
+        updatedAt: new Date(),
+      })
+      .where(eq(providers.id, ctx.providerId));
+  } else if (!postalCode && !city) {
+    await db
+      .update(providers)
+      .set({
+        latitude: null,
+        longitude: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(providers.id, ctx.providerId));
+  }
 
   await logAudit({
     actorUserId: ctx.id,

@@ -52,7 +52,9 @@ export default async function ProfilePage({ searchParams }: Props) {
     !!prov?.username?.trim() &&
     !!prov?.displayName?.trim() &&
     !!prov?.category?.trim() &&
-    !!prov?.city?.trim();
+    !!prov?.city?.trim() &&
+    !!prov?.postalCode?.trim() &&
+    !!prov?.countryCode?.trim();
 
   const readinessSteps = [
     {
@@ -239,6 +241,52 @@ export default async function ProfilePage({ searchParams }: Props) {
                       </label>
                       <input id="city" name="city" defaultValue={prov?.city} className={inputClass} />
                     </div>
+                  </div>
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="countryCode" className="text-sm font-medium">
+                        Country
+                      </label>
+                      <select
+                        id="countryCode"
+                        name="countryCode"
+                        className={inputClass}
+                        defaultValue={prov?.countryCode ?? "CA"}
+                      >
+                        <option value="CA">Canada</option>
+                        <option value="US">United States</option>
+                      </select>
+                      <p className="ui-hint mt-1.5">Used for marketplace distance search.</p>
+                    </div>
+                    <div>
+                      <label htmlFor="region" className="text-sm font-medium">
+                        Province / state
+                      </label>
+                      <input
+                        id="region"
+                        name="region"
+                        defaultValue={prov?.region ?? ""}
+                        className={inputClass}
+                        placeholder="e.g. ON, BC, CA"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="postalCode" className="text-sm font-medium">
+                      Postal code / ZIP
+                    </label>
+                    <input
+                      id="postalCode"
+                      name="postalCode"
+                      defaultValue={prov?.postalCode ?? ""}
+                      className={inputClass}
+                      placeholder="e.g. K1A 0A6 or 90210"
+                      autoComplete="postal-code"
+                    />
+                    <p className="ui-hint mt-1.5">
+                      Helps clients find you nearby. We use it to place your profile on the map—never shared as a full
+                      street address.
+                    </p>
                   </div>
                 </div>
               </ProfileSectionCard>

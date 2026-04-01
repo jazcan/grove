@@ -1,12 +1,7 @@
 import Link from "next/link";
+import type { MarketplaceProviderRow } from "@/lib/marketplace-search";
 
-export type MarketplaceProviderRow = {
-  username: string;
-  displayName: string;
-  category: string;
-  city: string;
-  serviceArea: string;
-};
+export type { MarketplaceProviderRow };
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -26,13 +21,18 @@ function locationLine(p: MarketplaceProviderRow): string {
 function blurbLine(p: MarketplaceProviderRow): string {
   const city = p.city?.trim() ?? "";
   const area = p.serviceArea?.trim() ?? "";
+  let inner: string;
   if (city && area) {
-    return "View their services and book directly from their profile.";
+    inner = "Explore what they offer and book directly.";
+  } else if (area.length > 0) {
+    inner = area.length > 130 ? `${area.slice(0, 127)}…` : area;
+  } else {
+    inner = "Explore what they offer and book directly.";
   }
-  if (area.length > 0) {
-    return area.length > 130 ? `${area.slice(0, 127)}…` : area;
+  if (p.distanceKm != null && Number.isFinite(p.distanceKm)) {
+    return `About ${p.distanceKm} km away — ${inner}`;
   }
-  return "View their services and book directly from their profile.";
+  return inner;
 }
 
 function IconMapPin({ className }: { className?: string }) {

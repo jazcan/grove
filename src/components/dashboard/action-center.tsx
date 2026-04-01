@@ -20,7 +20,7 @@ export function ActionCenter({ actions }: Props) {
           Next best actions
         </h2>
         <p className="ui-hint mt-2">
-          A short list based on signals, your calendar, and setup—tap one to jump in.
+          Pick one thing—small moves add up, and you can always come back for the rest.
         </p>
       </div>
 

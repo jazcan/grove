@@ -83,7 +83,7 @@ export default async function ServicesPage({ searchParams }: Props) {
     ? "You're ready to accept bookings"
     : "Your services";
   const servicesSubtitle = readyForBookings
-    ? "Clients can book what you offer below. Edit anytime as your business grows."
+    ? "People can now book what you offer. Update anytime as your business grows."
     : hasServices
       ? "What clients book—you can edit details anytime."
       : "When you add a service, it appears here for you to manage.";
@@ -113,11 +113,11 @@ export default async function ServicesPage({ searchParams }: Props) {
       <header className="max-w-4xl">
         <h1 className="text-2xl font-semibold tracking-tight">Services</h1>
         <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-          Pick a proven template, save, and start taking bookings—no blank page required.
+          Choose a starting point, make it yours, and start taking bookings—no blank page.
         </p>
         <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
-          Templates are the default path: they pre-fill name, duration, price, and client-facing copy so you only
-          confirm or tweak. That cuts decision fatigue and gets you to &quot;bookable&quot; in under 30 seconds.
+          Templates give you a fast starting point—name, timing, price, and client-facing details are already filled in.
+          Just review and tweak to get bookable in seconds.
         </p>
         {saved ? (
           <div

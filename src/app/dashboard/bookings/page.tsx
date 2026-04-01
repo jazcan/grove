@@ -13,8 +13,12 @@ import {
   ManualBookingHeaderButton,
   ManualBookingEmptyButton,
 } from "@/components/dashboard/bookings/add-manual-booking-modal";
+import {
+  BookingsFiveDayStrip,
+  type FiveDayStripDay,
+} from "@/components/dashboard/bookings/bookings-five-day-strip";
 
-type Props = { searchParams: Promise<{ filter?: string }> };
+type Props = { searchParams: Promise<{ filter?: string; day?: string }> };
 
 type DbRow = {
   booking: InferSelectModel<typeof bookings>;
@@ -34,11 +38,19 @@ function toCard(row: DbRow): TodayBookingCardData {
   };
 }
 
+function parseDayOffset(raw: string | undefined): number {
+  if (raw === undefined || raw === "") return 0;
+  const n = Number.parseInt(raw, 10);
+  if (Number.isNaN(n)) return 0;
+  return Math.min(4, Math.max(0, n));
+}
+
 export default async function BookingsPage({ searchParams }: Props) {
   const u = await requireProvider();
-  const { filter: filterRaw } = await searchParams;
+  const { filter: filterRaw, day: dayRaw } = await searchParams;
   const filter =
     filterRaw === "confirmed" || filterRaw === "pending" ? filterRaw : "all";
+  const selectedDayOffset = parseDayOffset(dayRaw);
 
   const db = getDb();
   const csrf = await getCsrfTokenForForm();
@@ -92,7 +104,6 @@ export default async function BookingsPage({ searchParams }: Props) {
         : null;
 
   const startOfToday = DateTime.now().setZone(timezone).startOf("day");
-  const startOfTomorrow = startOfToday.plus({ days: 1 });
 
   const futureWhere = statusCond
     ? and(
@@ -136,20 +147,74 @@ export default async function BookingsPage({ searchParams }: Props) {
     .orderBy(desc(bookings.startsAt))
     .limit(10);
 
-  const todayCards: TodayBookingCardData[] = [];
+  /** Schedule totals for the strip (all statuses) so counts match what’s on the calendar. */
+  const fiveDayEndExclusive = startOfToday.plus({ days: 5 });
+  const stripStatRows = await db
+    .select({
+      startsAt: bookings.startsAt,
+      status: bookings.status,
+    })
+    .from(bookings)
+    .where(
+      and(
+        eq(bookings.providerId, u.providerId),
+        gte(bookings.startsAt, startOfToday.toJSDate()),
+        lt(bookings.startsAt, fiveDayEndExclusive.toJSDate())
+      )
+    );
+
+  const stripDayBuckets = new Map<string, { total: number; hasPending: boolean }>();
+  for (let o = 0; o < 5; o++) {
+    const iso = startOfToday.plus({ days: o }).toISODate()!;
+    stripDayBuckets.set(iso, { total: 0, hasPending: false });
+  }
+  for (const r of stripStatRows) {
+    const t = DateTime.fromMillis(r.startsAt.getTime(), { zone: "utc" }).setZone(timezone);
+    const iso = t.toISODate();
+    if (!iso) continue;
+    const b = stripDayBuckets.get(iso);
+    if (!b) continue;
+    b.total += 1;
+    if (r.status === "pending") b.hasPending = true;
+  }
+
+  const stripDays: FiveDayStripDay[] = [];
+  for (let offset = 0; offset < 5; offset++) {
+    const d = startOfToday.plus({ days: offset });
+    const iso = d.toISODate()!;
+    const bucket = stripDayBuckets.get(iso) ?? { total: 0, hasPending: false };
+    const shortLabel =
+      offset === 0 ? "Today" : offset === 1 ? "Tomorrow" : d.toFormat("EEE");
+    stripDays.push({
+      offset,
+      shortLabel,
+      dayOfMonth: d.day,
+      isoDate: iso,
+      total: bucket.total,
+      hasPending: bucket.hasPending,
+    });
+  }
+
+  const selectedDayStart = startOfToday.plus({ days: selectedDayOffset });
+  const selectedIso = selectedDayStart.toISODate()!;
+
+  const selectedDayCards: TodayBookingCardData[] = [];
   const upcomingCards: TodayBookingCardData[] = [];
 
   for (const row of futureRows) {
     const t = DateTime.fromMillis(row.booking.startsAt.getTime(), { zone: "utc" }).setZone(timezone);
     const card = toCard(row);
-    if (t >= startOfToday && t < startOfTomorrow) {
-      todayCards.push(card);
-    } else if (t >= startOfTomorrow) {
+    const rowIso = t.toISODate();
+    if (rowIso === selectedIso) {
+      selectedDayCards.push(card);
+    }
+    if (t >= fiveDayEndExclusive) {
       upcomingCards.push(card);
     }
   }
 
-  todayCards.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+  selectedDayCards.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+  upcomingCards.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
 
   const pastCards = pastRows.map(toCard);
 
@@ -159,8 +224,36 @@ export default async function BookingsPage({ searchParams }: Props) {
     "border-[var(--border)] bg-[var(--card)] text-[color-mix(in_oklab,var(--foreground)_72%,transparent)] hover:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--card))]";
   const tabActive = "border-[color-mix(in_oklab,var(--accent)_40%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_10%,var(--card))] text-[var(--accent)]";
 
-  const buildFilterHref = (f: "all" | "confirmed" | "pending") =>
-    f === "all" ? "/dashboard/bookings" : `/dashboard/bookings?filter=${f}`;
+  const buildFilterHref = (f: "all" | "confirmed" | "pending") => {
+    const params = new URLSearchParams();
+    if (f !== "all") params.set("filter", f);
+    if (selectedDayOffset !== 0) params.set("day", String(selectedDayOffset));
+    const q = params.toString();
+    return q ? `/dashboard/bookings?${q}` : "/dashboard/bookings";
+  };
+
+  const selectedDayHeading =
+    selectedDayOffset === 0
+      ? "Today"
+      : selectedDayOffset === 1
+        ? "Tomorrow"
+        : selectedDayStart.toFormat("cccc, LLL d");
+
+  const filterEmptyHint =
+    filter === "confirmed"
+      ? "confirmed "
+      : filter === "pending"
+        ? "pending "
+        : "";
+
+  const selectedWeekdayName = selectedDayStart.toFormat("cccc");
+
+  const emptyWhenPhrase =
+    selectedDayOffset === 0
+      ? "today"
+      : selectedDayOffset === 1
+        ? "tomorrow"
+        : `on ${selectedWeekdayName}`;
 
   if (totalBookings === 0) {
     return (
@@ -177,7 +270,7 @@ export default async function BookingsPage({ searchParams }: Props) {
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">Bookings</h1>
               <p className="mt-2 max-w-xl text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-                See what&apos;s scheduled and stay on top of your day.
+                See what&apos;s coming up and stay organized.
               </p>
             </div>
             <ManualBookingHeaderButton />
@@ -217,7 +310,7 @@ export default async function BookingsPage({ searchParams }: Props) {
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">Bookings</h1>
               <p className="mt-2 max-w-xl text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-                See what&apos;s scheduled and stay on top of your day.
+                See what&apos;s coming up and stay organized.
               </p>
             </div>
             <ManualBookingHeaderButton />
@@ -244,30 +337,59 @@ export default async function BookingsPage({ searchParams }: Props) {
           </nav>
         </header>
 
-      <section className="mt-10" aria-labelledby="bookings-today-heading">
-        <h2 id="bookings-today-heading" className="text-lg font-semibold text-[var(--foreground)]">
-          Today
+      <div className="mt-8">
+        <BookingsFiveDayStrip days={stripDays} selectedOffset={selectedDayOffset} filter={filter} />
+      </div>
+
+      <section
+        id="day-schedule"
+        className="mt-8 scroll-mt-24"
+        aria-labelledby="bookings-day-heading"
+      >
+        <h2 id="bookings-day-heading" className="text-lg font-semibold text-[var(--foreground)]">
+          {selectedDayHeading}
         </h2>
-        {todayCards.length > 0 ? (
+        <p className="mt-1 text-xs text-[color-mix(in_oklab,var(--muted-foreground)_95%,transparent)]">
+          {filter === "all"
+            ? "Bookings on this day in your time zone."
+            : filter === "confirmed"
+              ? "Showing confirmed bookings only—change the filter above to see other statuses."
+              : "Showing pending bookings only—change the filter above to see other statuses."}
+        </p>
+        {selectedDayCards.length > 0 ? (
           <ul className="mt-4 flex flex-col gap-4">
-            {todayCards.map((row) => (
+            {selectedDayCards.map((row) => (
               <li key={row.id}>
                 <TodayBookingCard row={row} timezone={timezone} csrf={csrf} />
               </li>
             ))}
           </ul>
         ) : (
-          <div className="mt-4 rounded-xl border border-dashed border-[var(--border)] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] px-5 py-10 text-center">
-            <p className="text-sm font-medium text-[var(--foreground)]">No bookings today</p>
-            <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
-              You&apos;re all clear for today.
+          <div className="mt-4 rounded-xl border border-dashed border-[var(--border)] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] px-5 py-8 text-center sm:py-9">
+            <p className="text-sm font-medium text-[var(--foreground)]">
+              No {filterEmptyHint}bookings {emptyWhenPhrase}
             </p>
-            <Link
-              href="#upcoming"
-              className="mt-6 inline-flex min-h-10 items-center justify-center text-sm font-semibold text-[var(--accent)] underline-offset-4 hover:underline"
-            >
-              View upcoming bookings
-            </Link>
+            <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
+              That day is open—share your booking link or ping someone who&apos;s been meaning to get on the calendar.
+            </p>
+            {selectedDayOffset < 4 ? (
+              <Link
+                href={`/dashboard/bookings?${new URLSearchParams({
+                  ...(filter !== "all" ? { filter } : {}),
+                  day: String(selectedDayOffset + 1),
+                }).toString()}#day-schedule`}
+                className="mt-6 inline-flex min-h-10 items-center justify-center text-sm font-semibold text-[var(--accent)] underline-offset-4 hover:underline"
+              >
+                See the next day
+              </Link>
+            ) : (
+              <Link
+                href="#upcoming"
+                className="mt-6 inline-flex min-h-10 items-center justify-center text-sm font-semibold text-[var(--accent)] underline-offset-4 hover:underline"
+              >
+                See further out
+              </Link>
+            )}
           </div>
         )}
       </section>
@@ -276,6 +398,9 @@ export default async function BookingsPage({ searchParams }: Props) {
         <h2 id="bookings-upcoming-heading" className="text-lg font-semibold text-[var(--foreground)]">
           Upcoming
         </h2>
+        <p className="mt-1 text-xs text-[color-mix(in_oklab,var(--muted-foreground)_95%,transparent)]">
+          After the next five days—same filters as above.
+        </p>
         <div className="mt-4">
           <UpcomingBookingsGrouped rows={upcomingCards} timezone={timezone} />
         </div>

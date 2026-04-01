@@ -106,8 +106,7 @@ export function PricingSimulator({
     <div className="ui-card p-5 sm:p-7">
       <h2 className="text-lg font-semibold text-[var(--foreground)]">Simulation</h2>
       <p className="ui-hint mt-2 max-w-prose">
-        See how positioning tiers and optional add-ons combine with your list price (template-backed add-ons come from
-        the canonical service definition).
+        Preview how your pricing comes together for clients.
       </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">

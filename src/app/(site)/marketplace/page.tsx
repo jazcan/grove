@@ -3,20 +3,34 @@ import { brand } from "@/config/brand";
 import { MarketplaceMapPreview } from "@/components/marketplace/marketplace-map-preview";
 import { MarketplaceSearchPanel } from "@/components/marketplace/marketplace-search-panel";
 import { ProviderMarketplaceCard } from "@/components/marketplace/provider-marketplace-card";
-import { marketplacePinPosition } from "@/lib/marketplace-map-layout";
+import { marketplaceMapLayoutFromCoordinates, marketplacePinPosition } from "@/lib/marketplace-map-layout";
 import { searchDiscoverableProviders } from "@/lib/marketplace-search";
 
-type Props = { searchParams: Promise<{ q?: string; city?: string; category?: string }> };
+type Props = {
+  searchParams: Promise<{
+    q?: string;
+    location?: string;
+    city?: string;
+    category?: string;
+    radiusKm?: string;
+    country?: string;
+  }>;
+};
 
 export default async function MarketplacePage({ searchParams }: Props) {
   const sp = await searchParams;
-  let results: Awaited<ReturnType<typeof searchDiscoverableProviders>> = [];
+  const location = (sp.location ?? sp.city ?? "").trim();
+  const country = (sp.country ?? "CA").trim().toUpperCase() === "US" ? "US" : "CA";
+
+  let searchOutcome: Awaited<ReturnType<typeof searchDiscoverableProviders>> | null = null;
   let directoryUnavailable = false;
   try {
-    results = await searchDiscoverableProviders({
+    searchOutcome = await searchDiscoverableProviders({
       q: sp.q,
-      city: sp.city,
       category: sp.category,
+      location: location || undefined,
+      country,
+      radiusKm: sp.radiusKm,
       limit: 50,
     });
   } catch (err) {
@@ -24,11 +38,29 @@ export default async function MarketplacePage({ searchParams }: Props) {
     directoryUnavailable = true;
   }
 
-  const markers = results.map((p, i) => ({
-    username: p.username,
-    displayName: p.displayName,
-    ...marketplacePinPosition(p.username, i),
-  }));
+  const results = searchOutcome?.results ?? [];
+  const geocodeFailed = searchOutcome?.geocodeFailed ?? false;
+  const usedLocation = searchOutcome?.usedLocationFilter ?? false;
+  const searchCenter = searchOutcome?.searchCenter ?? null;
+  const radiusKmUsed = searchOutcome?.radiusKmUsed ?? null;
+
+  const markers =
+    usedLocation && searchCenter && radiusKmUsed != null && results.length > 0
+      ? marketplaceMapLayoutFromCoordinates(
+          searchCenter,
+          radiusKmUsed,
+          results.map((p) => ({
+            username: p.username,
+            displayName: p.displayName,
+            lat: p.latitude ?? searchCenter.lat,
+            lng: p.longitude ?? searchCenter.lng,
+          }))
+        )
+      : results.map((p, i) => ({
+          username: p.username,
+          displayName: p.displayName,
+          ...marketplacePinPosition(p.username, i),
+        }));
 
   return (
     <main
@@ -39,15 +71,21 @@ export default async function MarketplacePage({ searchParams }: Props) {
         <header className="max-w-3xl">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--accent)]">Marketplace</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
-            Find a provider
+            Find someone local
           </h1>
           <p className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-            Search for providers by service or location, then view their profile to book.
+            Search for services in your area, explore profiles, and book with confidence.
           </p>
         </header>
 
         <div className="mt-8 sm:mt-10">
-          <MarketplaceSearchPanel defaultQ={sp.q} defaultCity={sp.city} defaultCategory={sp.category} />
+          <MarketplaceSearchPanel
+            defaultQ={sp.q}
+            defaultLocation={location}
+            defaultCategory={sp.category}
+            defaultRadiusKm={sp.radiusKm}
+            defaultCountry={country}
+          />
         </div>
 
         {directoryUnavailable ? (
@@ -66,6 +104,15 @@ export default async function MarketplacePage({ searchParams }: Props) {
           </div>
         ) : null}
 
+        {geocodeFailed ? (
+          <div
+            role="status"
+            className="mt-8 rounded-xl border border-[color-mix(in_oklab,var(--foreground)_12%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_4%,var(--card))] px-4 py-3 text-sm text-[var(--foreground)] sm:px-5"
+          >
+            We couldn&apos;t find that location. Try a postal code, ZIP, or city with the right country selected.
+          </div>
+        ) : null}
+
         <section className="mt-10 sm:mt-12 lg:mt-14" aria-labelledby="results-heading">
           <div className="mb-5 flex flex-col gap-1 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -76,12 +123,14 @@ export default async function MarketplacePage({ searchParams }: Props) {
                 {directoryUnavailable
                   ? "Directory unavailable."
                   : results.length === 0
-                    ? "Try a different search."
-                    : `${results.length} provider${results.length === 1 ? "" : "s"} found`}
+                    ? usedLocation
+                      ? "No providers in this area—try a wider radius or different spot."
+                      : "Try a different search or add a location to search by distance."
+                    : `${results.length} local provider${results.length === 1 ? "" : "s"}`}
               </p>
             </div>
             <Link href="/signup" className="ui-link mt-2 text-sm font-semibold sm:mt-0">
-              Start offering your services on {brand.appName}
+              Offer your services locally on {brand.appName}
             </Link>
           </div>
 
@@ -95,12 +144,14 @@ export default async function MarketplacePage({ searchParams }: Props) {
                   <p className="mx-auto max-w-md text-lg font-semibold leading-snug text-[var(--foreground)]">
                     {directoryUnavailable
                       ? "Provider list could not be loaded."
-                      : "No providers found. Try adjusting your search."}
+                      : geocodeFailed
+                        ? "Location not found."
+                        : "No providers found. Try adjusting your search."}
                   </p>
                   <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-[var(--muted)]">
                     {directoryUnavailable
                       ? "Check server logs or DATABASE_URL configuration, then try again."
-                      : "Broader keywords, another city, or a different category often helps."}
+                      : "Broader keywords, another city or postal code, or a wider radius often helps."}
                   </p>
                 </div>
               ) : (
@@ -112,7 +163,7 @@ export default async function MarketplacePage({ searchParams }: Props) {
                   </ul>
                   {results.length < 4 ? (
                     <p className="mt-8 rounded-xl bg-[color-mix(in_oklab,var(--accent)_8%,var(--card))] px-4 py-3 text-center text-sm leading-relaxed text-[var(--muted)] ring-1 ring-[color-mix(in_oklab,var(--accent)_18%,transparent)]">
-                      More providers are coming soon. Try a different search or check back later.
+                      More local providers are joining soon. Try another search or check back soon.
                     </p>
                   ) : null}
                 </>
@@ -120,7 +171,15 @@ export default async function MarketplacePage({ searchParams }: Props) {
             </div>
 
             <div className="min-w-0">
-              <MarketplaceMapPreview markers={markers} />
+              <MarketplaceMapPreview
+                markers={markers}
+                mode={usedLocation && searchCenter && radiusKmUsed != null ? "search" : "preview"}
+                searchHint={
+                  usedLocation && searchCenter && radiusKmUsed != null
+                    ? `Within ${radiusKmUsed} km of your search`
+                    : null
+                }
+              />
             </div>
           </div>
         </section>

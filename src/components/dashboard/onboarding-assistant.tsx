@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { GroveLogoMark } from "@/components/brand/grove-logo-mark";
+import { HandshakeLogo } from "@/components/brand/handshake-logo";
 import { brand } from "@/config/brand";
 import { getAssistantRouteId, getPageGuide, type AssistantRouteId } from "@/lib/onboarding-assistant-content";
 import { buildProviderSetupSteps, type ProviderSetupState } from "@/lib/provider-setup-model";
@@ -152,7 +152,7 @@ export function DashboardOnboardingAssistant({
         >
           <div className="flex items-start justify-between gap-3 border-b border-[var(--card-border)] px-4 py-3">
             <div className="flex min-w-0 items-center gap-2.5">
-              <GroveLogoMark size={36} className="shrink-0 shadow-[var(--shadow-sm)]" aria-hidden />
+              <HandshakeLogo size={36} className="h-9 w-9 shrink-0 shadow-[var(--shadow-sm)]" aria-hidden />
               <div className="min-w-0">
                 <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                   {brand.appName} guide
@@ -238,7 +238,7 @@ export function DashboardOnboardingAssistant({
           aria-label={`Open ${brand.appName} guide`}
           aria-expanded={false}
         >
-          <GroveLogoMark size={40} className="shrink-0" aria-hidden />
+          <HandshakeLogo size={40} className="h-10 w-10 shrink-0" aria-hidden />
         </button>
       )}
     </div>

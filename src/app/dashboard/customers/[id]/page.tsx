@@ -90,7 +90,7 @@ function formatDateTime(d: Date, tz: string): string {
 
 function sectionCard(children: ReactNode) {
   return (
-    <section className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)] p-5 shadow-[var(--shadow-card)] sm:p-6">
+    <section className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_9%,var(--border))] bg-[var(--card)] p-5 shadow-[var(--shadow-sm)] sm:p-6">
       {children}
     </section>
   );
@@ -198,7 +198,7 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
               <>
                 <span className="font-medium text-[var(--foreground)]">Customer profile on file</span>
                 <span className="mx-1.5 text-[var(--border)]">·</span>
-                Bookings stay on this record even if they never log in—ready for future access
+                Every visit stays here—ready for future bookings and follow-ups.
               </>
             )}
           </p>
@@ -232,12 +232,17 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
             type="button"
             disabled
             aria-disabled="true"
-            className="inline-flex min-h-11 cursor-not-allowed items-center justify-center rounded-xl border border-[var(--border)] bg-[color-mix(in_oklab,var(--foreground)_4%,var(--card))] px-5 text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_45%,transparent)]"
+            className="ui-btn-secondary inline-flex min-h-11 cursor-not-allowed items-center justify-center px-5 text-sm font-semibold opacity-60"
             title="Messaging is coming soon"
           >
             Send message
           </button>
         </div>
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_58%,transparent)]">
+          {totalBookings === 0
+            ? "Start by booking their first appointment."
+            : "You can book, message, or add a recommendation below."}
+        </p>
       </header>
 
       {sectionCard(
@@ -278,7 +283,7 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
           <h2 className="text-lg font-semibold text-[var(--foreground)]">Bookings</h2>
           {history.length === 0 ? (
             <p className="mt-3 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-              No appointments yet. When they book you, you&apos;ll see each visit here.
+              No bookings yet. Book their first appointment to get started.
             </p>
           ) : (
             <ul className="mt-4 space-y-3">
@@ -309,7 +314,7 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
           </p>
           {serviceRecords.length === 0 ? (
             <p className="mt-3 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-              None yet. Open a booking and save a service card after the visit.
+              After a visit, save a service card from the booking to see it here.
             </p>
           ) : (
             <ul className="mt-4 space-y-3">
@@ -345,14 +350,14 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
         </>
       )}
 
-      {sectionCard(
+      <div className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-4 sm:p-5">
         <CustomerRecommendationsSection
           csrf={csrf}
           customerId={c.id}
           recommendations={recommendations}
           prefilledSource={prefilledSource}
         />
-      )}
+      </div>
 
       {sectionCard(
         <>
@@ -398,16 +403,19 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
         <>
           <h2 className="text-lg font-semibold text-[var(--foreground)]">Notes</h2>
           <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
-            For your eyes only—great for visit summaries, follow-ups, or context.
+            Private notes to help you remember details and preferences.
           </p>
-          <form action={asFormAction(updateCustomerNotes)} className="mt-4 grid gap-3">
+          <form
+            action={asFormAction(updateCustomerNotes)}
+            className="mt-3 grid gap-2.5 rounded-lg bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-3 sm:p-4"
+          >
             <CsrfField token={csrf} />
             <input type="hidden" name="id" value={c.id} />
             <textarea
               name="notes"
-              rows={5}
+              rows={4}
               defaultValue={c.notes}
-              className="ui-textarea"
+              className="ui-textarea border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)]"
               placeholder="What should you remember about this person?"
             />
             <button type="submit" className="ui-btn-primary w-fit min-h-10 px-4 text-sm font-semibold">
@@ -420,7 +428,10 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
       {sectionCard(
         <>
           <h2 className="text-lg font-semibold text-[var(--foreground)]">Preferences</h2>
-          <form action={asFormAction(setCustomerMarketingOptOut)} className="mt-4 grid gap-3">
+          <form
+            action={asFormAction(setCustomerMarketingOptOut)}
+            className="mt-3 grid gap-2.5 rounded-lg bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-3 sm:p-4"
+          >
             <CsrfField token={csrf} />
             <input type="hidden" name="id" value={c.id} />
             <label className="flex items-start gap-3 text-sm leading-snug">
@@ -437,7 +448,10 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
             </button>
           </form>
 
-          <form action={asFormAction(updateCustomerCommunicationNotes)} className="mt-6 grid gap-3 border-t border-[var(--border)] pt-6">
+          <form
+            action={asFormAction(updateCustomerCommunicationNotes)}
+            className="mt-5 grid gap-2.5 border-t border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] pt-5"
+          >
             <CsrfField token={csrf} />
             <input type="hidden" name="id" value={c.id} />
             <label htmlFor="communicationNotes" className="text-sm font-medium text-[var(--foreground)]">
@@ -451,7 +465,7 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
               name="communicationNotes"
               rows={3}
               defaultValue={c.communicationNotes}
-              className="ui-textarea"
+              className="ui-textarea border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)]"
               placeholder="e.g. Prefers text, weekday afternoons"
             />
             <button type="submit" className="ui-btn-secondary w-fit min-h-10 px-4 text-sm font-semibold">

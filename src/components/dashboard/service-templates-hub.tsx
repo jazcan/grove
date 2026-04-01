@@ -336,7 +336,7 @@ export function ServiceTemplatesHub({ templates }: { templates: ServiceTemplate[
           Bundle suggestion
         </h2>
         <p className="mt-2 max-w-prose text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
-          Offer multiple durations to increase bookings. Most providers offer both a shorter and longer version of the same service.
+          Offer shorter and longer options so more people can book what fits.
         </p>
         <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
           <Link

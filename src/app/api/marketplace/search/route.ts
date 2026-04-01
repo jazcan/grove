@@ -14,12 +14,28 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get("q") ?? "").trim();
-  const city = (searchParams.get("city") ?? "").trim();
+  const location = (searchParams.get("location") ?? searchParams.get("city") ?? "").trim();
   const category = (searchParams.get("category") ?? "").trim();
+  const country = (searchParams.get("country") ?? "CA").trim();
+  const radiusKm = searchParams.get("radiusKm") ?? undefined;
 
   try {
-    const rows = await searchDiscoverableProviders({ q, city, category, limit: 50 });
-    return NextResponse.json({ results: rows });
+    const out = await searchDiscoverableProviders({
+      q,
+      location: location || undefined,
+      city: searchParams.get("city") ?? undefined,
+      category,
+      country,
+      radiusKm: radiusKm ?? undefined,
+      limit: 50,
+    });
+    return NextResponse.json({
+      results: out.results,
+      geocodeFailed: out.geocodeFailed,
+      searchCenter: out.searchCenter,
+      radiusKmUsed: out.radiusKmUsed,
+      usedLocationFilter: out.usedLocationFilter,
+    });
   } catch (e) {
     // Demo-safe: don't fail the entire app if DB isn't configured.
     console.error("[api/marketplace/search] failed", e);

@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { HandshakeLogo } from "@/components/brand/handshake-logo";
-import { brand } from "@/config/brand";
+import { HandshakeBrandLockup } from "@/components/brand/handshake-brand-lockup";
 import { signOut } from "@/domain/auth/actions";
 
 type Props = {
@@ -48,10 +47,7 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
       }
     >
       <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex min-w-0 shrink-0 items-center gap-2.5 rounded-lg outline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
-          <HandshakeLogo size={40} className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" />
-          <span className="text-lg font-bold tracking-tight text-[var(--foreground)]">{brand.appName}</span>
-        </Link>
+        <HandshakeBrandLockup href="/" />
 
         <nav className="absolute left-1/2 hidden -translate-x-1/2 md:flex md:items-center md:gap-1" aria-label="Main">
           <Link href="/marketplace" className={`rounded-md px-3 py-2 text-sm transition-colors ${linkBase(marketplaceActive)}`}>

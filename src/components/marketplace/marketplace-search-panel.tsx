@@ -1,7 +1,11 @@
 type Props = {
   defaultQ?: string;
-  defaultCity?: string;
+  /** Postal/ZIP, city, or free-text location */
+  defaultLocation?: string;
   defaultCategory?: string;
+  defaultRadiusKm?: string;
+  /** CA | US — narrows geocoding */
+  defaultCountry?: string;
 };
 
 function IconSearch({ className }: { className?: string }) {
@@ -12,10 +16,11 @@ function IconSearch({ className }: { className?: string }) {
   );
 }
 
-function IconBuilding({ className }: { className?: string }) {
+function IconMapPin({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5M18 21V6.75A2.25 2.25 0 0015.75 4.5h-7.5A2.25 2.25 0 006 6.75V21M9 9h.008v.008H9V9zm0 3h.008v.008H9V12zm0 3h.008v.008H9V15zm0 3h.008v.008H9V18zm3-9h.008v.008H12V9zm0 3h.008v.008H12V12zm0 3h.008v.008H12V15zm0 3h.008v.008H12V18zm3-9h.008v.008H15V9zm0 3h.008v.008H15V12zm0 3h.008v.008H15V15zm0 3h.008v.008H15V18z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
     </svg>
   );
 }
@@ -29,29 +34,45 @@ function IconTag({ className }: { className?: string }) {
   );
 }
 
-export function MarketplaceSearchPanel({ defaultQ = "", defaultCity = "", defaultCategory = "" }: Props) {
+const RADIUS_OPTIONS = [
+  { value: "5", label: "5 km" },
+  { value: "10", label: "10 km" },
+  { value: "25", label: "25 km" },
+  { value: "50", label: "50 km" },
+  { value: "100", label: "100 km" },
+] as const;
+
+export function MarketplaceSearchPanel({
+  defaultQ = "",
+  defaultLocation = "",
+  defaultCategory = "",
+  defaultRadiusKm = "25",
+  defaultCountry = "CA",
+}: Props) {
+  const radiusValue = RADIUS_OPTIONS.some((o) => o.value === defaultRadiusKm) ? defaultRadiusKm : "25";
+
   return (
     <section
       className="rounded-2xl bg-[var(--card)] p-5 shadow-[0_12px_40px_-20px_rgba(28,27,25,0.15),0_4px_14px_-6px_rgba(28,27,25,0.08)] ring-1 ring-[color-mix(in_oklab,var(--foreground)_5%,transparent)] sm:p-6 lg:p-7"
-      aria-label="Search for a provider"
+      aria-label="Search your community"
     >
       <div className="mb-5 sm:mb-6">
-        <h2 className="text-base font-semibold text-[var(--foreground)]">Search for a provider</h2>
+        <h2 className="text-base font-semibold text-[var(--foreground)]">Search your community</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Search by service, city, or category to find the right provider.
+          Pick a service, where you are, and how far to look—results are sorted by distance when you add a location.
         </p>
       </div>
 
       <form method="get" className="flex flex-col gap-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-3">
           <label className="ui-field min-w-0 flex-1">
-            <span className="ui-label">Keyword</span>
+            <span className="ui-label">Service</span>
             <div className="relative mt-1">
               <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--muted)] opacity-80" />
               <input
                 name="q"
                 defaultValue={defaultQ}
-                placeholder="Search services or providers"
+                placeholder="e.g. cleaning, dog walking, tutoring"
                 className="ui-input min-h-12 pl-11 text-base"
                 autoComplete="off"
               />
@@ -65,19 +86,42 @@ export function MarketplaceSearchPanel({ defaultQ = "", defaultCity = "", defaul
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-5">
           <label className="ui-field">
-            <span className="ui-label">City</span>
+            <span className="ui-label">Location</span>
             <div className="relative mt-1">
-              <IconBuilding className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--muted)] opacity-80" />
+              <IconMapPin className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--muted)] opacity-80" />
               <input
-                name="city"
-                defaultValue={defaultCity}
-                placeholder="City or neighborhood"
+                name="location"
+                defaultValue={defaultLocation}
+                placeholder="Postal code, ZIP, or city"
                 className="ui-input min-h-12 pl-11"
-                autoComplete="address-level2"
+                autoComplete="postal-code"
               />
             </div>
+            <p className="mt-1 text-xs text-[var(--muted)]">We use this to center the map and filter by distance.</p>
+          </label>
+          <label className="ui-field">
+            <span className="ui-label">Country</span>
+            <select
+              name="country"
+              className="ui-input mt-1 min-h-12"
+              defaultValue={defaultCountry === "US" ? "US" : "CA"}
+            >
+              <option value="CA">Canada</option>
+              <option value="US">United States</option>
+            </select>
+          </label>
+          <label className="ui-field">
+            <span className="ui-label">Radius</span>
+            <select name="radiusKm" className="ui-input mt-1 min-h-12" defaultValue={radiusValue}>
+              {RADIUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-[var(--muted)]">Distances are in kilometers.</p>
           </label>
           <label className="ui-field">
             <span className="ui-label">Category</span>
@@ -86,7 +130,7 @@ export function MarketplaceSearchPanel({ defaultQ = "", defaultCity = "", defaul
               <input
                 name="category"
                 defaultValue={defaultCategory}
-                placeholder="e.g. wellness, tutoring, home"
+                placeholder="e.g. cleaning, wellness, tutoring"
                 className="ui-input min-h-12 pl-11"
                 autoComplete="off"
               />

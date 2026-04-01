@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { eq } from "drizzle-orm";
-import { GroveLogoMark } from "@/components/brand/grove-logo-mark";
-import { brand } from "@/config/brand";
+import { HandshakeBrandLockup } from "@/components/brand/handshake-brand-lockup";
 import { DashboardAccountMenu } from "@/components/dashboard/dashboard-account-menu";
 import { DashboardOnboardingAssistant } from "@/components/dashboard/onboarding-assistant";
 import { getDb } from "@/db";
@@ -19,6 +18,7 @@ const DASHBOARD_NAV_LINKS = [
   ["/dashboard/customers", "Customers"],
   ["/dashboard/marketing", "Marketing"],
   ["/dashboard/analytics", "Analytics"],
+  ["/dashboard/docs", "Help"],
 ] as const;
 
 export default async function DashboardLayout({
@@ -60,13 +60,7 @@ export default async function DashboardLayout({
             sm:[grid-template-areas:'logo_nav_account']
             sm:items-center"
         >
-          <Link
-            href="/dashboard"
-            className="[grid-area:logo] flex shrink-0 items-center gap-2 text-base font-bold tracking-tight text-[var(--foreground)]"
-          >
-            <GroveLogoMark size={32} className="shrink-0" />
-            <span className="text-[var(--accent)]">{brand.appName}</span>
-          </Link>
+          <HandshakeBrandLockup href="/dashboard" className="[grid-area:logo]" />
           <div className="[grid-area:account] justify-self-end self-center">
             <DashboardAccountMenu userEmail={u.email} />
           </div>

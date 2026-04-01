@@ -12,6 +12,7 @@ import {
   uuid,
   varchar,
   decimal,
+  doublePrecision,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import {
@@ -106,6 +107,15 @@ export const providers = pgTable(
     bio: text("bio").notNull().default(""),
     category: varchar("category", { length: 120 }).notNull().default(""),
     city: varchar("city", { length: 120 }).notNull().default(""),
+    /** ISO 3166-1 alpha-2 (e.g. CA, US). Used for marketplace discovery and geocoding. */
+    countryCode: varchar("country_code", { length: 2 }),
+    /** Province, state, or region label (e.g. ON, California). */
+    region: varchar("region", { length: 120 }),
+    /** Normalized postal / ZIP (spacing stripped where possible). */
+    postalCode: varchar("postal_code", { length: 20 }),
+    /** Geocoded from base location; used for radius search. Filled on profile save when geocoding succeeds. */
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
     serviceArea: text("service_area").notNull().default(""),
     contactEmail: varchar("contact_email", { length: 320 }),
     contactPhone: varchar("contact_phone", { length: 40 }),

@@ -17,11 +17,15 @@ import { MarketingAiOutput } from "@/components/marketing/marketing-ai-output";
 import { ReconnectDraftPanel, type ReconnectCustomerLite } from "@/components/marketing/reconnect-draft-panel";
 import type { MarketingGenerationOutput } from "@/lib/marketing/types";
 
+const RECONNECT_FOCUS_COUNT = 8;
+
 export type MarketingCustomerRow = {
   id: string;
   fullName: string;
   lastBookingAt: string | null;
   bookingCount: number;
+  /** Short context from server (booking recency, visit count). */
+  contextLine: string;
 };
 
 export type MarketingServiceOption = { id: string; name: string };
@@ -86,6 +90,7 @@ export function MarketingWorkspace({ csrf, timezone, customers, services, campai
   const router = useRouter();
   const [draftCustomer, setDraftCustomer] = useState<ReconnectCustomerLite | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [reconnectScope, setReconnectScope] = useState<"focus" | "all">("focus");
 
   const [showCampaignForm, setShowCampaignForm] = useState(false);
   const [cTitle, setCTitle] = useState("");
@@ -113,18 +118,12 @@ export function MarketingWorkspace({ csrf, timezone, customers, services, campai
 
   const [pending, startTransition] = useTransition();
 
-  const sortedCustomers = useMemo(() => {
-    const list = [...customers];
-    list.sort((a, b) => {
-      const ta = a.lastBookingAt ? new Date(a.lastBookingAt).getTime() : 0;
-      const tb = b.lastBookingAt ? new Date(b.lastBookingAt).getTime() : 0;
-      if (!a.lastBookingAt && !b.lastBookingAt) return a.fullName.localeCompare(b.fullName);
-      if (!a.lastBookingAt) return -1;
-      if (!b.lastBookingAt) return 1;
-      return ta - tb;
-    });
-    return list;
-  }, [customers]);
+  const reconnectList = useMemo(() => {
+    if (reconnectScope === "focus") {
+      return customers.slice(0, RECONNECT_FOCUS_COUNT);
+    }
+    return customers;
+  }, [customers, reconnectScope]);
 
   const audienceLabel = (key: string) => {
     if (key === "recent_customers") return "Recent customers";
@@ -246,8 +245,7 @@ export function MarketingWorkspace({ csrf, timezone, customers, services, campai
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Marketing</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-          Work top to bottom: plan a campaign, create content, send a template to a segment, then reconnect one on one
-          with people who already know your work.
+          Stay connected, fill your calendar, and bring people back.
         </p>
       </header>
 
@@ -256,7 +254,7 @@ export function MarketingWorkspace({ csrf, timezone, customers, services, campai
         <SectionHeader
           id="campaigns-heading"
           title="Campaigns"
-          subtitle="Create simple promotions and schedule them when needed."
+          subtitle="Share updates and openings with your clients."
         />
 
         {campaigns.length > 0 ? (
@@ -443,7 +441,7 @@ export function MarketingWorkspace({ csrf, timezone, customers, services, campai
         <SectionHeader
           id="studio-heading"
           title="Create content"
-          subtitle="Generate simple marketing content based on your services and timing."
+          subtitle="Quickly create messages based on what you offer."
         />
 
         {services.length === 0 ? (
@@ -636,37 +634,90 @@ export function MarketingWorkspace({ csrf, timezone, customers, services, campai
         <SectionHeader
           id="reconnect-heading"
           title="Reconnect with customers"
-          subtitle="Reach out to people who already know your work."
+          subtitle="Check in with people who already trust your work."
         />
-        {sortedCustomers.length === 0 ? (
+        {customers.length === 0 ? (
           <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-8 text-center text-sm text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">
             You don&apos;t have any customers to reconnect with yet.
           </p>
         ) : (
-          <ul className="grid gap-3">
-            {sortedCustomers.map((c) => (
-              <li
-                key={c.id}
-                className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-4 shadow-[var(--shadow-sm)] sm:flex-row sm:items-center sm:justify-between"
+          <>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
+              Start with these customers—they&apos;re most likely to benefit from a nudge or a repeat booking.
+            </p>
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div
+                className="inline-flex rounded-lg border border-[var(--border)] bg-[color-mix(in_oklab,var(--foreground)_4%,var(--card))] p-0.5"
+                role="group"
+                aria-label="Reconnect list scope"
               >
-                <div className="min-w-0">
-                  <p className="font-semibold text-[var(--foreground)]">{c.fullName}</p>
-                  <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-                    Last booking: {formatDate(c.lastBookingAt, timezone)}
-                    <span className="text-[color-mix(in_oklab,var(--muted-foreground)_85%,transparent)]"> · </span>
-                    {c.bookingCount} booking{c.bookingCount === 1 ? "" : "s"}
-                  </p>
-                </div>
                 <button
                   type="button"
-                  className="ui-btn-primary h-11 shrink-0 px-4 text-sm font-semibold sm:self-center"
-                  onClick={() => openDraft({ id: c.id, fullName: c.fullName })}
+                  onClick={() => setReconnectScope("focus")}
+                  className={
+                    reconnectScope === "focus"
+                      ? "rounded-md bg-[var(--card)] px-3 py-1.5 text-sm font-semibold text-[var(--foreground)] shadow-[var(--shadow-sm)]"
+                      : "rounded-md px-3 py-1.5 text-sm font-medium text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]"
+                  }
                 >
-                  Draft message
+                  Needs follow-up
                 </button>
-              </li>
-            ))}
-          </ul>
+                <button
+                  type="button"
+                  onClick={() => setReconnectScope("all")}
+                  className={
+                    reconnectScope === "all"
+                      ? "rounded-md bg-[var(--card)] px-3 py-1.5 text-sm font-semibold text-[var(--foreground)] shadow-[var(--shadow-sm)]"
+                      : "rounded-md px-3 py-1.5 text-sm font-medium text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]"
+                  }
+                >
+                  All customers
+                </button>
+              </div>
+              <Link
+                href="/dashboard/customers"
+                className="text-sm font-semibold text-[var(--foreground)] underline-offset-2 hover:underline"
+              >
+                View all in Customers
+              </Link>
+            </div>
+
+            <ul className="mt-4 grid gap-2">
+              {reconnectList.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex flex-col gap-2 rounded-lg border border-[color-mix(in_oklab,var(--foreground)_7%,var(--border))] bg-[var(--card)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold leading-snug text-[var(--foreground)]">{c.fullName}</p>
+                    <p className="mt-0.5 text-sm leading-snug text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
+                      {c.contextLine}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="ui-btn-primary h-10 shrink-0 px-4 text-sm font-semibold sm:self-center"
+                    onClick={() => openDraft({ id: c.id, fullName: c.fullName })}
+                  >
+                    Write message
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            {reconnectScope === "focus" && customers.length > RECONNECT_FOCUS_COUNT ? (
+              <div className="mt-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => setReconnectScope("all")}
+                  className="text-sm font-semibold text-[var(--foreground)] underline-offset-2 hover:underline"
+                >
+                  Show more ({customers.length - RECONNECT_FOCUS_COUNT} more in this list)
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
       </section>
 

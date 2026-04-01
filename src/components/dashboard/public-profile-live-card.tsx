@@ -15,7 +15,7 @@ export function PublicProfileLiveCard({ username, profileUrl }: Props) {
             Your public profile is live
           </h2>
           <p className="ui-hint mt-2 max-w-prose leading-relaxed">
-            Clients can view your services and request or book time with you.
+            People nearby can view your services and book time with you.
           </p>
         </div>
         <div className="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
