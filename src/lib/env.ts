@@ -23,6 +23,12 @@ const envSchema = z.object({
   /** OpenAI for marketing reconnect drafts only (optional). */
   OPENAI_API_KEY: z.string().optional(),
   MARKETING_OPENAI_MODEL: z.string().optional(),
+  /** When "true", optional rephrase of deterministic Ask replies (requires OPENAI_API_KEY). */
+  ASSISTANT_OPENAI_REPHRASE: z
+    .string()
+    .optional()
+    .transform((v) => v === "true"),
+  ASSISTANT_OPENAI_MODEL: z.string().optional(),
   SHOPIFY_API_KEY: z.string().optional(),
   SHOPIFY_API_SECRET: z.string().optional(),
   SHOPIFY_SCOPES: z.string().optional(),

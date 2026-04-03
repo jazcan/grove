@@ -3,7 +3,8 @@ import Link from "next/link";
 export type DashboardActivityItem = {
   kind: "booking" | "campaign" | "signal";
   id: string;
-  at: Date;
+  /** UTC instant from the server (ISO 8601). */
+  at: string;
   label: string;
   href: string;
 };
@@ -16,7 +17,8 @@ type Props = {
   username: string | null | undefined;
 };
 
-function formatWhen(d: Date, timezone: string) {
+function formatWhen(iso: string, timezone: string) {
+  const d = new Date(iso);
   try {
     return d.toLocaleString(undefined, { timeZone: timezone, dateStyle: "medium", timeStyle: "short" });
   } catch {

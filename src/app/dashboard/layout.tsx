@@ -6,6 +6,8 @@ import { DashboardAccountMenu } from "@/components/dashboard/dashboard-account-m
 import { DashboardOnboardingAssistant } from "@/components/dashboard/onboarding-assistant";
 import { getDb } from "@/db";
 import { providers } from "@/db/schema";
+import { loadAssistantPanelSnapshot } from "@/lib/assistant/panel";
+import { getCsrfTokenForForm } from "@/lib/csrf";
 import { loadProviderSetupState } from "@/lib/provider-setup";
 import { requireUser } from "@/lib/tenancy";
 
@@ -31,6 +33,8 @@ export default async function DashboardLayout({
   let setupState: Awaited<ReturnType<typeof loadProviderSetupState>> | null = null;
   let setupLoadFailed = false;
   const preProvider = !u.providerId;
+  let assistantJson: string | null = null;
+  let assistantCsrf = "";
   if (u.providerId) {
     try {
       const db = getDb();
@@ -45,6 +49,14 @@ export default async function DashboardLayout({
       console.error("[dashboard layout] failed to load provider setup", e);
       setupLoadFailed = true;
     }
+    try {
+      assistantCsrf = await getCsrfTokenForForm();
+    } catch (e) {
+      console.error("[dashboard layout] getCsrfTokenForForm", e);
+    }
+    const db = getDb();
+    const assistantSnapshot = await loadAssistantPanelSnapshot(db, u.providerId, u.id);
+    assistantJson = JSON.stringify(assistantSnapshot);
   }
 
   const initialExpanded = setupLoadFailed ? true : (setupState?.needsSetup ?? true);
@@ -89,6 +101,8 @@ export default async function DashboardLayout({
           setupLoadFailed={setupLoadFailed}
           preProvider={preProvider}
           initialExpanded={initialExpanded}
+          assistantJson={assistantJson}
+          csrf={assistantCsrf}
         />
       </Suspense>
     </div>

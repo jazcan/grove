@@ -3,7 +3,8 @@ import { CopyPublicProfileUrlButton } from "@/components/dashboard/copy-public-p
 
 export type TodayBookingPreview = {
   id: string;
-  startsAt: Date;
+  /** UTC instant from the server (ISO 8601). */
+  startsAt: string;
   customerName: string;
   status: string;
 };
@@ -17,19 +18,20 @@ type Props = {
   todayBookings: TodayBookingPreview[];
   revenueToday: number;
   currencyLabel: string;
-  nextBooking: { startsAt: Date; customerName: string; serviceName: string } | null;
+  nextBooking: { startsAt: string; customerName: string; serviceName: string } | null;
   hasAnyBooking: boolean;
   published: boolean;
   profileUrl: string;
   username: string | null | undefined;
   pendingBookingCount: number;
   customerCount: number;
-  lastMarketingSentAt: Date | null;
+  lastMarketingSentAt: string | null;
   weeklyOpenMinutes: number;
   outreachReminder: OutreachReminder | null;
 };
 
-function formatTime(d: Date, tz: string) {
+function formatTime(iso: string, tz: string) {
+  const d = new Date(iso);
   try {
     return d.toLocaleTimeString(undefined, {
       timeZone: tz,
@@ -50,7 +52,8 @@ function formatMoney(amount: number, currency: string) {
 }
 
 /** e.g. Thu, Apr 2 · 12:30 PM — date then time for “Next up”. */
-function formatNextUpWhen(d: Date, tz: string) {
+function formatNextUpWhen(iso: string, tz: string) {
+  const d = new Date(iso);
   try {
     const datePart = d.toLocaleDateString(undefined, {
       timeZone: tz,
@@ -58,9 +61,9 @@ function formatNextUpWhen(d: Date, tz: string) {
       month: "short",
       day: "numeric",
     });
-    return `${datePart} · ${formatTime(d, tz)}`;
+    return `${datePart} · ${formatTime(iso, tz)}`;
   } catch {
-    return `${d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · ${formatTime(d, tz)}`;
+    return `${d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · ${formatTime(iso, tz)}`;
   }
 }
 
@@ -95,7 +98,7 @@ export function TodayOverview({
     lastMarketingSentAt != null
       ? (() => {
           const days = Math.floor(
-            (Date.now() - lastMarketingSentAt.getTime()) / (24 * 60 * 60 * 1000)
+            (Date.now() - new Date(lastMarketingSentAt).getTime()) / (24 * 60 * 60 * 1000)
           );
           if (days <= 0) return "You emailed clients today—nice.";
           if (days === 1) return "Last list email: yesterday";
@@ -306,7 +309,7 @@ export function TodayOverview({
               <p className="text-sm font-semibold leading-snug text-[var(--foreground)]">{nextBooking.serviceName}</p>
               <p className="text-sm text-[color-mix(in_oklab,var(--foreground)_82%,transparent)]">{nextBooking.customerName}</p>
               <p className="text-xs text-[var(--muted)]">
-                <time dateTime={nextBooking.startsAt.toISOString()}>{formatNextUpWhen(nextBooking.startsAt, timezone)}</time>
+                <time dateTime={nextBooking.startsAt}>{formatNextUpWhen(nextBooking.startsAt, timezone)}</time>
               </p>
             </div>
           ) : !hasAnyBooking ? (

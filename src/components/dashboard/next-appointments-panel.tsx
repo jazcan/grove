@@ -3,7 +3,8 @@ import { CopyPublicProfileUrlButton } from "@/components/dashboard/copy-public-p
 
 export type NextAppointmentRow = {
   id: string;
-  startsAt: Date;
+  /** UTC instant from the server (ISO 8601). */
+  startsAt: string;
   status: string;
   customerName: string;
 };
@@ -80,8 +81,8 @@ export function NextAppointmentsPanel({ timezone, appointments, published, profi
                       <span className="text-sm font-semibold text-[var(--foreground)]">{b.customerName}</span>
                       <span className="text-sm text-[var(--muted)]"> · {capitalizeStatus(b.status)}</span>
                     </div>
-                    <time className="shrink-0 text-sm tabular-nums text-[var(--muted)]" dateTime={b.startsAt.toISOString()}>
-                      {b.startsAt.toLocaleString(undefined, { timeZone: timezone })}
+                    <time className="shrink-0 text-sm tabular-nums text-[var(--muted)]" dateTime={b.startsAt}>
+                      {new Date(b.startsAt).toLocaleString(undefined, { timeZone: timezone })}
                     </time>
                   </div>
                 </Link>

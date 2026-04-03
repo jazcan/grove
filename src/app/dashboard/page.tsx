@@ -98,7 +98,7 @@ export default async function DashboardHomePage() {
 
   const todayBookings: TodayBookingPreview[] = todayRows.map((r) => ({
     id: r.id,
-    startsAt: r.startsAt,
+    startsAt: r.startsAt.toISOString(),
     status: r.status,
     customerName: r.customerName,
   }));
@@ -137,7 +137,7 @@ export default async function DashboardHomePage() {
   const nextUpRows = upcomingRows.filter((b) => b.startsAt >= now);
   const nextAppointments: NextAppointmentRow[] = nextUpRows.slice(0, 3).map((b) => ({
     id: b.id,
-    startsAt: b.startsAt,
+    startsAt: b.startsAt.toISOString(),
     status: b.status,
     customerName: b.customerName,
   }));
@@ -145,7 +145,7 @@ export default async function DashboardHomePage() {
   const nextForOverview =
     nextUpRows[0] != null
       ? {
-          startsAt: nextUpRows[0].startsAt,
+          startsAt: nextUpRows[0].startsAt.toISOString(),
           customerName: nextUpRows[0].customerName,
           serviceName: nextUpRows[0].serviceName,
         }
@@ -236,26 +236,26 @@ export default async function DashboardHomePage() {
     ...recentBookingRows.map((b) => ({
       kind: "booking" as const,
       id: b.id,
-      at: b.createdAt,
+      at: b.createdAt.toISOString(),
       label: `Booking · ${b.customerName} (${b.status})`,
       href: `/dashboard/bookings/${b.id}`,
     })),
     ...recentSendRows.map((s) => ({
       kind: "campaign" as const,
       id: s.id,
-      at: s.sentAt,
+      at: s.sentAt.toISOString(),
       label: `Campaign sent · ${s.templateName ?? "Email"}`,
       href: "/dashboard/marketing",
     })),
     ...presentedSignals.map((sig) => ({
       kind: "signal" as const,
       id: sig.id,
-      at: new Date(sig.lastSeenAt),
+      at: sig.lastSeenAt,
       label: `Signal · ${sig.title} (${sig.occurrenceCount}×)`,
       href: sig.secondaryCta?.href ?? "/dashboard/profile",
     })),
   ];
-  merged.sort((a, b) => b.at.getTime() - a.at.getTime());
+  merged.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
   const activityItems = merged.slice(0, 10);
 
   const actions: SmartAction[] = [];
@@ -398,7 +398,7 @@ export default async function DashboardHomePage() {
             username={prov?.username}
             pendingBookingCount={setup.pendingBookingCount}
             customerCount={setup.customerCount}
-            lastMarketingSentAt={lastMarketingSentAt}
+            lastMarketingSentAt={lastMarketingSentAt ? lastMarketingSentAt.toISOString() : null}
             weeklyOpenMinutes={weeklyOpenMinutes}
             outreachReminder={outreachReminder}
           />

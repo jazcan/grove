@@ -16,6 +16,9 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import {
+  ASSISTANT_MESSAGE_ROLES,
+  ASSISTANT_SUGGESTION_STATUSES,
+  ASSISTANT_URGENCY_LEVELS,
   BOOKING_STATUSES,
   CUSTOMER_RECOMMENDATION_STATUSES,
   CUSTOMER_RECOMMENDATION_TIMEFRAMES,
@@ -45,6 +48,15 @@ export const customerRecommendationTimeframeEnum = pgEnum(
   "customer_recommendation_timeframe",
   CUSTOMER_RECOMMENDATION_TIMEFRAMES
 );
+
+export const assistantSuggestionStatusEnum = pgEnum(
+  "assistant_suggestion_status",
+  ASSISTANT_SUGGESTION_STATUSES
+);
+
+export const assistantUrgencyEnum = pgEnum("assistant_urgency", ASSISTANT_URGENCY_LEVELS);
+
+export const assistantMessageRoleEnum = pgEnum("assistant_message_role", ASSISTANT_MESSAGE_ROLES);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -666,10 +678,155 @@ export const marketingSavedContents = pgTable(
   (t) => [index("marketing_saved_provider_idx").on(t.providerId)]
 );
 
+/** Assistant audit trail (domain events the assistant cares about). */
+export const assistantEvents = pgTable(
+  "assistant_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    eventType: varchar("event_type", { length: 128 }).notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    relatedEntityType: varchar("related_entity_type", { length: 64 }),
+    relatedEntityId: uuid("related_entity_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("assistant_events_provider_created_idx").on(t.providerId, t.createdAt),
+    index("assistant_events_type_idx").on(t.eventType),
+  ]
+);
+
+/** Deterministic assistant suggestions (rules-first; deduped per provider). */
+export const assistantSuggestions = pgTable(
+  "assistant_suggestions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    /** Stable key for upsert + expiry (e.g. setup:incomplete, unpaid:bookingId). */
+    dedupeKey: varchar("dedupe_key", { length: 256 }).notNull(),
+    type: varchar("type", { length: 64 }).notNull(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull(),
+    priorityScore: integer("priority_score").notNull().default(0),
+    urgencyLevel: assistantUrgencyEnum("urgency_level").notNull().default("low"),
+    status: assistantSuggestionStatusEnum("status").notNull().default("new"),
+    surfaceMode: varchar("surface_mode", { length: 32 }).notNull().default("drawer_card"),
+    relatedEntityType: varchar("related_entity_type", { length: 64 }),
+    relatedEntityId: uuid("related_entity_id"),
+    reasonJson: jsonb("reason_json").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    actionPayloadJson: jsonb("action_payload_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
+    actedAt: timestamp("acted_at", { withTimezone: true }),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("assistant_suggestions_provider_dedupe_uidx").on(t.providerId, t.dedupeKey),
+    index("assistant_suggestions_provider_status_idx").on(t.providerId, t.status),
+  ]
+);
+
+/** Lightweight log of assistant surfaces (badge/toast) for audit. */
+export const assistantNotifications = pgTable(
+  "assistant_notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    suggestionId: uuid("suggestion_id").references(() => assistantSuggestions.id, {
+      onDelete: "cascade",
+    }),
+    surfaceMode: varchar("surface_mode", { length: 32 }).notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("assistant_notifications_provider_idx").on(t.providerId, t.createdAt)]
+);
+
+/** Per-provider assistant UI preferences. */
+export const assistantPreferences = pgTable(
+  "assistant_preferences",
+  {
+    providerId: uuid("provider_id")
+      .primaryKey()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    /** Suggestion types to suppress (e.g. onboarding, schedule_gap). */
+    disabledSuggestionTypes: jsonb("disabled_suggestion_types")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    quietMode: boolean("quiet_mode").notNull().default(false),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  }
+);
+
+export const assistantFeedback = pgTable(
+  "assistant_feedback",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    suggestionId: uuid("suggestion_id").references(() => assistantSuggestions.id, {
+      onDelete: "set null",
+    }),
+    helpful: boolean("helpful"),
+    comment: text("comment"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("assistant_feedback_provider_idx").on(t.providerId, t.createdAt)]
+);
+
+export const assistantConversations = pgTable(
+  "assistant_conversations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("assistant_conversations_provider_user_uidx").on(t.providerId, t.userId),
+    index("assistant_conversations_user_idx").on(t.userId),
+  ]
+);
+
+export const assistantMessages = pgTable(
+  "assistant_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => assistantConversations.id, { onDelete: "cascade" }),
+    role: assistantMessageRoleEnum("role").notNull(),
+    body: text("body").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("assistant_messages_conversation_idx").on(t.conversationId, t.createdAt)]
+);
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   provider: one(providers),
   sessions: many(sessions),
   authoredServiceCards: many(serviceCards),
+  assistantConversations: many(assistantConversations),
 }));
 
 export const providersRelations = relations(providers, ({ one, many }) => ({
@@ -683,6 +840,38 @@ export const providersRelations = relations(providers, ({ one, many }) => ({
   customerRecommendations: many(customerRecommendations),
   shopifyInstallations: many(shopifyInstallations),
   pricingProfile: one(pricingProfiles, { fields: [providers.id], references: [pricingProfiles.providerId] }),
+  assistantEvents: many(assistantEvents),
+  assistantSuggestions: many(assistantSuggestions),
+  assistantNotifications: many(assistantNotifications),
+  assistantPreferences: one(assistantPreferences, {
+    fields: [providers.id],
+    references: [assistantPreferences.providerId],
+  }),
+  assistantConversations: many(assistantConversations),
+}));
+
+export const assistantSuggestionsRelations = relations(assistantSuggestions, ({ one, many }) => ({
+  provider: one(providers, {
+    fields: [assistantSuggestions.providerId],
+    references: [providers.id],
+  }),
+  notifications: many(assistantNotifications),
+}));
+
+export const assistantConversationsRelations = relations(assistantConversations, ({ one, many }) => ({
+  provider: one(providers, {
+    fields: [assistantConversations.providerId],
+    references: [providers.id],
+  }),
+  user: one(users, { fields: [assistantConversations.userId], references: [users.id] }),
+  messages: many(assistantMessages),
+}));
+
+export const assistantMessagesRelations = relations(assistantMessages, ({ one }) => ({
+  conversation: one(assistantConversations, {
+    fields: [assistantMessages.conversationId],
+    references: [assistantConversations.id],
+  }),
 }));
 
 export const pricingProfilesRelations = relations(pricingProfiles, ({ one, many }) => ({

@@ -27,6 +27,7 @@ import type { ActionState } from "@/domain/auth/actions";
 import { BOOKING_FAILED_SIGNAL_KIND, logProviderSignal } from "@/domain/provider-dashboard-signals";
 import { logAudit } from "@/lib/audit";
 import { emitPlatformEvent } from "@/platform/events/emit";
+import { recordAssistantEvent } from "@/lib/assistant/event-service";
 
 type LoadPublicSlotsResult =
   | { ok: true; slots: { start: string; end: string }[] }
@@ -397,6 +398,18 @@ export async function submitPublicBooking(
       paymentAmount: paymentAmountStr,
       tipPercent: tipPercentStored,
     });
+
+    try {
+      await recordAssistantEvent(db, {
+        providerId: prov.id,
+        eventType: "booking.created",
+        relatedEntityType: "booking",
+        relatedEntityId: created.bookingId,
+        payload: { bookingId: created.bookingId, source: "public" },
+      });
+    } catch (e) {
+      console.error("[public-booking] assistant event failed", e);
+    }
 
     // Never fail the customer after the booking row exists (queue/Redis issues, etc.).
     try {

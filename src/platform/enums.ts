@@ -43,3 +43,20 @@ export const CUSTOMER_RECOMMENDATION_TIMEFRAMES = [
   "custom",
 ] as const;
 export type CustomerRecommendationTimeframe = (typeof CUSTOMER_RECOMMENDATION_TIMEFRAMES)[number];
+
+/** Assistant suggestion lifecycle (persisted). */
+export const ASSISTANT_SUGGESTION_STATUSES = [
+  "new",
+  "seen",
+  "acted",
+  "dismissed",
+  "snoozed",
+  "expired",
+] as const;
+export type AssistantSuggestionStatus = (typeof ASSISTANT_SUGGESTION_STATUSES)[number];
+
+export const ASSISTANT_URGENCY_LEVELS = ["low", "medium", "high"] as const;
+export type AssistantUrgencyLevel = (typeof ASSISTANT_URGENCY_LEVELS)[number];
+
+export const ASSISTANT_MESSAGE_ROLES = ["user", "assistant"] as const;
+export type AssistantMessageRole = (typeof ASSISTANT_MESSAGE_ROLES)[number];

@@ -37,3 +37,13 @@ export function getDb(): Database {
   globalForDb.drizzleDb = drizzle(client, { schema });
   return globalForDb.drizzleDb;
 }
+
+/** Close the pooled connection (for one-shot scripts so Node can exit). Safe no-op if never opened. */
+export async function closeDbConnection(): Promise<void> {
+  const client = globalForDb.postgresClient;
+  globalForDb.postgresClient = undefined;
+  globalForDb.drizzleDb = undefined;
+  if (client) {
+    await client.end({ timeout: 5 });
+  }
+}

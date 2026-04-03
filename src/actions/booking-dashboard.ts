@@ -18,6 +18,7 @@ import {
 import { plainTextFromInput } from "@/lib/sanitize";
 import { logAudit } from "@/lib/audit";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
+import { recordAssistantEvent } from "@/lib/assistant/event-service";
 import type { ActionState } from "@/domain/auth/actions";
 import type { InferSelectModel } from "drizzle-orm";
 
@@ -55,6 +56,23 @@ export async function updateBookingStatus(formData: FormData): Promise<ActionSta
     action: "status_changed",
     metadata: { status },
   });
+  if (status === "completed") {
+    await recordAssistantEvent(db, {
+      providerId: ctx.providerId,
+      eventType: "booking.completed",
+      relatedEntityType: "booking",
+      relatedEntityId: id,
+      payload: { bookingId: id },
+    });
+  } else if (status === "cancelled") {
+    await recordAssistantEvent(db, {
+      providerId: ctx.providerId,
+      eventType: "booking.cancelled",
+      relatedEntityType: "booking",
+      relatedEntityId: id,
+      payload: { bookingId: id },
+    });
+  }
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/bookings/${id}`);
   return { success: "Booking updated." };
@@ -121,6 +139,14 @@ export async function updateBookingPayment(formData: FormData): Promise<ActionSt
     entityId: id,
     action: "payment_updated",
     metadata: { from: before.paymentStatus, to: paymentStatus },
+  });
+
+  await recordAssistantEvent(db, {
+    providerId: ctx.providerId,
+    eventType: "payment.updated",
+    relatedEntityType: "booking",
+    relatedEntityId: id,
+    payload: { bookingId: id, from: before.paymentStatus, to: paymentStatus },
   });
 
   revalidatePath("/dashboard/bookings");
@@ -315,6 +341,14 @@ export async function createManualBooking(_prev: ActionState, formData: FormData
 
   try {
     const created = await createBookingAtomic(db, atomicInput);
+
+    await recordAssistantEvent(db, {
+      providerId: ctx.providerId,
+      eventType: "booking.created",
+      relatedEntityType: "booking",
+      relatedEntityId: created.bookingId,
+      payload: { bookingId: created.bookingId, manual: true },
+    });
 
     if (customerMode !== "walkin") {
       await enqueueNotification({
