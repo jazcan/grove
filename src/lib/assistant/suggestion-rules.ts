@@ -105,7 +105,11 @@ export async function buildDeterministicSuggestionCandidates(
   }
 
   if (!disabled.has("customer_lapsed")) {
-    const lapsedCutoff = DateTime.now().setZone(timezone).minus({ days: LAPSED_CUSTOMER_DAYS }).toJSDate();
+    const lapsedCutoffIso = DateTime.now()
+      .setZone(timezone)
+      .minus({ days: LAPSED_CUSTOMER_DAYS })
+      .toJSDate()
+      .toISOString();
     const custRows = await db.execute(
       sql`
       SELECT c.id AS id, c.full_name AS name,
@@ -119,7 +123,7 @@ export async function buildDeterministicSuggestionCandidates(
           SELECT max(b.starts_at)
           FROM bookings b
           WHERE b.customer_id = c.id AND b.provider_id = c.provider_id AND b.status <> 'cancelled'
-        ) < ${lapsedCutoff}
+        ) < ${lapsedCutoffIso}::timestamptz
       ORDER BY last_start ASC
       LIMIT 1
     `
@@ -149,7 +153,11 @@ export async function buildDeterministicSuggestionCandidates(
   }
 
   if (!disabled.has("service_low_activity")) {
-    const thirtyAgo = DateTime.now().setZone(timezone).minus({ days: SERVICE_ACTIVITY_DAYS }).toJSDate();
+    const thirtyAgoIso = DateTime.now()
+      .setZone(timezone)
+      .minus({ days: SERVICE_ACTIVITY_DAYS })
+      .toJSDate()
+      .toISOString();
     const svcRows = await db.execute(
       sql`
       SELECT s.id, s.name
@@ -158,7 +166,7 @@ export async function buildDeterministicSuggestionCandidates(
         AND NOT EXISTS (
           SELECT 1 FROM bookings b
           WHERE b.service_id = s.id AND b.provider_id = s.provider_id
-            AND b.status <> 'cancelled' AND b.starts_at >= ${thirtyAgo}
+            AND b.status <> 'cancelled' AND b.starts_at >= ${thirtyAgoIso}::timestamptz
         )
       ORDER BY s.sort_order ASC, s.name ASC
       LIMIT 3
