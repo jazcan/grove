@@ -18,6 +18,7 @@ export async function GET(request: Request) {
   const category = (searchParams.get("category") ?? "").trim();
   const country = (searchParams.get("country") ?? "CA").trim();
   const radiusKm = searchParams.get("radiusKm") ?? undefined;
+  const availableDate = (searchParams.get("availableDate") ?? "").trim();
 
   try {
     const out = await searchDiscoverableProviders({
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
       location: location || undefined,
       city: searchParams.get("city") ?? undefined,
       category,
+      availableDate: availableDate || undefined,
       country,
       radiusKm: radiusKm ?? undefined,
       limit: 50,

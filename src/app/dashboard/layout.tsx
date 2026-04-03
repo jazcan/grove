@@ -1,27 +1,16 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { eq } from "drizzle-orm";
 import { HandshakeBrandLockup } from "@/components/brand/handshake-brand-lockup";
 import { DashboardAccountMenu } from "@/components/dashboard/dashboard-account-menu";
+import { DashboardNav } from "@/components/dashboard/dashboard-nav";
 import { DashboardOnboardingAssistant } from "@/components/dashboard/onboarding-assistant";
 import { getDb } from "@/db";
 import { providers } from "@/db/schema";
 import { loadAssistantPanelSnapshot } from "@/lib/assistant/panel";
 import { getCsrfTokenForForm } from "@/lib/csrf";
+import { publicProfileImageUrl } from "@/lib/public-profile-helpers";
 import { loadProviderSetupState } from "@/lib/provider-setup";
 import { requireUser } from "@/lib/tenancy";
-
-const DASHBOARD_NAV_LINKS = [
-  ["/dashboard", "Home"],
-  ["/dashboard/services", "Services"],
-  ["/dashboard/pricing", "Pricing"],
-  ["/dashboard/availability", "Availability"],
-  ["/dashboard/bookings", "Bookings"],
-  ["/dashboard/customers", "Customers"],
-  ["/dashboard/marketing", "Marketing"],
-  ["/dashboard/analytics", "Analytics"],
-  ["/dashboard/docs", "Help"],
-] as const;
 
 export default async function DashboardLayout({
   children,
@@ -35,14 +24,16 @@ export default async function DashboardLayout({
   const preProvider = !u.providerId;
   let assistantJson: string | null = null;
   let assistantCsrf = "";
+  let profileAvatarUrl: string | null = null;
   if (u.providerId) {
     try {
       const db = getDb();
       const [prov] = await db
-        .select({ timezone: providers.timezone })
+        .select({ timezone: providers.timezone, profileImageKey: providers.profileImageKey })
         .from(providers)
         .where(eq(providers.id, u.providerId))
         .limit(1);
+      profileAvatarUrl = publicProfileImageUrl(prov?.profileImageKey ?? null);
       const tz = prov?.timezone ?? "America/Toronto";
       setupState = await loadProviderSetupState(db, u.providerId, tz);
     } catch (e) {
@@ -74,22 +65,9 @@ export default async function DashboardLayout({
         >
           <HandshakeBrandLockup href="/dashboard" className="[grid-area:logo]" />
           <div className="[grid-area:account] justify-self-end self-center">
-            <DashboardAccountMenu userEmail={u.email} />
+            <DashboardAccountMenu userEmail={u.email} profileImageUrl={profileAvatarUrl} />
           </div>
-          <nav
-            className="[grid-area:nav] flex min-w-0 flex-wrap gap-x-1 gap-y-2 text-sm font-medium sm:gap-x-0.5"
-            aria-label="Dashboard"
-          >
-            {DASHBOARD_NAV_LINKS.map(([href, label]) => (
-              <Link
-                key={href}
-                href={href}
-                className="rounded-md px-2.5 py-2 text-[var(--foreground)] hover:bg-[var(--surface-hover)] sm:px-3"
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
+          <DashboardNav />
         </div>
       </header>
       <div className="mx-auto max-w-5xl px-4 py-8 pb-28 sm:px-5 sm:py-10 sm:pb-32">{children}</div>

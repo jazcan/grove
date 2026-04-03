@@ -7,6 +7,7 @@ import {
   ProviderBottomCta,
   ProviderDetailsSection,
   ProviderProfileHeader,
+  ProviderPublicLinks,
   ProviderServiceCard,
   IntentPlanner,
 } from "@/components/public-profile";
@@ -73,6 +74,14 @@ export default async function PublicProfilePage({ params }: Props) {
           primaryCta={primaryCta}
         />
 
+        <ProviderPublicLinks
+          websiteUrl={prov.websiteUrl}
+          socialFacebookUrl={prov.socialFacebookUrl}
+          socialInstagramUrl={prov.socialInstagramUrl}
+          socialYoutubeUrl={prov.socialYoutubeUrl}
+          socialTiktokUrl={prov.socialTiktokUrl}
+        />
+
         <IntentPlanner
           username={prov.username}
           services={activeServices.map((row) => ({
@@ -85,10 +94,10 @@ export default async function PublicProfilePage({ params }: Props) {
         <section id="services" className="scroll-mt-28 sm:scroll-mt-32" aria-labelledby="services-heading">
           <div className="mt-10 sm:mt-12">
             <h2 id="services-heading" className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--accent)]">
-              Services
+              {prov.displayName.trim() ? `${prov.displayName.trim()} Services` : "Services"}
             </h2>
             <p className="mt-2 max-w-2xl text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-              Choose a session to see your plan, price, and open times — then finish your booking.
+              Choose a service to see its description, price, and open times — then finish your booking.
             </p>
           </div>
 
@@ -130,7 +139,7 @@ export default async function PublicProfilePage({ params }: Props) {
           )}
         </section>
 
-        <ProviderAboutSection bio={hideAboutAsDuplicate ? "" : prov.bio} />
+        <ProviderAboutSection bio={hideAboutAsDuplicate ? "" : prov.bio} displayName={prov.displayName} />
 
         <ProviderDetailsSection
           city={prov.city}

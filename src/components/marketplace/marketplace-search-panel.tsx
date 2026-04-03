@@ -6,6 +6,8 @@ type Props = {
   defaultRadiusKm?: string;
   /** CA | US — narrows geocoding */
   defaultCountry?: string;
+  /** YYYY-MM-DD — optional “available on this weekday” filter */
+  defaultAvailableDate?: string;
 };
 
 function IconSearch({ className }: { className?: string }) {
@@ -48,6 +50,7 @@ export function MarketplaceSearchPanel({
   defaultCategory = "",
   defaultRadiusKm = "25",
   defaultCountry = "CA",
+  defaultAvailableDate = "",
 }: Props) {
   const radiusValue = RADIUS_OPTIONS.some((o) => o.value === defaultRadiusKm) ? defaultRadiusKm : "25";
 
@@ -59,34 +62,26 @@ export function MarketplaceSearchPanel({
       <div className="mb-5 sm:mb-6">
         <h2 className="text-base font-semibold text-[var(--foreground)]">Search your community</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Pick a service, where you are, and how far to look—results are sorted by distance when you add a location.
+          Find and book service providers near you when you need them.
         </p>
       </div>
 
       <form method="get" className="flex flex-col gap-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-3">
-          <label className="ui-field min-w-0 flex-1">
-            <span className="ui-label">Service</span>
-            <div className="relative mt-1">
-              <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--muted)] opacity-80" />
-              <input
-                name="q"
-                defaultValue={defaultQ}
-                placeholder="e.g. cleaning, dog walking, tutoring"
-                className="ui-input min-h-12 pl-11 text-base"
-                autoComplete="off"
-              />
-            </div>
-          </label>
-          <button
-            type="submit"
-            className="ui-btn-primary min-h-12 w-full shrink-0 px-8 text-base font-semibold shadow-[0_4px_14px_-4px_color-mix(in_oklab,var(--accent)_45%,transparent)] lg:min-w-[10.5rem]"
-          >
-            Search
-          </button>
-        </div>
+        <label className="ui-field w-full">
+          <span className="ui-label">What are you looking for?</span>
+          <div className="relative mt-1">
+            <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--muted)] opacity-80" />
+            <input
+              name="q"
+              defaultValue={defaultQ}
+              placeholder="e.g. plumber, dog walking, tutoring…"
+              className="ui-input min-h-[3.25rem] w-full pl-11 text-base"
+              autoComplete="off"
+            />
+          </div>
+        </label>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-5">
           <label className="ui-field">
             <span className="ui-label">Location</span>
             <div className="relative mt-1">
@@ -99,7 +94,6 @@ export function MarketplaceSearchPanel({
                 autoComplete="postal-code"
               />
             </div>
-            <p className="mt-1 text-xs text-[var(--muted)]">We use this to center the map and filter by distance.</p>
           </label>
           <label className="ui-field">
             <span className="ui-label">Country</span>
@@ -121,7 +115,6 @@ export function MarketplaceSearchPanel({
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-[var(--muted)]">Distances are in kilometers.</p>
           </label>
           <label className="ui-field">
             <span className="ui-label">Category</span>
@@ -130,12 +123,33 @@ export function MarketplaceSearchPanel({
               <input
                 name="category"
                 defaultValue={defaultCategory}
-                placeholder="e.g. cleaning, wellness, tutoring"
+                placeholder="e.g. home services, pet care"
                 className="ui-input min-h-12 pl-11"
                 autoComplete="off"
               />
             </div>
           </label>
+          <label className="ui-field sm:col-span-2 lg:col-span-1">
+            <span className="ui-label">Available on (optional)</span>
+            <input
+              name="availableDate"
+              type="date"
+              defaultValue={defaultAvailableDate}
+              className="ui-input mt-1 min-h-12"
+            />
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Narrows to providers with hours on that weekday (in their time zone).
+            </p>
+          </label>
+        </div>
+
+        <div>
+          <button
+            type="submit"
+            className="ui-btn-primary min-h-12 w-full px-8 text-base font-semibold shadow-[0_4px_14px_-4px_color-mix(in_oklab,var(--accent)_45%,transparent)] sm:w-auto sm:min-w-[12rem]"
+          >
+            Search
+          </button>
         </div>
       </form>
     </section>

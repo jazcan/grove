@@ -8,6 +8,13 @@ import { isReservedUsername } from "@/lib/reserved-usernames";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import type { TemplateAddOn, TemplateOutcome, TemplateStep } from "@/platform/templates/structure";
 import { templateStructureSchema } from "@/platform/templates/structure";
+import { ProviderProfileHeader } from "@/components/public-profile";
+import {
+  buildProviderLocationLine,
+  providerDisplayInitials,
+  providerHeroTeaser,
+  publicProfileImageUrl,
+} from "@/lib/public-profile-helpers";
 import { BookForm } from "./book-form";
 
 type Props = { params: Promise<{ username: string; serviceId: string }> };
@@ -32,6 +39,11 @@ export default async function PublicBookPage({ params }: Props) {
       username: providers.username,
       businessName: providers.businessName,
       displayName: providers.displayName,
+      bio: providers.bio,
+      category: providers.category,
+      city: providers.city,
+      serviceArea: providers.serviceArea,
+      profileImageKey: providers.profileImageKey,
       publicProfileEnabled: providers.publicProfileEnabled,
       paymentCash: providers.paymentCash,
       paymentEtransfer: providers.paymentEtransfer,
@@ -113,6 +125,11 @@ export default async function PublicBookPage({ params }: Props) {
   const csrf = await getCsrfTokenForForm();
   const pricingType = svcRow.pricingType === "hourly" ? "hourly" : "fixed";
 
+  const avatarUrl = publicProfileImageUrl(prov.profileImageKey);
+  const locationLine = buildProviderLocationLine(prov.city, prov.serviceArea);
+  const heroTeaser = providerHeroTeaser(prov.businessName ?? "", prov.bio);
+  const initials = providerDisplayInitials(prov.displayName);
+
   return (
     <main
       id="main-content"
@@ -125,7 +142,19 @@ export default async function PublicBookPage({ params }: Props) {
         </Link>
       </p>
 
-      <header className="mt-6 max-w-2xl">
+      <div className="mt-6 max-w-[min(100%,760px)]">
+        <ProviderProfileHeader
+          displayName={prov.displayName}
+          category={prov.category}
+          locationLine={locationLine}
+          heroTeaser={heroTeaser}
+          avatarUrl={avatarUrl}
+          initials={initials}
+          primaryCta={null}
+        />
+      </div>
+
+      <header className="mt-8 max-w-2xl">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Book an appointment</h1>
         <p className="mt-3 text-base leading-relaxed text-[var(--muted)] sm:text-[1.05rem]">
           Review what’s included and your estimated total, pick a time, add your details, and confirm.

@@ -14,6 +14,7 @@ import {
   rescheduleBooking,
 } from "@/actions/booking-dashboard";
 import { ServiceCardSection } from "@/components/dashboard/bookings/service-card-section";
+import { formatBookingConfirmation } from "@/lib/format-booking-reference";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -58,7 +59,7 @@ export default async function BookingDetailPage({ params }: Props) {
 
       <h1 className="mt-4 text-2xl font-semibold tracking-tight">Booking</h1>
       <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-        Reference {booking.publicReference.toString()}
+        Confirmation {formatBookingConfirmation(booking)}
       </p>
 
       <section className="ui-card mt-8 space-y-3 p-5 text-sm sm:p-6">
@@ -77,7 +78,7 @@ export default async function BookingDetailPage({ params }: Props) {
         </p>
       </section>
 
-      <div className="mt-8 max-w-lg">
+      <div className="mt-8 max-w-3xl">
         <ServiceCardSection
           csrf={csrf}
           timezone={timezone}
@@ -103,7 +104,7 @@ export default async function BookingDetailPage({ params }: Props) {
         </div>
       </div>
 
-      <section className="mt-8 grid max-w-lg gap-8">
+      <section className="mt-8 grid max-w-3xl gap-8">
         <div className="ui-card p-5 sm:p-6">
           <h2 className="text-base font-semibold text-[var(--foreground)]">Status</h2>
           <form action={asFormAction(updateBookingStatus)} className="mt-4 flex flex-wrap items-end gap-3">

@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addBlockedTimeInline } from "@/actions/availability";
+import { bookingStatusCalendarColors } from "@/lib/booking-calendar-colors";
 
 type AvailabilityRule = {
   id: string;
@@ -163,23 +164,6 @@ function deriveTimeGridBounds(
   };
 }
 
-function bookingColors(status: BookingEvent["status"]): { bg: string; border: string; text: string } {
-  switch (status) {
-    case "confirmed":
-      return { bg: "#2563eb", border: "#1d4ed8", text: "#ffffff" };
-    case "pending":
-      return { bg: "#f59e0b", border: "#d97706", text: "#111827" };
-    case "completed":
-      return { bg: "#16a34a", border: "#15803d", text: "#ffffff" };
-    case "rescheduled":
-      return { bg: "#7c3aed", border: "#6d28d9", text: "#ffffff" };
-    case "no_show":
-      return { bg: "#ef4444", border: "#dc2626", text: "#ffffff" };
-    case "cancelled":
-      return { bg: "#9ca3af", border: "#6b7280", text: "#111827" };
-  }
-}
-
 type BlockResult = { ok: true } | { ok: false; error: string };
 
 export function AvailabilityCalendar(props: {
@@ -319,7 +303,7 @@ export function AvailabilityCalendar(props: {
   const bookingEvents: EventInput[] = useMemo(
     () =>
       bookings.map((b) => {
-        const c = bookingColors(b.status);
+        const c = bookingStatusCalendarColors(b.status);
         const title = `${b.serviceName} • ${b.customerName}`;
         return {
           id: `booking:${b.id}`,
@@ -466,7 +450,7 @@ export function AvailabilityCalendar(props: {
             <span className="rounded px-1.5 py-0.5" style={{ background: "rgba(239, 68, 68, 0.35)" }}>
               Blocked
             </span>
-            <span className="rounded px-1.5 py-0.5 text-white" style={{ background: bookingColors("confirmed").bg }}>
+            <span className="rounded px-1.5 py-0.5 text-white" style={{ background: bookingStatusCalendarColors("confirmed").bg }}>
               Booked
             </span>
           </div>
@@ -494,8 +478,8 @@ export function AvailabilityCalendar(props: {
                 <span
                   className="rounded px-2 py-0.5 text-xs font-medium"
                   style={{
-                    background: bookingColors(selected.booking.status).bg,
-                    color: bookingColors(selected.booking.status).text,
+                    background: bookingStatusCalendarColors(selected.booking.status).bg,
+                    color: bookingStatusCalendarColors(selected.booking.status).text,
                   }}
                 >
                   {selected.booking.status.replace("_", " ")}

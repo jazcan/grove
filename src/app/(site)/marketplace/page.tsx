@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { brand } from "@/config/brand";
+import { MarketplaceHeroBackdrop } from "@/components/marketplace/marketplace-hero-backdrop";
 import { MarketplaceMapPreview } from "@/components/marketplace/marketplace-map-preview";
 import { MarketplaceSearchPanel } from "@/components/marketplace/marketplace-search-panel";
 import { ProviderMarketplaceCard } from "@/components/marketplace/provider-marketplace-card";
@@ -14,6 +15,7 @@ type Props = {
     category?: string;
     radiusKm?: string;
     country?: string;
+    availableDate?: string;
   }>;
 };
 
@@ -29,6 +31,7 @@ export default async function MarketplacePage({ searchParams }: Props) {
       q: sp.q,
       category: sp.category,
       location: location || undefined,
+      availableDate: sp.availableDate?.trim() || undefined,
       country,
       radiusKm: sp.radiusKm,
       limit: 50,
@@ -65,26 +68,32 @@ export default async function MarketplacePage({ searchParams }: Props) {
   return (
     <main
       id="main-content"
-      className="min-h-screen overflow-x-hidden bg-[var(--background)] pb-14 pt-10 sm:pb-16 sm:pt-12 lg:pb-20"
+      className="min-h-screen overflow-x-hidden bg-[var(--background)] pb-14 sm:pb-16 lg:pb-20"
     >
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <header className="max-w-3xl">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--accent)]">Marketplace</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
-            Find someone local
-          </h1>
-          <p className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-            Search for services in your area, explore profiles, and book with confidence.
-          </p>
-        </header>
+      <div className="relative -mt-px overflow-hidden pb-10 pt-10 sm:pb-12 sm:pt-12">
+        <MarketplaceHeroBackdrop />
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <header className="max-w-3xl">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--muted)]">Marketplace</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
+              Find local services
+            </h1>
+            <p className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--muted)] sm:text-lg">
+              Search for services in your area, see availability, explore local profiles, and book with confidence.
+            </p>
+          </header>
+        </div>
+      </div>
 
-        <div className="mt-8 sm:mt-10">
+      <div className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+        <div className="mt-0 sm:mt-0">
           <MarketplaceSearchPanel
             defaultQ={sp.q}
             defaultLocation={location}
             defaultCategory={sp.category}
             defaultRadiusKm={sp.radiusKm}
             defaultCountry={country}
+            defaultAvailableDate={sp.availableDate}
           />
         </div>
 
@@ -129,9 +138,6 @@ export default async function MarketplacePage({ searchParams }: Props) {
                     : `${results.length} local provider${results.length === 1 ? "" : "s"}`}
               </p>
             </div>
-            <Link href="/signup" className="ui-link mt-2 text-sm font-semibold sm:mt-0">
-              Offer your services locally on {brand.appName}
-            </Link>
           </div>
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_minmax(280px,380px)] lg:items-start lg:gap-10">
@@ -180,6 +186,11 @@ export default async function MarketplacePage({ searchParams }: Props) {
                     : null
                 }
               />
+              <p className="mt-6 text-center text-sm text-[var(--muted)]">
+                <Link href="/signup" className="ui-link font-semibold">
+                  Offer your services locally on {brand.appName}
+                </Link>
+              </p>
             </div>
           </div>
         </section>

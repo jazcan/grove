@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BundleSuggestionCard } from "@/components/dashboard/bundle-suggestion-card";
+import { ServiceLevelsTogglePreview } from "@/components/dashboard/service-levels-toggle-preview";
 import { asFormAction } from "@/lib/form-action";
 import { CsrfField } from "@/components/csrf-field";
 import { createService } from "@/actions/services";
@@ -31,6 +33,8 @@ type Props = {
   canonicalTemplateSlug: string;
   /** Provider’s last saved preference for new services (Enable service levels). */
   defaultServiceLevelsEnabled: boolean;
+  /** Positioning tier labels from Pricing (preview when levels are enabled). */
+  pricingTierLabels: string[];
 };
 
 const editableSectionClass = (on: boolean) =>
@@ -48,6 +52,7 @@ export function ServiceCreateSection({
   scratchMode,
   canonicalTemplateSlug,
   defaultServiceLevelsEnabled,
+  pricingTierLabels,
 }: Props) {
   const [highlight, setHighlight] = useState(false);
   const [notesRequiredOn, setNotesRequiredOn] = useState(false);
@@ -107,12 +112,12 @@ export function ServiceCreateSection({
         </h2>
         <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
           {showAdjustHint
-            ? "We&apos;ve filled this in for you—change only what matters."
+            ? "We’ve started to fill this in for you—change anything you like."
             : "Create a service clients can book."}
         </p>
         {showAdjustHint ? (
           <div className="mt-3 space-y-2 rounded-lg bg-[color-mix(in_oklab,var(--accent)_8%,var(--background))] px-3 py-3 text-sm text-[color-mix(in_oklab,var(--foreground)_74%,transparent)] ring-1 ring-[color-mix(in_oklab,var(--accent)_20%,transparent)]">
-            <p className="font-medium text-[var(--foreground)]">Easy tweaks (highlighted when you land here):</p>
+            <p className="font-medium text-[var(--foreground)]">Easy tweaks:</p>
             <ul className="list-disc space-y-1 pl-5">
               <li>Service name and short description</li>
               <li>Duration, buffer, and price</li>
@@ -147,12 +152,19 @@ export function ServiceCreateSection({
             defaultValue={values.description}
             className="ui-textarea"
           />
-          <input
-            name="category"
-            placeholder="e.g. Home Services, wellness, tutoring"
-            defaultValue={values.category}
-            className="ui-input"
-          />
+          <label className="ui-field text-sm">
+            <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Category</span>
+            <select name="category" defaultValue={values.category || "Personal Services"} className="ui-input mt-1">
+              <option value="Personal Services">Personal Services</option>
+              <option value="Home Services">Home Services</option>
+              <option value="Professional Services">Professional Services</option>
+              <option value="Pet care">Pet care</option>
+              <option value="Wellness">Wellness</option>
+              <option value="Tutoring & education">Tutoring & education</option>
+              <option value="Cleaning">Cleaning</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
         </section>
 
         <section className={editableSectionClass(!!pulseFields)}>
@@ -218,15 +230,7 @@ export function ServiceCreateSection({
             </Link>
             ). Turn this off if you want one simple price for this service.
           </p>
-          <label className="flex items-start gap-3 text-sm leading-snug">
-            <input
-              type="checkbox"
-              name="serviceLevelsEnabled"
-              defaultChecked={defaultServiceLevelsEnabled}
-              className="mt-1"
-            />
-            <span>Enable service levels for this service</span>
-          </label>
+          <ServiceLevelsTogglePreview defaultChecked={defaultServiceLevelsEnabled} tierLabels={pricingTierLabels} />
         </section>
 
         <section className="grid gap-3">
@@ -287,6 +291,8 @@ export function ServiceCreateSection({
             <span>Active — clients can see and book this when your profile is live</span>
           </label>
         </section>
+
+        {scratchMode ? <BundleSuggestionCard /> : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-[color-mix(in_oklab,var(--foreground)_58%,transparent)]">

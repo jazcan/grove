@@ -1,6 +1,8 @@
 import { and, asc, count, eq, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { availabilityRules, bookings, providers, services } from "@/db/schema";
+import { availabilityRules, bookings, providers, services, users } from "@/db/schema";
+import { BundleSuggestionCard } from "@/components/dashboard/bundle-suggestion-card";
+import { ensureDefaultPricingProfile } from "@/domain/pricing/ensure-default";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { requireProvider } from "@/lib/tenancy";
 import {
@@ -35,6 +37,13 @@ export default async function ServicesPage({ searchParams }: Props) {
 
   const u = await requireProvider();
   const db = getDb();
+  const [userRow] = await db.select({ createdAt: users.createdAt }).from(users).where(eq(users.id, u.id)).limit(1);
+  const accountYoung =
+    !!userRow?.createdAt && Date.now() - new Date(userRow.createdAt).getTime() < 24 * 60 * 60 * 1000;
+
+  const { tiers } = await ensureDefaultPricingProfile(db, u.providerId);
+  const pricingTierLabels = tiers.map((t) => t.label);
+
   const [prov] = await db
     .select({
       publicProfileEnabled: providers.publicProfileEnabled,
@@ -75,6 +84,8 @@ export default async function ServicesPage({ searchParams }: Props) {
   const hasServices = list.length > 0;
   const hasAvailability = !!anyRule;
   const published = !!prov?.publicProfileEnabled;
+  const showTemplatesFirst = !hasServices || accountYoung;
+  const establishedServicesLayout = hasServices && !accountYoung;
 
   const csrf = await getCsrfTokenForForm();
 
@@ -131,29 +142,73 @@ export default async function ServicesPage({ searchParams }: Props) {
       </header>
 
       <div className="mt-8 max-w-4xl space-y-10">
-        <section className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-5 sm:p-6 md:p-8">
-          <ServiceTemplatesHub templates={serviceTemplates} />
-        </section>
-
-        <ServiceCreateSection
-          csrf={csrf}
-          prefillDefaults={prefillDefaults}
-          formVisible={formVisible}
-          scratchMode={scratch}
-          canonicalTemplateSlug={canonicalTemplateSlug}
-          defaultServiceLevelsEnabled={Boolean(prov?.defaultServiceLevelsEnabled)}
-        />
-
-        <ServicePerformanceSection services={list} statsByServiceId={statsByServiceId} />
+        {establishedServicesLayout ? (
+          <>
+            <section id="existing-services" className="scroll-mt-28">
+              <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">{servicesHeading}</h2>
+              <p className="mt-2 max-w-prose text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
+                {servicesSubtitle}
+              </p>
+              <div className="mt-6">
+                <ServicesList services={list} csrf={csrf} />
+              </div>
+              {hasServices ? (
+                <div className="mt-10">
+                  <BundleSuggestionCard />
+                </div>
+              ) : null}
+            </section>
+            {list.length > 0 ? (
+              <ServicePerformanceSection services={list} statsByServiceId={statsByServiceId} />
+            ) : null}
+            <section className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-5 sm:p-6 md:p-8">
+              <ServiceTemplatesHub templates={serviceTemplates} />
+            </section>
+            <ServiceCreateSection
+              csrf={csrf}
+              prefillDefaults={prefillDefaults}
+              formVisible={formVisible}
+              scratchMode={scratch}
+              canonicalTemplateSlug={canonicalTemplateSlug}
+              defaultServiceLevelsEnabled={Boolean(prov?.defaultServiceLevelsEnabled)}
+              pricingTierLabels={pricingTierLabels}
+            />
+          </>
+        ) : (
+          <>
+            <section className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-5 sm:p-6 md:p-8">
+              <ServiceTemplatesHub templates={serviceTemplates} />
+            </section>
+            <ServiceCreateSection
+              csrf={csrf}
+              prefillDefaults={prefillDefaults}
+              formVisible={formVisible}
+              scratchMode={scratch}
+              canonicalTemplateSlug={canonicalTemplateSlug}
+              defaultServiceLevelsEnabled={Boolean(prov?.defaultServiceLevelsEnabled)}
+              pricingTierLabels={pricingTierLabels}
+            />
+            {list.length > 0 ? (
+              <ServicePerformanceSection services={list} statsByServiceId={statsByServiceId} />
+            ) : null}
+          </>
+        )}
       </div>
 
-      <section id="existing-services" className="mt-20 max-w-4xl scroll-mt-28">
-        <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">{servicesHeading}</h2>
-        <p className="mt-2 max-w-prose text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">{servicesSubtitle}</p>
-        <div className="mt-6">
-          <ServicesList services={list} csrf={csrf} />
-        </div>
-      </section>
+      {showTemplatesFirst ? (
+        <section id="existing-services" className="mt-20 max-w-4xl scroll-mt-28">
+          <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">{servicesHeading}</h2>
+          <p className="mt-2 max-w-prose text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">{servicesSubtitle}</p>
+          <div className="mt-6">
+            <ServicesList services={list} csrf={csrf} />
+          </div>
+          {hasServices ? (
+            <div className="mt-10">
+              <BundleSuggestionCard />
+            </div>
+          ) : null}
+        </section>
+      ) : null}
     </main>
   );
 }

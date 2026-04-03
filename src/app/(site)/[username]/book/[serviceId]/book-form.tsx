@@ -1,8 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { CsrfField } from "@/components/csrf-field";
-import { fetchPublicSlots, submitPublicBooking, suggestPublicBookingSlot } from "@/actions/public-booking";
+import {
+  fetchPublicSlots,
+  lookupPublicDiscountCode,
+  submitPublicBooking,
+  suggestPublicBookingSlot,
+} from "@/actions/public-booking";
 import type { ActionState } from "@/domain/auth/actions";
 import {
   applyTipToSimulatedPrice,
@@ -160,6 +166,11 @@ export function BookForm({
   const [tierId, setTierId] = useState(initialTier);
   const [selectedAddOns, setSelectedAddOns] = useState<Set<string>>(new Set());
   const [tipPercent, setTipPercent] = useState(0);
+  const [discountInput, setDiscountInput] = useState("");
+  const [appliedDiscountCode, setAppliedDiscountCode] = useState("");
+  const [appliedDiscountPercent, setAppliedDiscountPercent] = useState(0);
+  const [discountHint, setDiscountHint] = useState<string | null>(null);
+  const [discountBusy, setDiscountBusy] = useState(false);
 
   const tierMultiplier = useMemo(() => {
     const t = positioningTiers.find((x) => x.id === tierId);
@@ -207,10 +218,19 @@ export function BookForm({
     disabledAddOnIds,
   ]);
 
-  const priceWithTip = useMemo(
-    () => applyTipToSimulatedPrice(priceSim, tipPercent),
-    [priceSim, tipPercent]
-  );
+  const priceWithTip = useMemo(() => {
+    const preTip = priceSim.grandTotal;
+    const d = appliedDiscountPercent;
+    const discountAmt = d > 0 ? Math.round(preTip * (d / 100) * 100) / 100 : 0;
+    const after = Math.max(0, Math.round((preTip - discountAmt) * 100) / 100);
+    return applyTipToSimulatedPrice({ ...priceSim, grandTotal: after }, tipPercent);
+  }, [priceSim, tipPercent, appliedDiscountPercent]);
+
+  useEffect(() => {
+    setAppliedDiscountCode("");
+    setAppliedDiscountPercent(0);
+    setDiscountHint(null);
+  }, [tierId, selectedAddOns]);
 
   const tierLabel = positioningTiers.find((t) => t.id === tierId)?.label ?? "";
 
@@ -437,7 +457,12 @@ export function BookForm({
             <div className="mt-5 border-t border-[color-mix(in_oklab,var(--foreground)_8%,transparent)] pt-4">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <div className="ui-overline text-[var(--muted)]">Estimated total</div>
+                  <div
+                    className="ui-overline w-fit cursor-help border-b border-dotted border-[color-mix(in_oklab,var(--foreground)_30%,transparent)] text-[var(--muted)]"
+                    title="Final price may vary if the work takes longer or differs from what was booked. Your provider will confirm if anything changes."
+                  >
+                    Estimated total
+                  </div>
                   <div className="mt-1 text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">
                     {formatMoney(priceWithTip.grandTotal, priceWithTip.currency)}
                   </div>
@@ -449,7 +474,7 @@ export function BookForm({
                       : servicePricingType === "hourly"
                         ? `Price reflects the level you choose${tierLabel ? ` (${tierLabel})` : ""}${selectedAddOns.size > 0 ? " and selected add-ons" : ""}.`
                         : `Price reflects the level you choose${tierLabel ? ` (${tierLabel})` : ""}${selectedAddOns.size > 0 ? " and selected add-ons" : ""}.`}{" "}
-                    Add or change an optional tip in the last step; the total above includes your current tip choice.
+                    Tips are optional and can be changed in the last step.
                   </p>
                 </div>
                 <div className="text-right text-sm text-[var(--muted)]">
@@ -514,8 +539,9 @@ export function BookForm({
                       {providerName}
                       {selectedLabel ? ` • ${selectedLabel}` : ""}
                     </div>
-                    <div className="mt-3 break-all rounded-md bg-[var(--surface-muted)] px-3 py-2 font-mono text-xs text-[var(--muted)]">
-                      Reference: {state.success}
+                    <div className="mt-3 rounded-md bg-[var(--surface-muted)] px-3 py-2 text-sm text-[var(--foreground)]">
+                      <span className="font-medium">Confirmation:</span>{" "}
+                      <span className="font-mono tabular-nums tracking-wide">{state.success}</span>
                     </div>
                     <div className="mt-3 text-sm text-[var(--muted)]">
                       Estimated total booked:{" "}
@@ -525,8 +551,15 @@ export function BookForm({
                     </div>
                   </div>
                   <p className="mt-5 text-sm leading-relaxed text-[var(--muted)]">
-                    <span className="font-semibold text-[var(--foreground)]">What happens next:</span> the
-                    provider will review your booking and follow up if anything is needed.
+                    <span className="font-semibold text-[var(--foreground)]">What happens next:</span>{" "}
+                    {providerName} will review your booking and follow up if anything is needed.
+                  </p>
+                  <p className="mt-4 text-sm leading-relaxed text-[var(--muted)]">
+                    Want to save your details for next time?{" "}
+                    <Link href="/signup" className="font-semibold text-[var(--accent)] underline-offset-2 hover:underline">
+                      Create a free account
+                    </Link>
+                    .
                   </p>
                 </div>
               </div>
@@ -548,7 +581,7 @@ export function BookForm({
               <p className="ui-overline">Step 1 of 3</p>
               <h3 className="mt-1 text-base font-semibold tracking-tight sm:text-lg">Choose a time</h3>
               <p className="ui-hint mt-2 max-w-prose">
-                We&apos;ll start from the next open time when possible. You can change the date anytime.
+                Choose an available time. The next available time is pre-selected.
               </p>
             </div>
           </div>
@@ -558,47 +591,19 @@ export function BookForm({
               <label htmlFor="book-date" className="ui-label">
                 Date
               </label>
-              <p id="book-date-hint" className="ui-hint">
-                Use the calendar to pick a day, or type a date.
-              </p>
-              <div className="mt-1 flex max-w-full gap-2">
-                <input
-                  ref={dateInputRef}
-                  id="book-date"
-                  type="date"
-                  value={dateISO ?? ""}
-                  min={todayISO}
-                  disabled={!calendarReady}
-                  onChange={(e) => setDateISO(e.target.value)}
-                  aria-invalid={isPastDate}
-                  aria-describedby={isPastDate ? "book-date-past-error book-date-hint" : "book-date-hint"}
-                  className="ui-input min-w-0 flex-1 py-2.5"
-                  style={{ colorScheme: "light" }}
-                />
-                <button
-                  type="button"
-                  className="ui-btn-ghost shrink-0"
-                  aria-label="Open calendar"
-                  title="Open calendar"
-                  onClick={() => {
-                    const el = dateInputRef.current;
-                    if (el && typeof el.showPicker === "function") {
-                      el.showPicker();
-                    } else {
-                      el?.focus();
-                    }
-                  }}
-                >
-                  <span className="sr-only">Open calendar</span>
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5a2.25 2.25 0 012.25 2.25v7.5"
-                    />
-                  </svg>
-                </button>
-              </div>
+              <input
+                ref={dateInputRef}
+                id="book-date"
+                type="date"
+                value={dateISO ?? ""}
+                min={todayISO}
+                disabled={!calendarReady}
+                onChange={(e) => setDateISO(e.target.value)}
+                aria-invalid={isPastDate}
+                aria-describedby={isPastDate ? "book-date-past-error" : undefined}
+                className="ui-input mt-1 min-w-0 max-w-full py-2.5"
+                style={{ colorScheme: "light" }}
+              />
               {isPastDate ? (
                 <p id="book-date-past-error" className="ui-inline-validation mt-2" role="alert">
                   This date is in the past. Choose today or a future date.
@@ -643,9 +648,7 @@ export function BookForm({
                               {prettyDateTime(s.start)}
                             </span>
                             {isNextAvailable ? (
-                              <span className="w-fit rounded-full border border-[color-mix(in_oklab,var(--accent)_45%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] px-2 py-0.5 text-xs font-medium text-[var(--accent)]">
-                                Next available
-                              </span>
+                              <span className="text-xs font-medium text-[var(--muted)]">Next available</span>
                             ) : null}
                           </span>
                           <input
@@ -683,6 +686,7 @@ export function BookForm({
           <input type="hidden" name="dateISO" value={dateISOValue} />
           <input type="hidden" name="slotStart" value={slotStart} />
           <input type="hidden" name="tipPercent" value={String(tipPercent)} />
+          {appliedDiscountCode ? <input type="hidden" name="discountCode" value={appliedDiscountCode} /> : null}
 
           <div className="ui-card p-4 sm:p-7">
             <div className="flex gap-3 sm:gap-4">
@@ -756,7 +760,7 @@ export function BookForm({
                 </label>
                 {!phoneRequired ? (
                   <p id="phone-hint" className="ui-hint">
-                    Add a number if you&apos;d like a text or call from your provider.
+                    Add a number if you&apos;d like texts or calls from {providerName}.
                   </p>
                 ) : null}
                 <input
@@ -818,6 +822,71 @@ export function BookForm({
 
             <div className="mt-6 grid gap-4">
               <div className="ui-card-flat px-4 py-4 sm:px-5">
+                <label className="ui-label" htmlFor="discount-code-input">
+                  Discount code <span className="font-normal text-[var(--muted)]">(optional)</span>
+                </label>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                  <input
+                    id="discount-code-input"
+                    className="ui-input min-h-11 sm:w-56"
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
+                    placeholder="e.g. SPRING10"
+                    autoComplete="off"
+                    maxLength={32}
+                  />
+                  <button
+                    type="button"
+                    disabled={discountBusy || !discountInput.trim()}
+                    className="ui-btn-secondary min-h-11 px-4 text-sm font-semibold disabled:opacity-50"
+                    onClick={() => {
+                      void (async () => {
+                        setDiscountBusy(true);
+                        setDiscountHint(null);
+                        const r = await lookupPublicDiscountCode({
+                          username,
+                          code: discountInput.trim(),
+                        });
+                        setDiscountBusy(false);
+                        if (r.ok) {
+                          setAppliedDiscountPercent(r.percent);
+                          setAppliedDiscountCode(discountInput.trim().toUpperCase());
+                          setDiscountHint(`${r.percent}% off applied to your subtotal before tip.`);
+                        } else {
+                          setAppliedDiscountPercent(0);
+                          setAppliedDiscountCode("");
+                          setDiscountHint("That code doesn’t apply here. Double-check spelling.");
+                        }
+                      })();
+                    }}
+                  >
+                    {discountBusy ? "Checking…" : "Apply"}
+                  </button>
+                  {appliedDiscountCode ? (
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-[var(--accent)] underline-offset-4 hover:underline"
+                      onClick={() => {
+                        setAppliedDiscountCode("");
+                        setAppliedDiscountPercent(0);
+                        setDiscountHint(null);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+                {discountHint ? (
+                  <p
+                    className={`mt-2 text-sm ${appliedDiscountCode ? "text-[var(--success)]" : "text-[var(--muted)]"}`}
+                    role="status"
+                  >
+                    {discountHint}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="ui-card-flat px-4 py-4 sm:px-5">
                 <div className="ui-overline text-[var(--muted)]">Summary</div>
                 <div className="mt-2 font-semibold text-[var(--foreground)]">You’re booking</div>
                 <div className="mt-1 break-words text-sm text-[var(--muted)]">
@@ -852,7 +921,12 @@ export function BookForm({
                   </div>
                   <div className="mt-3 space-y-2 text-sm">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="text-[var(--muted)]">Subtotal (estimated)</span>
+                      <span
+                        className="cursor-help border-b border-dotted border-[color-mix(in_oklab,var(--foreground)_35%,transparent)] text-[var(--muted)]"
+                        title="Final price may vary if the work takes longer or differs from what was booked. Your provider will confirm if anything changes."
+                      >
+                        Subtotal (estimated)
+                      </span>
                       <span className="font-medium tabular-nums text-[var(--foreground)]">
                         {formatMoney(priceWithTip.subtotal, priceWithTip.currency)}
                       </span>
@@ -893,7 +967,12 @@ export function BookForm({
                       </div>
                     </div>
                     <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-[var(--card-border)] pt-3">
-                      <span className="text-base font-semibold text-[var(--foreground)]">Total (estimated)</span>
+                      <span
+                        className="cursor-help text-base font-semibold text-[var(--foreground)] underline decoration-dotted decoration-[color-mix(in_oklab,var(--foreground)_35%,transparent)] underline-offset-4"
+                        title="Final price may vary if the work takes longer or differs from what was booked. Your provider will confirm if anything changes."
+                      >
+                        Total (estimated)
+                      </span>
                       <span className="text-lg font-semibold tabular-nums text-[var(--foreground)]">
                         {formatMoney(priceWithTip.grandTotal, priceWithTip.currency)}
                       </span>
@@ -977,7 +1056,6 @@ export function BookForm({
                     </p>
                   ) : null}
 
-                  <p className="ui-hint mt-3">You’ll pay directly to the provider.</p>
                 </div>
               ) : null}
 

@@ -15,3 +15,20 @@ export function plainTextFromInput(raw: string, maxLen: number): string {
   const stripped = raw.replace(/<[^>]*>/g, "").trim().slice(0, maxLen);
   return stripped;
 }
+
+/** Normalize optional marketing URLs (website, social profiles). Returns null if empty or invalid. */
+export function optionalHttpUrl(raw: string, maxLen: number): string | null {
+  const t = raw.replace(/<[^>]*>/g, "").trim().slice(0, maxLen);
+  if (!t) return null;
+  let u = t;
+  if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+  try {
+    const p = new URL(u);
+    if (p.protocol !== "http:" && p.protocol !== "https:") return null;
+    if (p.username || p.password) return null;
+    const out = p.href;
+    return out.length > maxLen ? out.slice(0, maxLen) : out;
+  } catch {
+    return null;
+  }
+}

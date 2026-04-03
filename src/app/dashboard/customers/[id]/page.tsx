@@ -111,11 +111,17 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
   const db = getDb();
 
   const [prov] = await db
-    .select({ timezone: providers.timezone })
+    .select({
+      timezone: providers.timezone,
+      username: providers.username,
+      publicProfileEnabled: providers.publicProfileEnabled,
+    })
     .from(providers)
     .where(eq(providers.id, u.providerId))
     .limit(1);
   const timezone = prov?.timezone ?? "America/Toronto";
+  const publicPreviewHref =
+    prov?.publicProfileEnabled && prov.username?.trim() ? `/${prov.username.trim()}` : null;
 
   const [c] = await db
     .select()
@@ -223,11 +229,21 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Link
-            href="/dashboard/availability"
+            href={`/dashboard/bookings?openBooking=1&customerId=${encodeURIComponent(id)}`}
             className="ui-btn-primary inline-flex min-h-11 items-center justify-center px-5 text-sm font-semibold"
           >
             Book appointment
           </Link>
+          {publicPreviewHref ? (
+            <Link
+              href={publicPreviewHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ui-btn-secondary inline-flex min-h-11 items-center justify-center px-5 text-sm font-semibold"
+            >
+              View as customer sees
+            </Link>
+          ) : null}
           <button
             type="button"
             disabled

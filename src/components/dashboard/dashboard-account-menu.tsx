@@ -7,9 +7,11 @@ import { signOut } from "@/domain/auth/actions";
 
 type Props = {
   userEmail: string;
+  /** When set (e.g. S3 public URL), shown as the menu trigger avatar. */
+  profileImageUrl?: string | null;
 };
 
-export function DashboardAccountMenu({ userEmail }: Props) {
+export function DashboardAccountMenu({ userEmail, profileImageUrl }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -82,10 +84,21 @@ export function DashboardAccountMenu({ userEmail }: Props) {
         aria-haspopup="menu"
         aria-controls={`${menuId}-menu`}
         aria-label={`Account menu, signed in as ${userEmail}`}
-        className="rounded-lg outline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+        className="overflow-hidden rounded-lg outline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
         onClick={() => setOpen((o) => !o)}
       >
-        <GroveAccountMark size={32} />
+        {profileImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- dynamic storage URL
+          <img
+            src={profileImageUrl}
+            alt=""
+            width={36}
+            height={36}
+            className="h-9 w-9 object-cover"
+          />
+        ) : (
+          <GroveAccountMark size={32} />
+        )}
       </button>
       {open ? (
         <div
@@ -106,9 +119,18 @@ export function DashboardAccountMenu({ userEmail }: Props) {
           >
             Profile
           </Link>
+          <Link
+            href="/dashboard/docs"
+            role="menuitem"
+            data-dashboard-menu-item
+            className={itemClass}
+            onClick={close}
+          >
+            Help
+          </Link>
           <form action={signOut} className="mt-0.5 px-1 pb-1">
             <button type="submit" role="menuitem" data-dashboard-menu-item className={itemClass}>
-              Sign out
+              Log out
             </button>
           </form>
         </div>

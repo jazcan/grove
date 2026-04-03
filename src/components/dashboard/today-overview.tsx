@@ -105,7 +105,7 @@ export function TodayOverview({
           return `Last list email: ${days} days ago`;
         })()
       : customerCount >= 1
-        ? "You haven’t sent a list email yet"
+        ? "You haven’t sent a list email yet."
         : null;
 
   return (

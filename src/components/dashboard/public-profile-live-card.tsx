@@ -17,6 +17,17 @@ export function PublicProfileLiveCard({ username, profileUrl }: Props) {
           <p className="ui-hint mt-2 max-w-prose leading-relaxed">
             People nearby can view your services and book time with you.
           </p>
+          <div className="mt-4 rounded-xl border border-[var(--card-border)] bg-[var(--surface-muted)]/25 p-4">
+            <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">Booking link</div>
+            <a
+              href={profileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ui-link mt-1 block truncate text-sm font-medium"
+            >
+              {profileUrl}
+            </a>
+          </div>
         </div>
         <div className="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
           <Link href={`/${username}`} className="ui-btn-primary inline-flex min-h-11 justify-center px-5 py-2.5 text-sm no-underline sm:py-3">

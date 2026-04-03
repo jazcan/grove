@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import {
   canonicalServiceTemplates,
   pricingProfiles,
+  providerDiscountCodes,
   serviceAddOnOverrides,
   services,
 } from "@/db/schema";
@@ -13,6 +14,7 @@ import { requireProvider } from "@/lib/tenancy";
 import { PricingSimulator } from "@/components/dashboard/pricing-simulator";
 import { PositioningTiersForm, PricingProfileForm } from "./pricing-forms";
 import { AddOnOverrideRows } from "./add-on-override-rows";
+import { DiscountCodesPanel } from "./discount-codes-panel";
 
 export default async function PricingPage() {
   const u = await requireProvider();
@@ -72,6 +74,18 @@ export default async function PricingPage() {
   }));
 
   const mult0 = Number(tierRows[0]?.multiplier ?? 1);
+  const discountRows = await db
+    .select({
+      id: providerDiscountCodes.id,
+      code: providerDiscountCodes.code,
+      discountPercent: providerDiscountCodes.discountPercent,
+      oneTimeUse: providerDiscountCodes.oneTimeUse,
+      redeemedAt: providerDiscountCodes.redeemedAt,
+    })
+    .from(providerDiscountCodes)
+    .where(eq(providerDiscountCodes.providerId, u.providerId))
+    .orderBy(asc(providerDiscountCodes.createdAt));
+
   const recommendations = serviceRows.map((r) => {
     const base = r.templateListPrice != null ? String(r.templateListPrice) : String(r.priceAmount);
     return {
@@ -87,7 +101,7 @@ export default async function PricingPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Pricing</h1>
         <p className="mt-2 max-w-prose text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-          Set how your services are priced and positioned.
+          Increase your profitability with pricing controls.
         </p>
       </header>
 
@@ -121,6 +135,17 @@ export default async function PricingPage() {
       ) : null}
 
       <PricingSimulator services={simulatorServices} tiers={tiers} overrideByService={byService} />
+
+      <DiscountCodesPanel
+        csrf={csrf}
+        rows={discountRows.map((r) => ({
+          id: r.id,
+          code: r.code,
+          discountPercent: Number(r.discountPercent),
+          oneTimeUse: r.oneTimeUse,
+          redeemedAt: r.redeemedAt,
+        }))}
+      />
 
       <AddOnOverrideRows services={simulatorServices} overrides={byService} csrf={csrf} />
     </main>

@@ -118,7 +118,7 @@ export default async function AvailabilityPage({ searchParams }: Props) {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Availability</h1>
         <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-          Set when you&apos;re available and when you&apos;re not.
+          Stay in control of your time.
         </p>
         {saved ? (
           <div

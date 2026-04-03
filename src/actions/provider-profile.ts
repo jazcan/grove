@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { providers, users } from "@/db/schema";
-import { plainTextFromInput } from "@/lib/sanitize";
+import { optionalHttpUrl, plainTextFromInput } from "@/lib/sanitize";
 import { isValidUsername, isReservedUsername } from "@/lib/reserved-usernames";
 import { logAudit } from "@/lib/audit";
 import { geocodeProviderAddress } from "@/lib/geocoding/geocode-provider-address";
@@ -77,6 +77,12 @@ export async function updateProviderProfile(formData: FormData): Promise<Profile
   const lead = Number(formData.get("bookingLeadTimeMinutes") ?? 60);
   const horizon = Number(formData.get("bookingHorizonDays") ?? 60);
 
+  const websiteUrl = optionalHttpUrl(formData.get("websiteUrl")?.toString() ?? "", 500);
+  const socialFacebookUrl = optionalHttpUrl(formData.get("socialFacebookUrl")?.toString() ?? "", 500);
+  const socialInstagramUrl = optionalHttpUrl(formData.get("socialInstagramUrl")?.toString() ?? "", 500);
+  const socialYoutubeUrl = optionalHttpUrl(formData.get("socialYoutubeUrl")?.toString() ?? "", 500);
+  const socialTiktokUrl = optionalHttpUrl(formData.get("socialTiktokUrl")?.toString() ?? "", 500);
+
   await db
     .update(providers)
     .set({
@@ -85,7 +91,15 @@ export async function updateProviderProfile(formData: FormData): Promise<Profile
       bio,
       category,
       city,
+      countryCode,
+      region: region || null,
+      postalCode: postalCode || null,
       serviceArea,
+      websiteUrl,
+      socialFacebookUrl,
+      socialInstagramUrl,
+      socialYoutubeUrl,
+      socialTiktokUrl,
       contactEmail: contactEmail || null,
       contactPhone: contactPhone || null,
       timezone,
@@ -379,4 +393,28 @@ export async function setDiscoverable(formData: FormData): Promise<ProfileState>
   revalidatePath("/dashboard/profile");
   const returnTo = formData.get("returnTo")?.toString() || "/dashboard/profile#discovery-form";
   redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}saved=discovery`);
+}
+
+export async function updateProviderProfileImageKey(formData: FormData): Promise<ProfileState> {
+  if (!(await csrfOk(formData, { action: "updateProviderProfileImageKey" }))) {
+    return { error: "Invalid security token." };
+  }
+  const ctx = await loadProviderContext();
+  const key = plainTextFromInput(formData.get("profileImageKey")?.toString() ?? "", 512).trim();
+  if (!key || key.includes("..") || key.startsWith("/")) {
+    return { error: "Invalid image key." };
+  }
+  const db = getDb();
+  const [before] = await db
+    .select({ username: providers.username })
+    .from(providers)
+    .where(eq(providers.id, ctx.providerId))
+    .limit(1);
+  await db
+    .update(providers)
+    .set({ profileImageKey: key, updatedAt: new Date() })
+    .where(eq(providers.id, ctx.providerId));
+  revalidatePath("/dashboard/profile");
+  if (before?.username) revalidatePath(`/${before.username}`);
+  return { success: "Image saved." };
 }

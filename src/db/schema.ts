@@ -142,6 +142,12 @@ export const providers = pgTable(
     reminder24h: boolean("reminder_24h").notNull().default(true),
     reminder2h: boolean("reminder_2h").notNull().default(false),
     profileImageKey: text("profile_image_key"),
+    /** Public website (https…); shown on profile when set. */
+    websiteUrl: text("website_url"),
+    socialFacebookUrl: text("social_facebook_url"),
+    socialInstagramUrl: text("social_instagram_url"),
+    socialYoutubeUrl: text("social_youtube_url"),
+    socialTiktokUrl: text("social_tiktok_url"),
     bookingLeadTimeMinutes: integer("booking_lead_time_minutes").notNull().default(60),
     bookingHorizonDays: integer("booking_horizon_days").notNull().default(60),
     /** When true, public booking pages show no slots and submissions are rejected (temporary pause). */
@@ -157,6 +163,27 @@ export const providers = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("providers_discoverable_idx").on(t.discoverable, t.publicProfileEnabled)]
+);
+
+/** Up to five promo codes per provider (enforced in application logic). */
+export const providerDiscountCodes = pgTable(
+  "provider_discount_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    code: varchar("code", { length: 32 }).notNull(),
+    /** Percent off the pre-tip subtotal (service + add-ons), e.g. 10 = 10%. */
+    discountPercent: decimal("discount_percent", { precision: 5, scale: 2 }).notNull().default("10"),
+    oneTimeUse: boolean("one_time_use").notNull().default(false),
+    redeemedAt: timestamp("redeemed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("provider_discount_codes_provider_code_uidx").on(t.providerId, t.code),
+    index("provider_discount_codes_provider_idx").on(t.providerId),
+  ]
 );
 
 /** Deduplicated provider-facing signals for dashboard banners (e.g. public booking failures). */
@@ -401,6 +428,8 @@ export const bookings = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     publicReference: uuid("public_reference").notNull().unique().defaultRandom(),
+    /** Short customer-facing code (e.g. HL-ABC123); optional for legacy rows. */
+    confirmationCode: varchar("confirmation_code", { length: 24 }),
     providerId: uuid("provider_id")
       .notNull()
       .references(() => providers.id, { onDelete: "cascade" }),
@@ -442,6 +471,7 @@ export const bookings = pgTable(
   (t) => [
     index("bookings_provider_starts_idx").on(t.providerId, t.startsAt),
     index("bookings_provider_overlap_idx").on(t.providerId),
+    uniqueIndex("bookings_confirmation_code_uidx").on(t.confirmationCode),
   ]
 );
 
@@ -848,6 +878,14 @@ export const providersRelations = relations(providers, ({ one, many }) => ({
     references: [assistantPreferences.providerId],
   }),
   assistantConversations: many(assistantConversations),
+  discountCodes: many(providerDiscountCodes),
+}));
+
+export const providerDiscountCodesRelations = relations(providerDiscountCodes, ({ one }) => ({
+  provider: one(providers, {
+    fields: [providerDiscountCodes.providerId],
+    references: [providers.id],
+  }),
 }));
 
 export const assistantSuggestionsRelations = relations(assistantSuggestions, ({ one, many }) => ({

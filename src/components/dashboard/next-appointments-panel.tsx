@@ -37,36 +37,6 @@ export function NextAppointmentsPanel({ timezone, appointments, published, profi
         </Link>
       </div>
 
-      {published && username ? (
-        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--surface-muted)]/25 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">Booking link</div>
-            <a
-              href={profileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ui-link mt-1 block truncate text-sm font-medium"
-            >
-              {profileUrl}
-            </a>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <CopyPublicProfileUrlButton
-              url={profileUrl}
-              className="ui-btn-secondary inline-flex min-h-10 items-center justify-center px-4 py-2 text-sm font-semibold"
-            >
-              Copy link
-            </CopyPublicProfileUrlButton>
-            <Link
-              href={`/${username}`}
-              className="ui-btn-secondary inline-flex min-h-10 items-center justify-center px-4 py-2 text-sm font-semibold no-underline"
-            >
-              Preview
-            </Link>
-          </div>
-        </div>
-      ) : null}
-
       <div className="mt-6">
         {appointments.length ? (
           <ul className="space-y-3">

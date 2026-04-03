@@ -5,6 +5,7 @@ import { and, asc, eq, ne } from "drizzle-orm";
 import { getDb, type Database } from "@/db";
 import {
   providers,
+  providerDiscountCodes,
   services,
   bookings,
   availabilityRules,
@@ -14,7 +15,7 @@ import {
 import { generateSlots } from "@/domain/availability/slots";
 import { createBookingAtomic } from "@/domain/bookings/create-booking";
 import { computePublicBookingPrice } from "@/domain/pricing/compute-public-booking-price";
-import { clampPublicBookingTipPercent } from "@/domain/pricing/engine";
+import { applyTipToSimulatedPrice, clampPublicBookingTipPercent } from "@/domain/pricing/engine";
 import { ensureDefaultPricingProfile } from "@/domain/pricing/ensure-default";
 import { rankServicesByIntent } from "@/domain/public/match-services-intent";
 import { validateCsrfToken } from "@/lib/csrf";
@@ -188,6 +189,46 @@ export async function suggestPublicBookingSlot(input: {
   }
 }
 
+export async function lookupPublicDiscountCode(input: {
+  username: string;
+  code: string;
+}): Promise<{ ok: true; percent: number } | { ok: false }> {
+  const uname = input.username.trim().toLowerCase();
+  const code = plainTextFromInput(input.code ?? "", 32).trim().toUpperCase();
+  if (code.length < 3 || isReservedUsername(uname)) return { ok: false };
+
+  let db;
+  try {
+    db = getDb();
+  } catch {
+    return { ok: false };
+  }
+
+  try {
+    const [prov] = await db.select({ id: providers.id }).from(providers).where(eq(providers.username, uname)).limit(1);
+    if (!prov?.id) return { ok: false };
+
+    const [row] = await db
+      .select({
+        discountPercent: providerDiscountCodes.discountPercent,
+        oneTimeUse: providerDiscountCodes.oneTimeUse,
+        redeemedAt: providerDiscountCodes.redeemedAt,
+      })
+      .from(providerDiscountCodes)
+      .where(and(eq(providerDiscountCodes.providerId, prov.id), eq(providerDiscountCodes.code, code)))
+      .limit(1);
+
+    if (!row) return { ok: false };
+    if (row.oneTimeUse && row.redeemedAt) return { ok: false };
+    const pct = Number(row.discountPercent);
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 50) return { ok: false };
+    return { ok: true, percent: Math.round(pct * 100) / 100 };
+  } catch (e) {
+    console.error("[lookupPublicDiscountCode]", e);
+    return { ok: false };
+  }
+}
+
 export async function matchPublicServicesByIntent(input: {
   username: string;
   intent: string;
@@ -277,6 +318,7 @@ export async function submitPublicBooking(
   const customerPhone = plainTextFromInput(formData.get("customerPhone")?.toString() ?? "", 40);
   const customerNotes = plainTextFromInput(formData.get("customerNotes")?.toString() ?? "", 2000);
   const rawPay = plainTextFromInput(formData.get("paymentMethod")?.toString() ?? "", 64).toLowerCase();
+  const discountCodeRaw = plainTextFromInput(formData.get("discountCode")?.toString() ?? "", 32).trim().toUpperCase();
   const positioningTierIdRaw = formData.get("positioningTierId")?.toString()?.trim() ?? "";
   const addOnRaw = formData.getAll("addOnIds").map((v) => String(v).trim()).filter(Boolean);
   const tipPercentRaw = formData.get("tipPercent")?.toString().trim() ?? "";
@@ -379,8 +421,43 @@ export async function submitPublicBooking(
       return { error: priced.error };
     }
 
-    const paymentAmountStr = priced.grandTotal.toFixed(2);
-    const tipPercentStored = priced.tipPercent.toFixed(2);
+    let discountRowId: string | null = null;
+    let discountPercentNum = 0;
+    if (discountCodeRaw) {
+      const [dRow] = await db
+        .select()
+        .from(providerDiscountCodes)
+        .where(
+          and(eq(providerDiscountCodes.providerId, prov.id), eq(providerDiscountCodes.code, discountCodeRaw))
+        )
+        .limit(1);
+      if (!dRow) {
+        return { error: "That discount code isn’t valid." };
+      }
+      if (dRow.oneTimeUse && dRow.redeemedAt) {
+        return { error: "That discount code has already been used." };
+      }
+      const p = Number(dRow.discountPercent);
+      if (!Number.isFinite(p) || p <= 0 || p > 50) {
+        return { error: "That discount code isn’t valid." };
+      }
+      discountPercentNum = Math.round(p * 100) / 100;
+      discountRowId = dRow.id;
+    }
+
+    const preTipSubtotal = priced.simulated.grandTotal;
+    const discountAmt =
+      discountPercentNum > 0
+        ? Math.round(preTipSubtotal * (discountPercentNum / 100) * 100) / 100
+        : 0;
+    const subAfterDiscount = Math.max(0, Math.round((preTipSubtotal - discountAmt) * 100) / 100);
+    const tipped = applyTipToSimulatedPrice(
+      { ...priced.simulated, grandTotal: subAfterDiscount },
+      tipPercentForPricing
+    );
+
+    const paymentAmountStr = tipped.grandTotal.toFixed(2);
+    const tipPercentStored = tipped.tipPercent.toFixed(2);
 
     const created = await createBookingAtomic(db, {
       providerId: prov.id,
@@ -398,6 +475,20 @@ export async function submitPublicBooking(
       paymentAmount: paymentAmountStr,
       tipPercent: tipPercentStored,
     });
+
+    if (discountRowId) {
+      const [dr] = await db
+        .select({ oneTimeUse: providerDiscountCodes.oneTimeUse })
+        .from(providerDiscountCodes)
+        .where(eq(providerDiscountCodes.id, discountRowId))
+        .limit(1);
+      if (dr?.oneTimeUse) {
+        await db
+          .update(providerDiscountCodes)
+          .set({ redeemedAt: new Date() })
+          .where(eq(providerDiscountCodes.id, discountRowId));
+      }
+    }
 
     try {
       await recordAssistantEvent(db, {
@@ -444,7 +535,9 @@ export async function submitPublicBooking(
     }
 
     return {
-      success: String(created.publicReference),
+      success:
+        created.confirmationCode ??
+        `HL-${created.publicReference.replace(/-/g, "").slice(0, 8).toUpperCase()}`,
     };
   } catch (e) {
     if (e instanceof Error && e.message === "SLOT_TAKEN") {

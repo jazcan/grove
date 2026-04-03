@@ -130,11 +130,11 @@ export default async function DashboardHomePage() {
     .from(bookings)
     .innerJoin(customers, eq(bookings.customerId, customers.id))
     .innerJoin(services, eq(bookings.serviceId, services.id))
-    .where(eq(bookings.providerId, u.providerId))
+    .where(and(eq(bookings.providerId, u.providerId), ne(bookings.status, "cancelled"), gte(bookings.startsAt, now)))
     .orderBy(asc(bookings.startsAt))
     .limit(40);
 
-  const nextUpRows = upcomingRows.filter((b) => b.startsAt >= now);
+  const nextUpRows = upcomingRows;
   const nextAppointments: NextAppointmentRow[] = nextUpRows.slice(0, 3).map((b) => ({
     id: b.id,
     startsAt: b.startsAt.toISOString(),
@@ -373,7 +373,7 @@ export default async function DashboardHomePage() {
     <main id="main-content">
       <div className="mx-auto max-w-[800px]">
         <header className="pt-1">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Command center</h1>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your day at a glance</h1>
           <p className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
             {needsSetup
               ? "Finish the basics below, then lean on this page to spot issues, see your day, and pick one sensible next step."

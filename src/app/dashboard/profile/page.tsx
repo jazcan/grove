@@ -10,6 +10,7 @@ import { ProfileSectionCard } from "@/components/dashboard/profile/profile-secti
 import { requireProvider } from "@/lib/tenancy";
 import { updateProviderProfile, updateUsername } from "@/actions/provider-profile";
 import { ProfileShell } from "@/app/dashboard/profile/profile-shell";
+import { ProfileImageField } from "@/components/dashboard/profile/profile-image-field";
 
 type Props = { searchParams: Promise<{ saved?: string }> };
 
@@ -134,6 +135,11 @@ export default async function ProfilePage({ searchParams }: Props) {
           </header>
 
           <div className="mt-10 flex flex-col gap-8 sm:mt-12 sm:gap-10">
+            <ProfileImageField
+              csrf={csrf}
+              profileImageKey={prov?.profileImageKey ?? null}
+              displayName={prov?.displayName ?? "Your business"}
+            />
             {/* —— Public profile: page address —— */}
             <section id="profile-identity" className="scroll-mt-24 space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -338,6 +344,74 @@ export default async function ProfilePage({ searchParams }: Props) {
                 status={aboutComplete ? "complete" : "incomplete"}
               >
                 <div className="grid gap-5 sm:gap-6">
+                  <div>
+                    <label htmlFor="websiteUrl" className="text-sm font-medium">
+                      Website
+                    </label>
+                    <input
+                      id="websiteUrl"
+                      name="websiteUrl"
+                      type="url"
+                      defaultValue={prov?.websiteUrl ?? ""}
+                      className={inputClass}
+                      placeholder="https://your-site.com"
+                    />
+                    <p className="ui-hint mt-1.5">Optional. Shown on your public profile when set.</p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="socialFacebookUrl" className="text-sm font-medium">
+                        Facebook page
+                      </label>
+                      <input
+                        id="socialFacebookUrl"
+                        name="socialFacebookUrl"
+                        type="url"
+                        defaultValue={prov?.socialFacebookUrl ?? ""}
+                        className={inputClass}
+                        placeholder="https://facebook.com/…"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="socialInstagramUrl" className="text-sm font-medium">
+                        Instagram
+                      </label>
+                      <input
+                        id="socialInstagramUrl"
+                        name="socialInstagramUrl"
+                        type="url"
+                        defaultValue={prov?.socialInstagramUrl ?? ""}
+                        className={inputClass}
+                        placeholder="https://instagram.com/…"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="socialYoutubeUrl" className="text-sm font-medium">
+                        YouTube
+                      </label>
+                      <input
+                        id="socialYoutubeUrl"
+                        name="socialYoutubeUrl"
+                        type="url"
+                        defaultValue={prov?.socialYoutubeUrl ?? ""}
+                        className={inputClass}
+                        placeholder="https://youtube.com/…"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="socialTiktokUrl" className="text-sm font-medium">
+                        TikTok
+                      </label>
+                      <input
+                        id="socialTiktokUrl"
+                        name="socialTiktokUrl"
+                        type="url"
+                        defaultValue={prov?.socialTiktokUrl ?? ""}
+                        className={inputClass}
+                        placeholder="https://tiktok.com/…"
+                      />
+                    </div>
+                  </div>
                   <div>
                     <label htmlFor="bio" className="text-sm font-medium">
                       Bio

@@ -1,6 +1,7 @@
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, or } from "drizzle-orm";
+import { DateTime } from "luxon";
 import { getDb } from "@/db";
-import { providers } from "@/db/schema";
+import { availabilityRules, providers, services } from "@/db/schema";
 import { haversineKm } from "@/lib/geo/haversine";
 import { geocodeWithNominatim } from "@/lib/geocoding/nominatim";
 import { getProviderSearchPoint } from "@/lib/geocoding/provider-search-location";
@@ -11,6 +12,11 @@ export type MarketplaceProviderRow = {
   category: string;
   city: string;
   serviceArea: string;
+  profileImageKey: string | null;
+  /** Up to three active service names for cards. */
+  topServices: string[];
+  /** Total active services (for “& more” on cards). */
+  totalServiceCount: number;
   /** Present when search used a location + radius. */
   distanceKm?: number;
   latitude: number | null;
@@ -31,6 +37,17 @@ export type MarketplaceSearchOutcome = {
 const DEFAULT_RADIUS_KM = 25;
 const MAX_CANDIDATES = 400;
 
+function luxonToJsWeekday(dt: DateTime): number {
+  return dt.weekday === 7 ? 0 : dt.weekday;
+}
+
+function providerOpenOnCalendarDate(timezone: string, dateISO: string, rules: { dayOfWeek: number; isActive: boolean }[]) {
+  const day = DateTime.fromISO(dateISO, { zone: timezone || "America/Toronto" });
+  if (!day.isValid) return true;
+  const jsDow = luxonToJsWeekday(day);
+  return rules.some((r) => r.isActive && r.dayOfWeek === jsDow);
+}
+
 function parseRadiusKm(raw: string | undefined): number {
   const n = Number(raw);
   const allowed = [5, 10, 25, 50, 100];
@@ -49,6 +66,8 @@ export async function searchDiscoverableProviders(filters: {
   location?: string;
   /** @deprecated use `location` */
   city?: string;
+  /** YYYY-MM-DD — keep providers who have weekly hours on that weekday in their timezone. */
+  availableDate?: string;
   /** Search context for geocoding (CA | US). */
   country?: string;
   radiusKm?: string;
@@ -59,6 +78,7 @@ export async function searchDiscoverableProviders(filters: {
   const q = (filters.q ?? "").trim();
   const category = (filters.category ?? "").trim();
   const locationRaw = (filters.location ?? filters.city ?? "").trim();
+  const availableDate = (filters.availableDate ?? "").trim();
   const countryRaw = (filters.country ?? "").trim().toUpperCase();
   const countryHint: "CA" | "US" | undefined =
     countryRaw === "US" ? "US" : countryRaw === "CA" ? "CA" : undefined;
@@ -80,6 +100,7 @@ export async function searchDiscoverableProviders(filters: {
 
   const rows = await db
     .select({
+      id: providers.id,
       username: providers.username,
       displayName: providers.displayName,
       category: providers.category,
@@ -88,21 +109,75 @@ export async function searchDiscoverableProviders(filters: {
       latitude: providers.latitude,
       longitude: providers.longitude,
       countryCode: providers.countryCode,
+      timezone: providers.timezone,
+      profileImageKey: providers.profileImageKey,
     })
     .from(providers)
     .where(and(...conditions))
     .limit(MAX_CANDIDATES);
 
+  const providerIds = rows.map((r) => r.id);
+  const topServicesMap = new Map<string, string[]>();
+  const serviceCountMap = new Map<string, number>();
+  if (providerIds.length) {
+    const svcRows = await db
+      .select({
+        providerId: services.providerId,
+        name: services.name,
+        sortOrder: services.sortOrder,
+      })
+      .from(services)
+      .where(and(inArray(services.providerId, providerIds), eq(services.isActive, true)))
+      .orderBy(asc(services.sortOrder), asc(services.name));
+    for (const s of svcRows) {
+      serviceCountMap.set(s.providerId, (serviceCountMap.get(s.providerId) ?? 0) + 1);
+      const cur = topServicesMap.get(s.providerId) ?? [];
+      if (cur.length < 3) {
+        cur.push(s.name);
+        topServicesMap.set(s.providerId, cur);
+      }
+    }
+  }
+
+  const rulesByProvider = new Map<string, { dayOfWeek: number; isActive: boolean }[]>();
+  if (availableDate && /^\d{4}-\d{2}-\d{2}$/.test(availableDate) && providerIds.length) {
+    const ruleRows = await db
+      .select({
+        providerId: availabilityRules.providerId,
+        dayOfWeek: availabilityRules.dayOfWeek,
+        isActive: availabilityRules.isActive,
+      })
+      .from(availabilityRules)
+      .where(inArray(availabilityRules.providerId, providerIds));
+    for (const rr of ruleRows) {
+      const list = rulesByProvider.get(rr.providerId) ?? [];
+      list.push({ dayOfWeek: rr.dayOfWeek, isActive: rr.isActive });
+      rulesByProvider.set(rr.providerId, list);
+    }
+  }
+
+  let working = rows;
+  if (availableDate && /^\d{4}-\d{2}-\d{2}$/.test(availableDate)) {
+    working = working.filter((r) =>
+      providerOpenOnCalendarDate(r.timezone, availableDate, rulesByProvider.get(r.id) ?? [])
+    );
+  }
+
+  const toPublicRow = (r: (typeof rows)[number]): MarketplaceProviderRow => ({
+    username: r.username,
+    displayName: r.displayName,
+    category: r.category,
+    city: r.city,
+    serviceArea: r.serviceArea,
+    profileImageKey: r.profileImageKey,
+    topServices: topServicesMap.get(r.id) ?? [],
+    totalServiceCount: serviceCountMap.get(r.id) ?? 0,
+    latitude: r.latitude,
+    longitude: r.longitude,
+  });
+
   if (!locationRaw) {
-    const results: MarketplaceProviderRow[] = rows.slice(0, limit).map((r) => ({
-      username: r.username,
-      displayName: r.displayName,
-      category: r.category,
-      city: r.city,
-      serviceArea: r.serviceArea,
-      latitude: r.latitude,
-      longitude: r.longitude,
-    }));
+    const results: MarketplaceProviderRow[] = working.slice(0, limit).map(toPublicRow);
     return {
       results,
       geocodeFailed: false,
@@ -128,7 +203,7 @@ export async function searchDiscoverableProviders(filters: {
     };
   }
 
-  const scored = rows
+  const scored = working
     .map((r) => {
       const pt = getProviderSearchPoint({
         latitude: r.latitude,
@@ -146,11 +221,7 @@ export async function searchDiscoverableProviders(filters: {
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   const results: MarketplaceProviderRow[] = scored.slice(0, limit).map((x) => ({
-    username: x.row.username,
-    displayName: x.row.displayName,
-    category: x.row.category,
-    city: x.row.city,
-    serviceArea: x.row.serviceArea,
+    ...toPublicRow(x.row),
     distanceKm: Math.round(x.distanceKm * 10) / 10,
     latitude: x.pt.lat,
     longitude: x.pt.lng,

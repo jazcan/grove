@@ -1,6 +1,7 @@
 import { and, eq, ne, sql } from "drizzle-orm";
 import type { Database } from "@/db";
 import { bookings, customers, services } from "@/db/schema";
+import { generateBookingConfirmationCode } from "@/lib/booking-confirmation-code";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
 import { logAudit } from "@/lib/audit";
 import { emitPlatformEvent } from "@/platform/events/emit";
@@ -42,7 +43,7 @@ export type CreateBookingInput = {
 export async function createBookingAtomic(
   db: Database,
   input: CreateBookingInput
-): Promise<{ bookingId: string; publicReference: string; customerId: string }> {
+): Promise<{ bookingId: string; publicReference: string; confirmationCode: string | null; customerId: string }> {
   return db.transaction(async (tx) => {
     const overlap = await tx
       .select({ id: bookings.id })
@@ -147,6 +148,23 @@ export async function createBookingAtomic(
         ? input.initialPaymentStatus
         : undefined;
 
+    let confirmationCode: string | null = null;
+    for (let attempt = 0; attempt < 16; attempt++) {
+      const candidate = generateBookingConfirmationCode();
+      const clash = await tx
+        .select({ id: bookings.id })
+        .from(bookings)
+        .where(eq(bookings.confirmationCode, candidate))
+        .limit(1);
+      if (!clash.length) {
+        confirmationCode = candidate;
+        break;
+      }
+    }
+    if (!confirmationCode) {
+      throw new Error("BOOKING_CODE_FAILED");
+    }
+
     const [booking] = await tx
       .insert(bookings)
       .values({
@@ -164,9 +182,10 @@ export async function createBookingAtomic(
         selectedAddOnIds: addOnIds,
         paymentAmount: payAmt,
         tipPercent: tipPct,
+        confirmationCode,
         ...(initialPay ? { paymentStatus: initialPay } : {}),
       })
-      .returning({ id: bookings.id, publicReference: bookings.publicReference });
+      .returning({ id: bookings.id, publicReference: bookings.publicReference, confirmationCode: bookings.confirmationCode });
 
     if (!booking) throw new Error("BOOKING_FAILED");
 
@@ -212,6 +231,7 @@ export async function createBookingAtomic(
     return {
       bookingId: booking.id,
       publicReference: booking.publicReference,
+      confirmationCode: booking.confirmationCode,
       customerId: cust.id,
     };
   });

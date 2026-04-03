@@ -8,5 +8,12 @@ export async function SiteHeader() {
   } catch (e) {
     console.error("[SiteHeader] session lookup failed", e);
   }
-  return <SiteHeaderClient isLoggedIn={!!user} isAdmin={user?.role === "admin"} />;
+
+  return (
+    <SiteHeaderClient
+      isLoggedIn={!!user}
+      isAdmin={user?.role === "admin"}
+      hasProvider={!!user?.providerId}
+    />
+  );
 }

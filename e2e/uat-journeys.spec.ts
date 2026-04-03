@@ -75,7 +75,7 @@ test.describe.serial("UAT plans 1–5 — end-to-end journey", () => {
     const c = await customerCtx.newPage();
 
     await c.goto(`/marketplace?q=${encodeURIComponent(displayLabel)}`);
-    await expect(c.getByRole("heading", { name: "Find someone local" })).toBeVisible();
+    await expect(c.getByRole("heading", { name: "Find local services" })).toBeVisible();
     await c.getByRole("link", { name: displayLabel }).first().click();
     await expect(c).toHaveURL(new RegExp(`/${username}$`));
     await expect(c.getByRole("link", { name: /Book UAT Service/i }).first()).toBeVisible();
