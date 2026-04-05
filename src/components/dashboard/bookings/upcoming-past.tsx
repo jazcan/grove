@@ -29,16 +29,30 @@ export function UpcomingBookingsGrouped({
   const nowYear = DateTime.now().setZone(timezone).year;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {keys.map((key) => {
         const day = DateTime.fromISO(key, { zone: timezone });
-        const dayHead =
-          day.year === nowYear ? day.toFormat("LLL d") : day.toFormat("LLL d, yyyy");
+        const weekday = day.toFormat("cccc");
+        const dateLine =
+          day.year === nowYear ? day.toFormat("LLLL d") : day.toFormat("LLLL d, yyyy");
         const items = groups.get(key) ?? [];
         return (
-          <section key={key}>
-            <h3 className="text-sm font-semibold text-[var(--foreground)]">{dayHead}</h3>
-            <ul className="mt-2 space-y-1.5">
+          <section
+            key={key}
+            className="overflow-hidden rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_7%,var(--border))] bg-[var(--card)] shadow-[var(--shadow-sm)]"
+          >
+            <header className="flex flex-wrap items-start justify-between gap-2 border-b border-[color-mix(in_oklab,var(--foreground)_6%,var(--border))] px-4 py-3.5 sm:px-5 sm:py-4">
+              <div className="min-w-0">
+                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-[color-mix(in_oklab,var(--foreground)_48%,transparent)]">
+                  {weekday}
+                </p>
+                <h3 className="mt-0.5 text-lg font-semibold tracking-tight text-[var(--foreground)] sm:text-xl">{dateLine}</h3>
+              </div>
+              <p className="shrink-0 pt-0.5 text-xs font-medium tabular-nums text-[color-mix(in_oklab,var(--foreground)_52%,transparent)]">
+                {items.length === 1 ? "1 booking" : `${items.length} bookings`}
+              </p>
+            </header>
+            <ul className="space-y-2 p-3 sm:space-y-2.5 sm:p-4">
               {items.map((row) => {
                 const start = DateTime.fromMillis(row.startsAt.getTime(), { zone: "utc" }).setZone(timezone);
                 return (
@@ -46,9 +60,9 @@ export function UpcomingBookingsGrouped({
                     <Link
                       href={`/dashboard/bookings/${row.id}`}
                       prefetch={false}
-                      className="flex flex-col gap-1.5 rounded-lg border border-[color-mix(in_oklab,var(--foreground)_5%,var(--border))] bg-[var(--card)] px-3 py-2.5 shadow-[var(--shadow-sm)] transition-colors hover:bg-[color-mix(in_oklab,var(--foreground)_3%,var(--card))] sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4"
+                      className="flex flex-col gap-2 rounded-xl border border-[color-mix(in_oklab,var(--foreground)_5%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_1.5%,var(--card))] px-3 py-2.5 transition-colors hover:border-[color-mix(in_oklab,var(--foreground)_9%,var(--border))] hover:bg-[color-mix(in_oklab,var(--foreground)_3%,var(--card))] sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-3"
                     >
-                      <div className="min-w-0 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-2">
+                      <div className="min-w-0 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
                         <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--foreground)]">
                           {start.toFormat("h:mm a")}
                         </span>

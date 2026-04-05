@@ -13,10 +13,10 @@ export function AttentionNeededSection({ signals, csrfToken }: Props) {
     <section
       id="attention"
       aria-labelledby="attention-heading"
-      className="space-y-4 rounded-xl border border-[color-mix(in_oklab,var(--accent)_35%,var(--card-border))] bg-[color-mix(in_oklab,var(--accent)_8%,var(--card))] p-5 shadow-[var(--shadow-sm)] sm:p-6"
+      className="space-y-4 rounded-xl border border-[color-mix(in_oklab,var(--accent)_42%,var(--card-border))] bg-[color-mix(in_oklab,var(--accent)_10%,var(--card))] p-5 shadow-[var(--shadow-sm)] sm:p-6"
     >
       <div>
-        <h2 id="attention-heading" className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
+        <h2 id="attention-heading" className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
           Attention needed
         </h2>
         <p className="ui-hint mt-2 text-sm leading-relaxed">

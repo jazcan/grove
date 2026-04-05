@@ -86,7 +86,7 @@ function completePrimaryCta(routeId: AssistantRouteId): { label: string; href: s
     case "analytics":
       return { label: "Command center", href: "/dashboard" };
     case "onboarding":
-      return { label: "Go to home", href: "/dashboard" };
+      return { label: "Open dashboard", href: "/dashboard" };
     default:
       return { label: "Command center", href: "/dashboard" };
   }
@@ -250,6 +250,7 @@ export function DashboardAssistant({
 
   const ctx = panel?.context;
   const suggestions = panel?.suggestions ?? [];
+  const assistantMessages = panel?.messages ?? [];
   const persistenceReady = panel?.persistenceReady !== false;
   const contextLoadFailed = panel?.contextLoadFailed === true;
 
@@ -264,7 +265,7 @@ export function DashboardAssistant({
           aria-label={`${brand.appName} assistant`}
           role="complementary"
         >
-          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--card-border)] px-4 py-3">
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[color-mix(in_oklab,var(--card-border)_18%,transparent)] px-4 py-3">
             <div className="flex min-w-0 items-center gap-2.5">
               <HandshakeLogo size={36} className="h-9 w-9 shrink-0 shadow-[var(--shadow-sm)]" aria-hidden />
               <div className="min-w-0">
@@ -292,7 +293,7 @@ export function DashboardAssistant({
             {!preProvider && ctx ? (
               <>
                 {contextLoadFailed ? (
-                  <div className="mb-4 rounded-lg border border-[var(--card-border)] bg-[var(--surface-muted)] px-3 py-2 text-xs leading-relaxed text-[var(--muted)]">
+                  <div className="mb-3 rounded-lg border border-[var(--card-border)] bg-[var(--surface-muted)] px-3 py-2 text-xs leading-relaxed text-[var(--muted)]">
                     Could not load live bookings and setup from the database. Confirm{" "}
                     <code className="rounded bg-[var(--card)] px-1 py-0.5 text-[10px]">DATABASE_URL</code> and that
                     Postgres is reachable, then reload.
@@ -313,12 +314,12 @@ export function DashboardAssistant({
                 ) : null}
                 <section className="mb-6" aria-labelledby="assist-today">
                   <h2 id="assist-today" className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-                    Today
+                    Today&apos;s schedule
                   </h2>
                   <div className="mt-2 space-y-2 text-sm">
                     {ctx.todayBookings.length === 0 ? (
                       <p className="text-[color-mix(in_oklab,var(--foreground)_72%,transparent)]">
-                        No visits on the calendar for today.
+                        Nothing scheduled for today.
                       </p>
                     ) : (
                       <ul className="space-y-2">
@@ -437,27 +438,32 @@ export function DashboardAssistant({
                     Grounded answers from your dashboard data (rules-first). Not legal or tax advice.
                     {!persistenceReady ? " Saving chat history requires the assistant migration." : null}
                   </p>
-                  <div className="mt-2 max-h-40 space-y-2 overflow-y-auto rounded-lg border border-[var(--card-border)] bg-[var(--card)] p-2 text-xs">
-                    {(panel?.messages ?? []).map((m) => (
-                      <div
-                        key={m.id}
-                        className={
-                          m.role === "user"
-                            ? "text-[var(--foreground)]"
-                            : "text-[color-mix(in_oklab,var(--foreground)_82%,transparent)]"
-                        }
-                      >
-                        <span className="font-semibold">{m.role === "user" ? "You" : "Assistant"}:</span>{" "}
-                        <span className="whitespace-pre-wrap">{m.body}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <form onSubmit={handleAsk} className="mt-2 flex gap-2">
+                  {assistantMessages.length > 0 ? (
+                    <div className="mt-2 max-h-40 space-y-2 overflow-y-auto rounded-lg border border-[var(--card-border)] bg-[var(--card)] p-2 text-xs">
+                      {assistantMessages.map((m) => (
+                        <div
+                          key={m.id}
+                          className={
+                            m.role === "user"
+                              ? "text-[var(--foreground)]"
+                              : "text-[color-mix(in_oklab,var(--foreground)_82%,transparent)]"
+                          }
+                        >
+                          <span className="font-semibold">{m.role === "user" ? "You" : "Assistant"}:</span>{" "}
+                          <span className="whitespace-pre-wrap">{m.body}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  <form
+                    onSubmit={handleAsk}
+                    className={`flex gap-2 ${assistantMessages.length > 0 ? "mt-2" : "mt-3"}`}
+                  >
                     <input
                       name="message"
                       value={askInput}
                       onChange={(e) => setAskInput(e.target.value)}
-                      placeholder="e.g. What’s on my calendar today?"
+                      placeholder="e.g. What’s on today?"
                       className="min-h-10 flex-1 rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 text-sm"
                       disabled={pending}
                     />
@@ -549,7 +555,7 @@ export function DashboardAssistant({
                 </div>
 
                 {supportLinks && supportLinks.length > 0 ? (
-                  <ul className="mt-4 space-y-1.5 border-t border-[var(--card-border)] pt-3">
+                  <ul className="mt-4 space-y-1.5 pt-1">
                     {supportLinks.map((l) => (
                       <li key={`${l.href}-${l.label}`}>
                         <Link

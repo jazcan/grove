@@ -10,3 +10,6 @@ test-results
 playwright-report
 coverage
 *.tsbuildinfo
+
+# Local dev profile photos (S3 not configured)
+public/uploads/profiles

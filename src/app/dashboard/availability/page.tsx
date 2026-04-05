@@ -239,7 +239,7 @@ export default async function AvailabilityPage({ searchParams }: Props) {
             </div>
           </form>
 
-          <div className="divide-y divide-[color-mix(in_oklab,var(--foreground)_6%,var(--border))] px-0 py-0 sm:px-1">
+          <div className="px-0 py-0 sm:px-1">
             {rules.length ? (
               rules.map((r) => (
                 <WeeklyScheduleRow

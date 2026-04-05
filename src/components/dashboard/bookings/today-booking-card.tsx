@@ -33,13 +33,13 @@ export function TodayBookingCard({ row, timezone, csrf }: { row: TodayBookingCar
     row.status === "pending" || row.status === "confirmed" || row.status === "rescheduled";
 
   return (
-    <article className="rounded-xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[var(--card)] p-4 shadow-[var(--shadow-card)] sm:p-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-2">
-          <p className="text-2xl font-semibold tabular-nums tracking-tight text-[var(--foreground)]">{timeRange}</p>
-          <p className="text-base font-medium text-[var(--foreground)]">{row.serviceName}</p>
-          <p className="text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">{row.customerName}</p>
-          <div className="flex flex-wrap items-center gap-2 pt-1">
+    <article className="rounded-xl border border-[color-mix(in_oklab,var(--foreground)_7%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_1.5%,var(--card))] p-4 shadow-[var(--shadow-sm)] sm:p-4">
+      <div className="flex flex-col gap-3.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0 space-y-1.5">
+          <p className="text-xl font-semibold tabular-nums tracking-tight text-[var(--foreground)] sm:text-2xl">{timeRange}</p>
+          <p className="text-[0.9375rem] font-semibold leading-snug text-[var(--foreground)]">{row.serviceName}</p>
+          <p className="text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">{row.customerName}</p>
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
             <BookingStatusBadge status={row.status} />
             <BookingPaymentLabel status={row.paymentStatus} />
           </div>

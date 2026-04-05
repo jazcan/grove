@@ -404,6 +404,11 @@ export async function updateProviderProfileImageKey(formData: FormData): Promise
   if (!key || key.includes("..") || key.startsWith("/")) {
     return { error: "Invalid image key." };
   }
+  const s3Prefix = `profiles/${ctx.providerId}/`;
+  const localPrefix = `uploads/profiles/${ctx.providerId}/`;
+  if (!key.startsWith(s3Prefix) && !key.startsWith(localPrefix)) {
+    return { error: "Invalid image key." };
+  }
   const db = getDb();
   const [before] = await db
     .select({ username: providers.username })

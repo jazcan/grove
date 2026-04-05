@@ -37,19 +37,47 @@ export function ProfileImageField({ csrf, profileImageKey, displayName }: Props)
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contentType: file.type }),
       });
-      const data = (await presign.json()) as { url?: string; key?: string; error?: string };
-      if (!presign.ok || !data.url || !data.key) {
-        setError(data.error ?? "Upload is not available. Check storage settings.");
-        return;
-      }
-      const put = await fetch(data.url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      if (!put.ok) {
-        setError("Could not upload the image.");
-        return;
+      type PresignJson = {
+        url?: string;
+        key?: string;
+        error?: string;
+        code?: string;
+        devUploadAvailable?: boolean;
+      };
+      let key: string | undefined;
+
+      if (presign.status === 501) {
+        const data = (await presign.json()) as PresignJson;
+        if (data.devUploadAvailable) {
+          const local = new FormData();
+          local.set("file", file);
+          const up = await fetch("/api/upload/profile", { method: "POST", body: local });
+          const localData = (await up.json()) as { key?: string; error?: string };
+          if (!up.ok || !localData.key) {
+            setError(localData.error ?? data.error ?? "Upload is not available.");
+            return;
+          }
+          key = localData.key;
+        } else {
+          setError(data.error ?? "Upload is not available. Configure object storage for profile photos.");
+          return;
+        }
+      } else {
+        const data = (await presign.json()) as PresignJson;
+        if (!presign.ok || !data.url || !data.key) {
+          setError(data.error ?? "Upload is not available. Check storage settings.");
+          return;
+        }
+        const put = await fetch(data.url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+        if (!put.ok) {
+          setError("Could not upload the image.");
+          return;
+        }
+        key = data.key;
       }
       const fd = new FormData();
       fd.set("csrf", csrf);
-      fd.set("profileImageKey", data.key);
+      fd.set("profileImageKey", key);
       startTransition(async () => {
         const res = await updateProviderProfileImageKey(fd);
         if (res?.error) setError(res.error);

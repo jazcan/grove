@@ -14,6 +14,26 @@ import { ensureDefaultPricingProfile } from "@/domain/pricing/ensure-default";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
 import type { ActionState } from "@/domain/auth/actions";
 
+const MAX_CREATE_VARIANTS = 6;
+
+function parseCreateVariants(formData: FormData): { durationMinutes: number; bufferMinutes: number; priceAmount: string }[] {
+  const out: { durationMinutes: number; bufferMinutes: number; priceAmount: string }[] = [];
+  for (let i = 0; i < MAX_CREATE_VARIANTS; i++) {
+    const dmRaw = formData.get(`variant_${i}_durationMinutes`);
+    if (dmRaw == null || dmRaw === "") break;
+    const durationMinutes = Number(dmRaw);
+    const bufferMinutes = Number(formData.get(`variant_${i}_bufferMinutes`) ?? 0);
+    const priceAmount = formData.get(`variant_${i}_priceAmount`)?.toString() ?? "0";
+    if (!Number.isFinite(durationMinutes)) break;
+    out.push({
+      durationMinutes: Math.max(5, durationMinutes),
+      bufferMinutes: Number.isFinite(bufferMinutes) ? Math.max(0, bufferMinutes) : 0,
+      priceAmount,
+    });
+  }
+  return out;
+}
+
 export async function createService(formData: FormData): Promise<ActionState> {
   if (!(await csrfOk(formData, { action: "createService" }))) return { error: "Invalid security token." };
   const ctx = await loadProviderContext();
@@ -22,10 +42,11 @@ export async function createService(formData: FormData): Promise<ActionState> {
   if (!name) return { error: "Name is required." };
   const description = plainTextFromInput(formData.get("description")?.toString() ?? "", 5000);
   const category = plainTextFromInput(formData.get("category")?.toString() ?? "", 120);
-  const durationMinutes = Number(formData.get("durationMinutes") ?? 60);
-  const bufferMinutes = Number(formData.get("bufferMinutes") ?? 0);
+  const variants = parseCreateVariants(formData);
+  if (variants.length === 0) {
+    return { error: "Add at least one time and price option." };
+  }
   const pricingType = formData.get("pricingType") === "hourly" ? "hourly" : "fixed";
-  const priceAmount = formData.get("priceAmount")?.toString() ?? "0";
   const currency = plainTextFromInput(formData.get("currency")?.toString() ?? "CAD", 8) || "CAD";
   const prepInstructions = plainTextFromInput(formData.get("prepInstructions")?.toString() ?? "", 2000);
 
@@ -50,62 +71,70 @@ export async function createService(formData: FormData): Promise<ActionState> {
     .where(eq(services.providerId, ctx.providerId))
     .orderBy(desc(services.sortOrder))
     .limit(1);
-  const sortOrder = (maxRow?.m ?? 0) + 1;
+  let sortOrder = (maxRow?.m ?? 0) + 1;
 
   const { tiers } = await ensureDefaultPricingProfile(db, ctx.providerId);
   const defaultTier = tiers.find((t) => t.sortOrder === 0) ?? tiers[0];
 
-  const [created] = await db
-    .insert(services)
-    .values({
-      providerId: ctx.providerId,
-      canonicalTemplateId: canonical.id,
-      canonicalTemplateVersion: canonical.version,
-      positioningTierId: defaultTier?.id ?? null,
-      name,
-      description,
-      category,
-      durationMinutes: Number.isFinite(durationMinutes) ? Math.max(5, durationMinutes) : 60,
-      bufferMinutes: Number.isFinite(bufferMinutes) ? Math.max(0, bufferMinutes) : 0,
-      pricingType,
-      priceAmount,
-      currency,
-      prepInstructions,
-      serviceLevelsEnabled,
-      phoneRequired,
-      notesRequired,
-      notesInstructions: notesRequired ? notesInstructions : null,
-      isActive: true,
-      sortOrder,
-    })
-    .returning({ id: services.id });
+  const multi = variants.length > 1;
 
-  await emitPlatformEvent(
-    {
-      name: "service.created",
-      aggregateType: "service",
-      aggregateId: created!.id,
-      tenantProviderId: ctx.providerId,
-      actorUserId: ctx.id,
-      actorType: "user",
-      payload: {
-        serviceId: created!.id,
+  for (const v of variants) {
+    const rowName = multi ? `${name} (${v.durationMinutes} min)` : name;
+    const [created] = await db
+      .insert(services)
+      .values({
         providerId: ctx.providerId,
         canonicalTemplateId: canonical.id,
         canonicalTemplateVersion: canonical.version,
-      },
-    },
-    db
-  );
+        positioningTierId: defaultTier?.id ?? null,
+        name: rowName,
+        description,
+        category,
+        durationMinutes: v.durationMinutes,
+        bufferMinutes: v.bufferMinutes,
+        pricingType,
+        priceAmount: v.priceAmount,
+        currency,
+        prepInstructions,
+        serviceLevelsEnabled,
+        phoneRequired,
+        notesRequired,
+        notesInstructions: notesRequired ? notesInstructions : null,
+        isActive: true,
+        sortOrder,
+      })
+      .returning({ id: services.id });
 
-  await logAudit({
-    actorUserId: ctx.id,
-    actorType: "user",
-    tenantProviderId: ctx.providerId,
-    entityType: "service",
-    entityId: created!.id,
-    action: "created",
-  });
+    const id = created!.id;
+    sortOrder += 1;
+
+    await emitPlatformEvent(
+      {
+        name: "service.created",
+        aggregateType: "service",
+        aggregateId: id,
+        tenantProviderId: ctx.providerId,
+        actorUserId: ctx.id,
+        actorType: "user",
+        payload: {
+          serviceId: id,
+          providerId: ctx.providerId,
+          canonicalTemplateId: canonical.id,
+          canonicalTemplateVersion: canonical.version,
+        },
+      },
+      db
+    );
+
+    await logAudit({
+      actorUserId: ctx.id,
+      actorType: "user",
+      tenantProviderId: ctx.providerId,
+      entityType: "service",
+      entityId: id,
+      action: "created",
+    });
+  }
 
   const returnTo = formData.get("returnTo")?.toString() || "/dashboard/services#existing-services";
   revalidatePath("/dashboard/services");

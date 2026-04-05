@@ -60,3 +60,18 @@ export type AssistantUrgencyLevel = (typeof ASSISTANT_URGENCY_LEVELS)[number];
 
 export const ASSISTANT_MESSAGE_ROLES = ["user", "assistant"] as const;
 export type AssistantMessageRole = (typeof ASSISTANT_MESSAGE_ROLES)[number];
+
+/** Income row payment channel (mapped from booking `payment_method` free text). */
+export const INCOME_PAYMENT_METHODS = ["cash", "e_transfer", "terminal", "other"] as const;
+export type IncomePaymentMethod = (typeof INCOME_PAYMENT_METHODS)[number];
+
+export const INVOICE_STATUSES = ["draft", "sent", "paid"] as const;
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
+/** Stored on `income_records.source_amount_type` (app-enforced, not a DB enum). */
+export const INCOME_SOURCE_AMOUNT_TYPES = ["payment_amount", "computed_price"] as const;
+export type IncomeSourceAmountType = (typeof INCOME_SOURCE_AMOUNT_TYPES)[number];
+
+/** Expense categories (app validation only; DB stores varchar). */
+export const EXPENSE_CATEGORIES = ["supplies", "travel", "rent", "other"] as const;
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];

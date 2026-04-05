@@ -10,10 +10,6 @@ export async function SiteHeader() {
   }
 
   return (
-    <SiteHeaderClient
-      isLoggedIn={!!user}
-      isAdmin={user?.role === "admin"}
-      hasProvider={!!user?.providerId}
-    />
+    <SiteHeaderClient isLoggedIn={!!user} isAdmin={user?.role === "admin"} />
   );
 }

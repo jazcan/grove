@@ -8,7 +8,6 @@ import {
   services,
 } from "@/db/schema";
 import { ensureDefaultPricingProfile } from "@/domain/pricing/ensure-default";
-import { recommendListPrice } from "@/domain/pricing/engine";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { requireProvider } from "@/lib/tenancy";
 import { PricingSimulator } from "@/components/dashboard/pricing-simulator";
@@ -29,9 +28,7 @@ export default async function PricingPage() {
       priceAmount: services.priceAmount,
       pricingType: services.pricingType,
       currency: services.currency,
-      positioningTierId: services.positioningTierId,
       canonicalAddOns: canonicalServiceTemplates.addOns,
-      templateListPrice: canonicalServiceTemplates.priceAmount,
     })
     .from(services)
     .leftJoin(canonicalServiceTemplates, eq(services.canonicalTemplateId, canonicalServiceTemplates.id))
@@ -73,7 +70,6 @@ export default async function PricingPage() {
     sortOrder: t.sortOrder,
   }));
 
-  const mult0 = Number(tierRows[0]?.multiplier ?? 1);
   const discountRows = await db
     .select({
       id: providerDiscountCodes.id,
@@ -86,22 +82,12 @@ export default async function PricingPage() {
     .where(eq(providerDiscountCodes.providerId, u.providerId))
     .orderBy(asc(providerDiscountCodes.createdAt));
 
-  const recommendations = serviceRows.map((r) => {
-    const base = r.templateListPrice != null ? String(r.templateListPrice) : String(r.priceAmount);
-    return {
-      serviceId: r.id,
-      name: r.name,
-      suggested: recommendListPrice({ templateBasePrice: base, tierMultiplier: mult0 }),
-      currency: r.currency,
-    };
-  });
-
   return (
     <main id="main-content" className="mx-auto max-w-3xl space-y-10">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Pricing</h1>
         <p className="mt-2 max-w-prose text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
-          Increase your profitability with pricing controls.
+          Set currency, tune optional add-ons from your templates, and share discount codes—keep the core path simple.
         </p>
       </header>
 
@@ -111,30 +97,6 @@ export default async function PricingPage() {
           csrf={csrf}
         />
       ) : null}
-
-      <PositioningTiersForm tiers={tierRows} csrf={csrf} />
-
-      {recommendations.length > 0 ? (
-        <section className="ui-card p-5 sm:p-7">
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">Suggestions</h2>
-          <p className="ui-hint mt-2 max-w-prose">
-            Suggested starting prices based on your services—adjust as needed.
-          </p>
-          <ul className="mt-4 space-y-2 text-sm">
-            {recommendations.map((r) => (
-              <li key={r.serviceId} className="flex flex-wrap justify-between gap-2 border-b border-[var(--border)] py-2 last:border-0">
-                <span className="font-medium text-[var(--foreground)]">{r.name}</span>
-                <span className="tabular-nums text-[color-mix(in_oklab,var(--foreground)_75%,transparent)]">
-                  {r.currency}{" "}
-                  {r.suggested.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      <PricingSimulator services={simulatorServices} tiers={tiers} overrideByService={byService} />
 
       <DiscountCodesPanel
         csrf={csrf}
@@ -148,6 +110,29 @@ export default async function PricingPage() {
       />
 
       <AddOnOverrideRows services={simulatorServices} overrides={byService} csrf={csrf} />
+
+      <details className="group rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_1.5%,var(--card))] open:shadow-[var(--shadow-card)]">
+        <summary className="cursor-pointer list-none px-5 py-4 sm:px-6 sm:py-5 [&::-webkit-details-marker]:hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-[var(--foreground)]">Advanced: service levels & simulator</h2>
+              <p className="mt-1 max-w-prose text-sm text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
+                Optional—edit tier labels and multipliers, or try what a booking total might look like with add-ons.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-1 text-xs font-semibold text-[color-mix(in_oklab,var(--foreground)_70%,transparent)] group-open:hidden">
+              Show
+            </span>
+            <span className="hidden shrink-0 rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-1 text-xs font-semibold text-[color-mix(in_oklab,var(--foreground)_70%,transparent)] group-open:inline-block">
+              Hide
+            </span>
+          </div>
+        </summary>
+        <div className="space-y-10 border-t border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] px-5 pb-8 pt-6 sm:px-6">
+          <PositioningTiersForm tiers={tierRows} csrf={csrf} />
+          <PricingSimulator services={simulatorServices} tiers={tiers} overrideByService={byService} />
+        </div>
+      </details>
     </main>
   );
 }

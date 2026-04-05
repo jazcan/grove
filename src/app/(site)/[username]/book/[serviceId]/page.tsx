@@ -15,17 +15,10 @@ import {
   providerHeroTeaser,
   publicProfileImageUrl,
 } from "@/lib/public-profile-helpers";
+import { serialString } from "@/lib/rsc-serialize";
 import { BookForm } from "./book-form";
 
 type Props = { params: Promise<{ username: string; serviceId: string }> };
-
-/** RSC → client components must receive JSON-serializable props only (no Date, etc.). */
-function serialString(v: unknown): string {
-  if (v == null) return "";
-  if (typeof v === "string") return v;
-  if (v instanceof Date) return v.toISOString();
-  return String(v);
-}
 
 export default async function PublicBookPage({ params }: Props) {
   const { username, serviceId } = await params;

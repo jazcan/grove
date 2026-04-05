@@ -46,7 +46,7 @@ let cached: Env | null = null;
  * Public site URL for links, CSRF, OAuth. Uses APP_URL when set; on Vercel falls back to VERCEL_URL
  * so production works even if APP_URL was not added to the project env.
  */
-function resolvePublicAppUrl(rawAppUrl: string | undefined): string | undefined {
+export function resolvePublicAppUrl(rawAppUrl: string | undefined): string | undefined {
   const trimmed = rawAppUrl?.trim();
   if (trimmed) {
     const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
@@ -84,6 +84,32 @@ export function getEnv(): Env {
   }
   cached = { ...d, SESSION_SECRET: sessionSecret, CSRF_SECRET: csrfSecret, APP_URL: appUrl };
   return cached;
+}
+
+/**
+ * Absolute origin for dashboard UI links (e.g. public profile URL). Prefer `APP_URL` / `VERCEL_URL`
+ * via {@link resolvePublicAppUrl} so the page can render even when `getEnv()` is not yet valid
+ * (e.g. partial `.env.local`). Falls back to `getEnv().APP_URL`, then localhost in development.
+ */
+export function getPublicAppUrlForDashboardLinks(): string {
+  const fromProcess = resolvePublicAppUrl(process.env.APP_URL);
+  if (fromProcess) {
+    return fromProcess.replace(/\/$/, "");
+  }
+  try {
+    return getEnv().APP_URL.replace(/\/$/, "");
+  } catch {
+    if (process.env.NODE_ENV === "development") {
+      const port = process.env.PORT ?? "3000";
+      console.warn(
+        `[env] Using http://localhost:${port} for dashboard links. Set APP_URL (and SESSION_SECRET, CSRF_SECRET) in .env.local — see .env.example.`
+      );
+      return `http://localhost:${port}`;
+    }
+    throw new Error(
+      "Set APP_URL (or rely on VERCEL_URL on Vercel), SESSION_SECRET, and CSRF_SECRET. See .env.example."
+    );
+  }
 }
 
 export function isAdminEmail(email: string): boolean {

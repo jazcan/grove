@@ -200,9 +200,9 @@ export function ManualBookingModalRoot({
       {children}
       <dialog
         ref={dialogRef}
-        className="fixed left-1/2 top-1/2 z-[100] m-0 max-h-[min(92vh,40rem)] w-[min(100%,28rem)] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)] p-0 text-[var(--foreground)] shadow-[0_24px_64px_-24px_rgba(28,27,25,0.35)] backdrop:bg-black/40"
+        className="fixed left-1/2 top-1/2 z-[100] m-0 max-h-[min(92vh,40rem)] w-[min(100%,28rem)] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-x-hidden overflow-y-auto overscroll-y-contain rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)] p-0 text-[var(--foreground)] shadow-[0_24px_64px_-24px_rgba(28,27,25,0.35)] backdrop:bg-black/40 [scrollbar-gutter:stable]"
       >
-        <div className="border-b border-[var(--border)] px-6 py-4">
+        <div className="sticky top-0 z-[1] border-b border-[var(--border)] bg-[var(--card)] px-6 py-4">
           <h2 className="text-lg font-semibold tracking-tight">Add booking</h2>
           <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
             Create a time on your calendar. Availability follows your usual rules.
@@ -223,7 +223,7 @@ export function ManualBookingModalRoot({
             </button>
           </div>
         ) : (
-          <form action={formAction} className="grid max-h-[min(74vh,36rem)] gap-4 overflow-y-auto px-6 py-5">
+            <form action={formAction} className="grid gap-4 px-6 py-5 pb-6">
             <CsrfField token={csrf} />
             <input type="hidden" name="customerMode" value={customerMode} />
             {orderedServiceIds.map((id) => (
@@ -280,7 +280,7 @@ export function ManualBookingModalRoot({
                   </p>
                 ) : null}
                 <ul
-                  className="max-h-36 overflow-y-auto rounded-lg border border-[var(--border)] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] text-sm"
+                  className="rounded-lg border border-[var(--border)] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] text-sm"
                   role="listbox"
                   aria-label="Matching customers"
                 >
@@ -490,7 +490,7 @@ export function ManualBookingModalRoot({
                 {pending ? "Saving…" : "Create booking"}
               </button>
             </div>
-          </form>
+            </form>
         )}
       </dialog>
     </ManualBookingOpenContext.Provider>

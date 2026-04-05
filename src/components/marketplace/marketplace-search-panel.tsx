@@ -1,3 +1,5 @@
+import { MarketplaceSearchFormActions, MARKETPLACE_SEARCH_FORM_ID } from "@/components/marketplace/marketplace-search-form-actions";
+
 type Props = {
   defaultQ?: string;
   /** Postal/ZIP, city, or free-text location */
@@ -66,7 +68,7 @@ export function MarketplaceSearchPanel({
         </p>
       </div>
 
-      <form method="get" className="flex flex-col gap-5">
+      <form id={MARKETPLACE_SEARCH_FORM_ID} method="get" className="flex flex-col gap-5">
         <label className="ui-field w-full">
           <span className="ui-label">What are you looking for?</span>
           <div className="relative mt-1">
@@ -137,20 +139,10 @@ export function MarketplaceSearchPanel({
               defaultValue={defaultAvailableDate}
               className="ui-input mt-1 min-h-12"
             />
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              Narrows to providers with hours on that weekday (in their time zone).
-            </p>
           </label>
         </div>
 
-        <div>
-          <button
-            type="submit"
-            className="ui-btn-primary min-h-12 w-full px-8 text-base font-semibold shadow-[0_4px_14px_-4px_color-mix(in_oklab,var(--accent)_45%,transparent)] sm:w-auto sm:min-w-[12rem]"
-          >
-            Search
-          </button>
-        </div>
+        <MarketplaceSearchFormActions />
       </form>
     </section>
   );

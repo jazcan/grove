@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db";
 import { bookings } from "@/db/schema";
+import { syncIncomeRecordFromBooking } from "@/domain/money/sync-income-from-booking";
 import { emitPlatformEvent } from "@/platform/events/emit";
 import type { InferSelectModel } from "drizzle-orm";
 
@@ -60,6 +61,8 @@ export async function updateBookingStatusWithEvent(
         tx
       );
     }
+
+    await syncIncomeRecordFromBooking(tx, input.bookingId);
     return true;
   });
 }
@@ -114,6 +117,8 @@ export async function updateBookingPaymentWithEvent(
       },
       tx
     );
+
+    await syncIncomeRecordFromBooking(tx, input.bookingId);
   });
 }
 

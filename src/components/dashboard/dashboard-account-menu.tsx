@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { GroveAccountMark } from "@/components/brand/grove-account-mark";
-import { signOut } from "@/domain/auth/actions";
 
 type Props = {
   userEmail: string;
@@ -119,20 +118,6 @@ export function DashboardAccountMenu({ userEmail, profileImageUrl }: Props) {
           >
             Profile
           </Link>
-          <Link
-            href="/dashboard/docs"
-            role="menuitem"
-            data-dashboard-menu-item
-            className={itemClass}
-            onClick={close}
-          >
-            Help
-          </Link>
-          <form action={signOut} className="mt-0.5 px-1 pb-1">
-            <button type="submit" role="menuitem" data-dashboard-menu-item className={itemClass}>
-              Log out
-            </button>
-          </form>
         </div>
       ) : null}
     </div>

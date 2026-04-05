@@ -22,7 +22,7 @@ function buildBookingsHref(opts: {
   const params = new URLSearchParams();
   if (opts.filter !== "all") params.set("filter", opts.filter);
   if (opts.dayOff > 0) params.set("dayOff", String(opts.dayOff));
-  if (opts.view === "list") params.set("view", "list");
+  if (opts.view === "calendar") params.set("view", "calendar");
   const q = params.toString();
   return `/dashboard/bookings${q ? `?${q}` : ""}#day-schedule`;
 }
@@ -52,7 +52,7 @@ export function BookingsFiveDayStrip({
   const arrowDisabled = "pointer-events-none opacity-35";
 
   return (
-    <div className="flex items-stretch gap-2 sm:gap-2.5">
+    <div className="flex items-stretch gap-2.5 sm:gap-3">
       {canPrevWindow ? (
         <Link
           href={buildBookingsHref({ filter, dayOff: prevWindowDayOff, view })}
@@ -101,13 +101,13 @@ export function BookingsFiveDayStrip({
                 className={`${base} ${selected ? active : idle}`}
               >
                 <span
-                  className={`text-[0.65rem] font-semibold uppercase tracking-[0.06em] ${
-                    selected ? "text-[var(--accent)]" : "text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]"
+                  className={`text-[0.65rem] font-semibold uppercase tracking-[0.1em] ${
+                    selected ? "text-[var(--accent)]" : "text-[color-mix(in_oklab,var(--foreground)_50%,transparent)]"
                   }`}
                 >
                   {d.shortLabel}
                 </span>
-                <span className="text-lg font-semibold tabular-nums leading-none text-[var(--foreground)] sm:text-xl">
+                <span className="text-xl font-semibold tabular-nums leading-none text-[var(--foreground)] sm:text-2xl">
                   {d.dayOfMonth}
                 </span>
                 <span className="flex items-center justify-center gap-1">

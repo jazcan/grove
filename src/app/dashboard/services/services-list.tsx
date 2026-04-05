@@ -47,6 +47,10 @@ function EditServiceForm({ full, csrf }: { full: ServiceRowForUI; csrf: string }
         <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
           Duration & buffer
         </div>
+        <p className="text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
+          Need another length or price? Add a new service from this page (same name is fine) with a different duration and
+          price—clients will see each option separately.
+        </p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <label className="grid gap-1 text-sm">
             <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Duration (minutes)</span>

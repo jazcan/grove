@@ -26,7 +26,7 @@ function DocSection({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-28 border-t border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] pt-10 first:border-t-0 first:pt-0">
+    <section id={id} className="scroll-mt-28">
       <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">{title}</h2>
       <div className="mt-4 max-w-prose space-y-4 text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_78%,transparent)]">
         {children}
@@ -75,7 +75,7 @@ export default async function ProviderDocsPage() {
         </ol>
       </nav>
 
-      <article className="mt-10 space-y-0 pb-8">
+      <article className="mt-10 space-y-12 pb-8">
         <DocSection id="welcome" title="Welcome">
           <p>
             {brand.appName} helps you offer services, manage bookings, stay organized, and stay in touch with

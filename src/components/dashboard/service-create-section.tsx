@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BundleSuggestionCard } from "@/components/dashboard/bundle-suggestion-card";
+import { ServiceDurationVariantsFields } from "@/components/dashboard/service-duration-variants-fields";
 import { ServiceLevelsTogglePreview } from "@/components/dashboard/service-levels-toggle-preview";
 import { asFormAction } from "@/lib/form-action";
 import { CsrfField } from "@/components/csrf-field";
@@ -168,54 +168,35 @@ export function ServiceCreateSection({
         </section>
 
         <section className={editableSectionClass(!!pulseFields)}>
-          <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">Duration & buffer</div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="ui-field text-sm">
-              <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Duration (minutes)</span>
-              <input
-                name="durationMinutes"
-                type="number"
-                min={5}
-                defaultValue={values.durationMinutes}
-                className="ui-input mt-1 rounded-xl"
-              />
-            </label>
-            <label className="ui-field text-sm">
-              <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Buffer (minutes)</span>
-              <input
-                name="bufferMinutes"
-                type="number"
-                min={0}
-                defaultValue={values.bufferMinutes}
-                className="ui-input mt-1 rounded-xl"
-              />
-            </label>
+          <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">
+            Time, buffer & price
           </div>
-        </section>
-
-        <section className={editableSectionClass(!!pulseFields)}>
-          <div className="text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_88%,transparent)]">Pricing</div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <p className="text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
+            Set how long the visit runs, cleanup buffer, and what you charge. Use <span className="font-medium">+ Add variant</span>{" "}
+            for more lengths or prices—they appear as separate bookable services with the same details.
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="ui-field text-sm">
-              <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Type</span>
+              <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Pricing type</span>
               <select name="pricingType" defaultValue={values.pricingType} className="ui-input mt-1">
                 <option value="fixed">Fixed price</option>
                 <option value="hourly">Hourly (starting rate)</option>
               </select>
             </label>
             <label className="ui-field text-sm">
-              <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Price</span>
-              <input
-                name="priceAmount"
-                placeholder="0.00"
-                defaultValue={values.priceAmount}
-                className="ui-input mt-1"
-              />
-            </label>
-            <label className="ui-field text-sm">
               <span className="text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Currency</span>
               <input name="currency" defaultValue={values.currency} className="ui-input mt-1" />
             </label>
+          </div>
+          <div className="mt-5">
+            <ServiceDurationVariantsFields
+              key={`${canonicalTemplateSlug}-${scratchMode}-${values.durationMinutes}-${values.bufferMinutes}-${values.priceAmount}`}
+              initialRow={{
+                durationMinutes: values.durationMinutes,
+                bufferMinutes: values.bufferMinutes,
+                priceAmount: values.priceAmount,
+              }}
+            />
           </div>
         </section>
 
@@ -291,8 +272,6 @@ export function ServiceCreateSection({
             <span>Active — clients can see and book this when your profile is live</span>
           </label>
         </section>
-
-        {scratchMode ? <BundleSuggestionCard /> : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-[color-mix(in_oklab,var(--foreground)_58%,transparent)]">

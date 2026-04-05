@@ -53,7 +53,7 @@ export function CustomerRecommendationsSection({
     <section id="recommendations" className="scroll-mt-24">
       <h2 className="text-lg font-semibold text-[var(--foreground)]">Recommendations &amp; follow-ups</h2>
       <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
-        Keep track of what to recommend next and when to follow up.
+        Suggest their next service and when to book it—your plan between visits, not automatic outreach.
       </p>
 
       <details
@@ -64,7 +64,7 @@ export function CustomerRecommendationsSection({
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-[var(--foreground)] outline-offset-2 [&::-webkit-details-marker]:hidden sm:px-5 sm:py-3.5">
           <span className="text-[var(--accent)]">Add recommendation</span>
           <span className="mt-0.5 block text-xs font-normal text-[color-mix(in_oklab,var(--foreground)_52%,transparent)]">
-            Save a suggested next service or follow-up (optional).
+            Optional: log the next visit you have in mind and a rough timeframe.
           </span>
         </summary>
 

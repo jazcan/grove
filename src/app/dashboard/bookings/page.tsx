@@ -73,7 +73,7 @@ export default async function BookingsPage({ searchParams }: Props) {
   const autoOpenBooking = openBookingRaw === "1" || openBookingRaw === "true";
   const filter =
     filterRaw === "confirmed" || filterRaw === "pending" ? filterRaw : "all";
-  const view = viewRaw === "list" ? "list" : "calendar";
+  const view = viewRaw === "calendar" ? "calendar" : "list";
 
   const db = getDb();
   const csrf = await getCsrfTokenForForm();
@@ -280,23 +280,13 @@ export default async function BookingsPage({ searchParams }: Props) {
 
   const pastCards = pastRows.map(toCard);
 
-  const tabBase =
-    "inline-flex min-h-10 items-center justify-center rounded-full border px-4 text-sm font-medium transition-colors";
-  const tabIdle =
-    "border-[var(--border)] bg-[var(--card)] text-[color-mix(in_oklab,var(--foreground)_72%,transparent)] hover:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--card))]";
-  const tabActive = "border-[color-mix(in_oklab,var(--accent)_40%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_10%,var(--card))] text-[var(--accent)]";
-
-  const buildFilterHref = (f: "all" | "confirmed" | "pending") => {
-    const params = new URLSearchParams();
-    if (f !== "all") params.set("filter", f);
-    if (dayOff > 0) params.set("dayOff", String(dayOff));
-    if (view === "list") params.set("view", "list");
-    const q = params.toString();
-    return q ? `/dashboard/bookings?${q}` : "/dashboard/bookings";
-  };
-
-  const selectedDayHeading =
-    dayOff === 0 ? "Today" : dayOff === 1 ? "Tomorrow" : selectedDayStart.toFormat("cccc, LLL d");
+  const nowInTz = DateTime.now().setZone(timezone);
+  const selectedDayEyebrow =
+    dayOff === 0 ? "Today" : dayOff === 1 ? "Tomorrow" : selectedDayStart.toFormat("cccc");
+  const selectedDayTitle =
+    selectedDayStart.year !== nowInTz.year
+      ? selectedDayStart.toFormat("LLLL d, yyyy")
+      : selectedDayStart.toFormat("LLLL d");
 
   const filterEmptyHint =
     filter === "confirmed"
@@ -358,14 +348,16 @@ export default async function BookingsPage({ searchParams }: Props) {
     return (
       <ManualBookingModalRoot {...modalProps}>
         <main id="main-content" className="mx-auto max-w-4xl">
-          <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
+          <header className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_7%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-4 shadow-[var(--shadow-sm)] sm:flex sm:items-start sm:justify-between sm:gap-6 sm:p-5">
+            <div className="min-w-0">
               <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">Bookings</h1>
-              <p className="mt-2 max-w-xl text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-                See what&apos;s coming up and stay organized.
+              <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
+                Your schedule at a glance—add a visit anytime or share your link so clients can book you.
               </p>
             </div>
-            <ManualBookingHeaderButton />
+            <div className="mt-4 shrink-0 sm:mt-0">
+              <ManualBookingHeaderButton />
+            </div>
           </header>
           <div className="mt-12 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)] px-6 py-14 text-center shadow-[var(--shadow-card)] sm:px-10">
             <h2 className="text-lg font-semibold text-[var(--foreground)]">You don&apos;t have any bookings yet</h2>
@@ -390,36 +382,21 @@ export default async function BookingsPage({ searchParams }: Props) {
   return (
     <ManualBookingModalRoot {...modalProps}>
       <main id="main-content" className="mx-auto max-w-4xl">
-        <header className="flex flex-col gap-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">Bookings</h1>
-              <p className="mt-2 max-w-xl text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-                See what&apos;s coming up and stay organized.
-              </p>
-            </div>
+        <header className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_7%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-4 shadow-[var(--shadow-sm)] sm:flex sm:items-start sm:justify-between sm:gap-6 sm:p-5">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">Bookings</h1>
+            <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
+              Your schedule at a glance—filter by status, switch layouts, or open a day to work the list.
+            </p>
+            <p className="mt-3 text-sm text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
+              <span className="font-semibold tabular-nums text-[var(--foreground)]">{totalBookings}</span>
+              {" "}
+              appointment{totalBookings !== 1 ? "s" : ""} on file
+            </p>
+          </div>
+          <div className="mt-4 shrink-0 sm:mt-0">
             <ManualBookingHeaderButton />
           </div>
-          <nav className="flex flex-wrap gap-2" aria-label="Filter by status">
-            <Link
-              href={buildFilterHref("all")}
-              className={`${tabBase} ${filter === "all" ? tabActive : tabIdle}`}
-            >
-              All
-            </Link>
-            <Link
-              href={buildFilterHref("confirmed")}
-              className={`${tabBase} ${filter === "confirmed" ? tabActive : tabIdle}`}
-            >
-              Confirmed
-            </Link>
-            <Link
-              href={buildFilterHref("pending")}
-              className={`${tabBase} ${filter === "pending" ? tabActive : tabIdle}`}
-            >
-              Pending
-            </Link>
-          </nav>
         </header>
 
         <div className="mt-6">
@@ -445,7 +422,7 @@ export default async function BookingsPage({ searchParams }: Props) {
           </div>
         ) : (
           <>
-            <div className="mt-8">
+            <div className="mt-7">
               <BookingsFiveDayStrip
                 days={stripDays}
                 selectedDayOff={dayOff}
@@ -460,21 +437,35 @@ export default async function BookingsPage({ searchParams }: Props) {
 
             <section
               id="day-schedule"
-              className="mt-8 scroll-mt-24"
+              className="mt-10 scroll-mt-24"
               aria-labelledby="bookings-day-heading"
             >
-              <h2 id="bookings-day-heading" className="text-lg font-semibold text-[var(--foreground)]">
-                {selectedDayHeading}
-              </h2>
-              {filter !== "all" ? (
-                <p className="mt-1 text-xs text-[color-mix(in_oklab,var(--muted-foreground)_95%,transparent)]">
-                  {filter === "confirmed"
-                    ? "Showing confirmed bookings only—change the filter above to see other statuses."
-                    : "Showing pending bookings only—change the filter above to see other statuses."}
-                </p>
-              ) : null}
+              <div className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_7%,var(--border))] bg-[var(--card)] px-4 py-4 shadow-[var(--shadow-sm)] sm:px-5 sm:py-5">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-[color-mix(in_oklab,var(--foreground)_48%,transparent)]">
+                      {selectedDayEyebrow}
+                    </p>
+                    <h2 id="bookings-day-heading" className="mt-1 text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">
+                      {selectedDayTitle}
+                    </h2>
+                  </div>
+                  {selectedDayCards.length > 0 ? (
+                    <p className="text-xs font-medium tabular-nums text-[color-mix(in_oklab,var(--foreground)_52%,transparent)]">
+                      {selectedDayCards.length === 1 ? "1 booking" : `${selectedDayCards.length} bookings`}
+                    </p>
+                  ) : null}
+                </div>
+                {filter !== "all" ? (
+                  <p className="mt-3 text-xs leading-relaxed text-[color-mix(in_oklab,var(--foreground)_52%,transparent)]">
+                    {filter === "confirmed"
+                      ? "Showing confirmed only—use All or Pending in the bar above to widen the list."
+                      : "Showing pending only—use All or Confirmed in the bar above to widen the list."}
+                  </p>
+                ) : null}
+              </div>
               {selectedDayCards.length > 0 ? (
-                <ul className="mt-4 flex flex-col gap-4">
+                <ul className="mt-5 flex flex-col gap-3 sm:gap-3.5">
                   {selectedDayCards.map((row) => (
                     <li key={row.id}>
                       <TodayBookingCard row={row} timezone={timezone} csrf={csrf} />
@@ -482,19 +473,17 @@ export default async function BookingsPage({ searchParams }: Props) {
                   ))}
                 </ul>
               ) : (
-                <div className="mt-4 rounded-xl border border-dashed border-[var(--border)] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] px-5 py-8 text-center sm:py-9">
+                <div className="mt-5 rounded-2xl border border-dashed border-[color-mix(in_oklab,var(--foreground)_12%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] px-5 py-8 text-center sm:py-9">
                   <p className="text-sm font-medium text-[var(--foreground)]">
                     No {filterEmptyHint}bookings {emptyWhenPhrase}
                   </p>
                   <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
-                    That day is open—share your booking link or ping someone who&apos;s been meaning to get on the
-                    calendar.
+                    That day is open—share your booking link or follow up with someone who&apos;s been meaning to book.
                   </p>
                   {dayOff < maxDayOff ? (
                     <Link
                       href={`/dashboard/bookings?${new URLSearchParams({
                         ...(filter !== "all" ? { filter } : {}),
-                        view: "list",
                         dayOff: String(dayOff + 1),
                       }).toString()}#day-schedule`}
                       className="mt-6 inline-flex min-h-10 items-center justify-center text-sm font-semibold text-[var(--accent)] underline-offset-4 hover:underline"
@@ -513,12 +502,12 @@ export default async function BookingsPage({ searchParams }: Props) {
               )}
             </section>
 
-            <section id="upcoming" className="mt-12 scroll-mt-24" aria-labelledby="bookings-upcoming-heading">
-              <h2 id="bookings-upcoming-heading" className="text-lg font-semibold text-[var(--foreground)]">
-                Upcoming
+            <section id="upcoming" className="mt-14 scroll-mt-24" aria-labelledby="bookings-upcoming-heading">
+              <h2 id="bookings-upcoming-heading" className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
+                Later upcoming
               </h2>
-              <p className="mt-1 text-xs text-[color-mix(in_oklab,var(--muted-foreground)_95%,transparent)]">
-                After the dates shown in the strip—same filters as above.
+              <p className="mt-1.5 text-sm text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
+                Past the five-day strip, with the same status filter.
               </p>
               <div className="mt-4">
                 <UpcomingBookingsGrouped rows={upcomingCards} timezone={timezone} />
@@ -528,24 +517,24 @@ export default async function BookingsPage({ searchParams }: Props) {
         )}
 
         {view === "list" ? (
-          <section className="mt-12" aria-labelledby="bookings-past-heading">
-            <h2 id="bookings-past-heading" className="text-lg font-semibold text-[var(--foreground)]">
+          <section className="mt-14" aria-labelledby="bookings-past-heading">
+            <h2 id="bookings-past-heading" className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
               Recent
             </h2>
-            <p className="mt-1 text-xs text-[color-mix(in_oklab,var(--muted-foreground)_95%,transparent)]">
-              Quick reference — up to 10 most recent.
+            <p className="mt-1.5 text-sm text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
+              Up to the 10 most recent past appointments.
             </p>
             <div className="mt-4">
               <PastBookingsList rows={pastCards} timezone={timezone} />
             </div>
           </section>
         ) : (
-          <section className="mt-12" aria-labelledby="bookings-past-heading">
-            <h2 id="bookings-past-heading" className="text-lg font-semibold text-[var(--foreground)]">
+          <section className="mt-14" aria-labelledby="bookings-past-heading">
+            <h2 id="bookings-past-heading" className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
               Recent
             </h2>
-            <p className="mt-1 text-xs text-[color-mix(in_oklab,var(--muted-foreground)_95%,transparent)]">
-              Switch to list view for day-by-day detail. Below is a quick history.
+            <p className="mt-1.5 text-sm text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
+              List view groups by day; here&apos;s a short history either way.
             </p>
             <div className="mt-4">
               <PastBookingsList rows={pastCards} timezone={timezone} />

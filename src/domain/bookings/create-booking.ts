@@ -1,6 +1,7 @@
 import { and, eq, ne, sql } from "drizzle-orm";
 import type { Database } from "@/db";
 import { bookings, customers, services } from "@/db/schema";
+import { syncIncomeRecordFromBooking } from "@/domain/money/sync-income-from-booking";
 import { generateBookingConfirmationCode } from "@/lib/booking-confirmation-code";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
 import { logAudit } from "@/lib/audit";
@@ -227,6 +228,8 @@ export async function createBookingAtomic(
       },
       tx
     );
+
+    await syncIncomeRecordFromBooking(tx, booking.id);
 
     return {
       bookingId: booking.id,

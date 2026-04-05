@@ -17,10 +17,10 @@ export function ActionCenter({ actions }: Props) {
     <section aria-labelledby="next-best-actions-heading" className="ui-card p-5 sm:p-7">
       <div>
         <h2 id="next-best-actions-heading" className="text-lg font-semibold tracking-tight">
-          Your next best business moves
+          Next steps
         </h2>
         <p className="ui-hint mt-2">
-          Pick one thing—small moves add up, and you can always come back for the rest.
+          Pick one—small moves add up, and you can return for the rest.
         </p>
       </div>
 

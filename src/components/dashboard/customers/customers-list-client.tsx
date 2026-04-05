@@ -258,10 +258,9 @@ export function CustomersListClient({ rows, initialQuery, timezone, totalCustome
         )}
       </div>
 
-      {totalCustomerCount > 0 ? (
-        <p className="mt-3 text-xs text-[color-mix(in_oklab,var(--foreground)_48%,transparent)]">
-          Showing {list.length} of {totalCustomerCount}
-          {debouncedSearch.trim() ? ` matching “${debouncedSearch.trim()}”` : ""}
+      {totalCustomerCount > 0 && debouncedSearch.trim() ? (
+        <p className="mt-3 text-xs text-[color-mix(in_oklab,var(--foreground)_52%,transparent)]">
+          {list.length} match{list.length === 1 ? "" : "es"} ({totalCustomerCount} total)
         </p>
       ) : null}
     </>

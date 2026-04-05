@@ -113,10 +113,10 @@ export function TodayOverview({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 id="today-overview-heading" className="text-lg font-semibold tracking-tight">
-            Today overview
+            Today
           </h2>
           <p className="ui-hint mt-2">
-            A quick read on your day—what&apos;s on the calendar, what&apos;s moving, what&apos;s next.
+            Your calendar, revenue, and next moves at a glance.
           </p>
         </div>
       </div>
@@ -164,7 +164,7 @@ export function TodayOverview({
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-[var(--card-border)] bg-[var(--surface-muted)]/40 p-4 sm:p-5">
           <div className="text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-            {isQuietDay ? "Your day" : "Today’s bookings"}
+            {isQuietDay ? "Your day" : "Today’s schedule"}
           </div>
           {!hasAnyBooking ? (
             <>

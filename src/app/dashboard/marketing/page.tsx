@@ -139,6 +139,19 @@ export default async function MarketingPage() {
     )
     .orderBy(asc(messageTemplates.name));
 
+  const quickSendCustomers = await db
+    .select({ id: customers.id, fullName: customers.fullName })
+    .from(customers)
+    .where(
+      and(
+        eq(customers.providerId, u.providerId),
+        eq(customers.accountReady, true),
+        eq(customers.marketingOptOut, false)
+      )
+    )
+    .orderBy(asc(customers.fullName))
+    .limit(400);
+
   return (
     <main id="main-content" className="max-w-3xl">
       <MarketingWorkspace
@@ -169,6 +182,7 @@ export default async function MarketingPage() {
           createdAt: s.createdAt.toISOString(),
         }))}
         templates={templates}
+        quickSendCustomers={quickSendCustomers}
       />
     </main>
   );

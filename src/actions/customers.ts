@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/db";
 import { customers, messageTemplates, marketingSendLogs, bookings } from "@/db/schema";
-import { plainTextFromInput } from "@/lib/sanitize";
+import { escapeHtml, plainTextFromInput } from "@/lib/sanitize";
+import { validateCsrfToken } from "@/lib/csrf";
 import { logAudit } from "@/lib/audit";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
 import type { ActionState } from "@/domain/auth/actions";
@@ -220,4 +221,87 @@ export async function sendMarketingToCustomers(formData: FormData): Promise<Acti
   });
 
   return { success: `Sent messages to ${sent} customers (${segment}).` };
+}
+
+function quickMessageToHtml(plain: string): string {
+  const esc = escapeHtml(plain).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const paras = esc.split(/\n\n+/).map((p) => `<p>${p.replace(/\n/g, "<br/>")}</p>`).join("");
+  return paras || "<p></p>";
+}
+
+export type QuickMarketingSendResult =
+  | { ok: true; sent: number; attempted: number }
+  | { ok: false; error: string };
+
+/** Plain-email quick send to opted-in customers (same daily cap as template campaigns). */
+export async function sendQuickMarketingMessage(
+  csrfToken: string,
+  raw: {
+    subject: string;
+    body: string;
+    recipientMode: "all" | "selected";
+    customerIds: string[];
+  }
+): Promise<QuickMarketingSendResult> {
+  if (!(await validateCsrfToken(csrfToken))) return { ok: false, error: "Invalid security token." };
+  const ctx = await loadProviderContext();
+  const ip = await getRequestIp();
+  const rl = rateLimit(clientKey(ip, `mkt:${ctx.providerId}`), 50, 24 * 60 * 60 * 1000);
+  if (!rl.ok) return { ok: false, error: "Daily marketing send limit reached." };
+
+  const subject = plainTextFromInput(raw.subject, 200);
+  const body = plainTextFromInput(raw.body, 16000);
+  if (!subject) return { ok: false, error: "Subject is required." };
+  if (!body) return { ok: false, error: "Message is required." };
+
+  const db = getDb();
+  let list = await db
+    .select()
+    .from(customers)
+    .where(
+      and(
+        eq(customers.providerId, ctx.providerId),
+        eq(customers.marketingOptOut, false),
+        eq(customers.accountReady, true)
+      )
+    );
+
+  if (raw.recipientMode === "selected") {
+    const set = new Set(raw.customerIds.filter((id) => typeof id === "string" && id.length > 0));
+    if (set.size === 0) return { ok: false, error: "Choose at least one customer." };
+    list = list.filter((c) => set.has(c.id));
+    if (list.length === 0) return { ok: false, error: "No matching opted-in customers in your selection." };
+  }
+
+  let sent = 0;
+  for (const c of list) {
+    const personalizedBody = body.replaceAll("{{name}}", c.fullName);
+    const personalizedSubject = subject.replaceAll("{{name}}", c.fullName);
+    const r = await sendEmail({
+      to: c.email,
+      subject: personalizedSubject,
+      html: quickMessageToHtml(personalizedBody),
+      text: personalizedBody,
+    });
+    if (r.ok) sent += 1;
+  }
+
+  await db.insert(marketingSendLogs).values({
+    providerId: ctx.providerId,
+    templateId: null,
+    customerIds: list.map((c) => c.id),
+  });
+
+  await logAudit({
+    actorUserId: ctx.id,
+    actorType: "user",
+    tenantProviderId: ctx.providerId,
+    entityType: "marketing",
+    entityId: ctx.providerId,
+    action: "quick_message_sent",
+    metadata: { mode: raw.recipientMode, sent, attempted: list.length },
+  });
+
+  revalidatePath("/dashboard/marketing");
+  return { ok: true, sent, attempted: list.length };
 }

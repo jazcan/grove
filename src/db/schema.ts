@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  date,
   integer,
   jsonb,
   pgEnum,
@@ -20,6 +21,8 @@ import {
   ASSISTANT_SUGGESTION_STATUSES,
   ASSISTANT_URGENCY_LEVELS,
   BOOKING_STATUSES,
+  INCOME_PAYMENT_METHODS,
+  INVOICE_STATUSES,
   CUSTOMER_RECOMMENDATION_STATUSES,
   CUSTOMER_RECOMMENDATION_TIMEFRAMES,
   PAYMENT_STATUSES,
@@ -57,6 +60,10 @@ export const assistantSuggestionStatusEnum = pgEnum(
 export const assistantUrgencyEnum = pgEnum("assistant_urgency", ASSISTANT_URGENCY_LEVELS);
 
 export const assistantMessageRoleEnum = pgEnum("assistant_message_role", ASSISTANT_MESSAGE_ROLES);
+
+export const incomePaymentMethodEnum = pgEnum("income_payment_method", INCOME_PAYMENT_METHODS);
+
+export const invoiceStatusEnum = pgEnum("invoice_status", INVOICE_STATUSES);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -472,6 +479,80 @@ export const bookings = pgTable(
     index("bookings_provider_starts_idx").on(t.providerId, t.startsAt),
     index("bookings_provider_overlap_idx").on(t.providerId),
     uniqueIndex("bookings_confirmation_code_uidx").on(t.confirmationCode),
+  ]
+);
+
+/**
+ * Provider income derived from bookings (one row per booking when recognized).
+ * Lifecycle fields support Option A: first qualifying event creates the row; later events update it.
+ */
+export const incomeRecords = pgTable(
+  "income_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    bookingId: uuid("booking_id").references(() => bookings.id, { onDelete: "cascade" }),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    currency: varchar("currency", { length: 8 }).notNull().default("CAD"),
+    paymentMethod: incomePaymentMethodEnum("payment_method").notNull().default("other"),
+    isCompleted: boolean("is_completed").notNull().default(false),
+    isPaid: boolean("is_paid").notNull().default(false),
+    /** First time this booking was recognized as earned revenue in the product. */
+    recognizedAt: timestamp("recognized_at", { withTimezone: true }),
+    /** When payment was actually received (set only when `payment_status` is paid). */
+    receivedAt: timestamp("received_at", { withTimezone: true }),
+    /** `payment_amount` when amount came from booking; `computed_price` when from pricing engine. */
+    sourceAmountType: varchar("source_amount_type", { length: 32 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("income_records_provider_idx").on(t.providerId),
+    uniqueIndex("income_records_booking_uidx").on(t.bookingId),
+  ]
+);
+
+export const expenseRecords = pgTable(
+  "expense_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    category: varchar("category", { length: 64 }).notNull(),
+    description: text("description"),
+    incurredAt: date("incurred_at", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("expense_records_provider_incurred_idx").on(t.providerId, t.incurredAt)]
+);
+
+export const invoiceRecords = pgTable(
+  "invoice_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    bookingId: uuid("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "restrict" }),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    currency: varchar("currency", { length: 8 }).notNull().default("CAD"),
+    status: invoiceStatusEnum("status").notNull().default("draft"),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("invoice_records_provider_idx").on(t.providerId),
+    index("invoice_records_booking_idx").on(t.bookingId),
   ]
 );
 

@@ -64,7 +64,7 @@ export function PricingProfileForm({
     >
       <h2 className="text-lg font-semibold text-[var(--foreground)]">Pricing profile</h2>
       <p className="ui-hint max-w-prose">
-        Set your currency and how your pricing scales across service levels.
+        Your default currency for services and bookings. (Service levels and tier math live under Advanced below.)
       </p>
       <CsrfField token={csrf} />
       <div className="grid gap-4 sm:grid-cols-2">

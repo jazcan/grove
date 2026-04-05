@@ -102,12 +102,16 @@ export async function prepareCsrfForRequest(request: NextRequest): Promise<{
 export async function getCsrfTokenForForm(): Promise<string> {
   const h = await headers();
   const fromMiddleware = h.get(CSRF_RAW_HEADER);
-  if (fromMiddleware) return fromMiddleware;
+  if (fromMiddleware != null && fromMiddleware !== "") {
+    return typeof fromMiddleware === "string" ? fromMiddleware : String(fromMiddleware);
+  }
 
   const store = await cookies();
   const cookieSigned = store.get(CSRF_COOKIE)?.value;
   if (!cookieSigned) return "";
-  return (await verifySafe(cookieSigned)) ?? "";
+  const verified = await verifySafe(cookieSigned);
+  if (verified == null || verified === "") return "";
+  return typeof verified === "string" ? verified : String(verified);
 }
 
 export async function validateCsrfToken(formToken: string | undefined): Promise<boolean> {

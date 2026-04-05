@@ -23,6 +23,14 @@ export default async function MarketplacePage({ searchParams }: Props) {
   const sp = await searchParams;
   const location = (sp.location ?? sp.city ?? "").trim();
   const country = (sp.country ?? "CA").trim().toUpperCase() === "US" ? "US" : "CA";
+  const marketplaceSearchPanelKey = JSON.stringify([
+    sp.q ?? "",
+    location,
+    sp.category ?? "",
+    sp.radiusKm ?? "",
+    country,
+    sp.availableDate ?? "",
+  ]);
 
   let searchOutcome: Awaited<ReturnType<typeof searchDiscoverableProviders>> | null = null;
   let directoryUnavailable = false;
@@ -88,6 +96,7 @@ export default async function MarketplacePage({ searchParams }: Props) {
       <div className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 sm:pt-10 lg:px-8">
         <div className="mt-0 sm:mt-0">
           <MarketplaceSearchPanel
+            key={marketplaceSearchPanelKey}
             defaultQ={sp.q}
             defaultLocation={location}
             defaultCategory={sp.category}

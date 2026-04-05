@@ -198,13 +198,14 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
               <>
                 <span className="font-medium text-[var(--foreground)]">Account linked</span>
                 <span className="mx-1.5 text-[var(--border)]">·</span>
-                Customer login connected to this profile
+                They can sign in with the email on this profile.
               </>
             ) : (
               <>
-                <span className="font-medium text-[var(--foreground)]">Customer profile on file</span>
+                <span className="font-medium text-[var(--foreground)]">This page</span>
                 <span className="mx-1.5 text-[var(--border)]">·</span>
-                Every visit stays here—ready for future bookings and follow-ups.
+                Keep this customer&apos;s bookings, notes, payments, and follow-ups in one place so nothing slips
+                through the cracks.
               </>
             )}
           </p>
@@ -256,8 +257,8 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
         </div>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_58%,transparent)]">
           {totalBookings === 0
-            ? "Start by booking their first appointment."
-            : "You can book, message, or add a recommendation below."}
+            ? "Book their first appointment to start a visit history on this page."
+            : "Book another visit or add a recommendation from the sections below."}
         </p>
       </header>
 
@@ -287,7 +288,7 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
                 {formatMoney(revenueTotal, primaryCurrency)}
               </dd>
               <p className="mt-1 text-xs text-[color-mix(in_oklab,var(--foreground)_55%,transparent)]">
-                Sum of amounts entered on bookings (if you track them there).
+                Sum of amounts entered on bookings—not a bank or processor total.
               </p>
             </div>
           </dl>
@@ -326,7 +327,7 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
         <>
           <h2 className="text-lg font-semibold text-[var(--foreground)]">Service records</h2>
           <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
-            Structured visit summaries from your service cards (one per appointment).
+            Completed visits only: each row is a service card you saved on a booking after the appointment happened.
           </p>
           {serviceRecords.length === 0 ? (
             <p className="mt-3 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
@@ -379,7 +380,7 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
         <>
           <h2 className="text-lg font-semibold text-[var(--foreground)]">Payments</h2>
           <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
-            Pulled from each booking&apos;s payment fields.
+            What you recorded on each booking—amount, method, and status—not a live bank feed.
           </p>
           {history.length === 0 ? (
             <p className="mt-3 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">—</p>
@@ -419,7 +420,7 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
         <>
           <h2 className="text-lg font-semibold text-[var(--foreground)]">Notes</h2>
           <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
-            Private notes to help you remember details and preferences.
+            Private notes about this customer.
           </p>
           <form
             action={asFormAction(updateCustomerNotes)}
@@ -444,6 +445,9 @@ export default async function CustomerDetailPage({ params, searchParams }: Props
       {sectionCard(
         <>
           <h2 className="text-lg font-semibold text-[var(--foreground)]">Preferences</h2>
+          <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
+            Marketing opt-in and how they like to be reached—helps you stay respectful and prepared.
+          </p>
           <form
             action={asFormAction(setCustomerMarketingOptOut)}
             className="mt-3 grid gap-2.5 rounded-lg bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-3 sm:p-4"

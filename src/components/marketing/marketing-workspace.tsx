@@ -15,6 +15,7 @@ import {
 import { CsrfField } from "@/components/csrf-field";
 import { MarketingAiOutput } from "@/components/marketing/marketing-ai-output";
 import { ReconnectDraftPanel, type ReconnectCustomerLite } from "@/components/marketing/reconnect-draft-panel";
+import { QuickSendMessageModal, type QuickSendCustomerOption } from "@/components/marketing/quick-send-message-modal";
 import type { MarketingGenerationOutput } from "@/lib/marketing/types";
 
 const RECONNECT_FOCUS_COUNT = 8;
@@ -64,6 +65,7 @@ type Props = {
   campaigns: MarketingCampaignRow[];
   savedContents: MarketingSavedRow[];
   templates: TemplateOpt[];
+  quickSendCustomers: QuickSendCustomerOption[];
 };
 
 function formatDate(iso: string | null, tz: string): string {
@@ -86,8 +88,18 @@ function SectionHeader({ id, title, subtitle }: { id?: string; title: string; su
   );
 }
 
-export function MarketingWorkspace({ csrf, timezone, customers, services, campaigns, savedContents, templates }: Props) {
+export function MarketingWorkspace({
+  csrf,
+  timezone,
+  customers,
+  services,
+  campaigns,
+  savedContents,
+  templates,
+  quickSendCustomers,
+}: Props) {
   const router = useRouter();
+  const [quickSendOpen, setQuickSendOpen] = useState(false);
   const [draftCustomer, setDraftCustomer] = useState<ReconnectCustomerLite | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [reconnectScope, setReconnectScope] = useState<"focus" | "all">("focus");
@@ -727,6 +739,13 @@ export function MarketingWorkspace({ csrf, timezone, customers, services, campai
         csrf={csrf}
         onClose={() => setPanelOpen(false)}
         onSaved={() => router.refresh()}
+      />
+
+      <QuickSendMessageModal
+        open={quickSendOpen}
+        csrf={csrf}
+        customers={quickSendCustomers}
+        onClose={() => setQuickSendOpen(false)}
       />
     </div>
   );

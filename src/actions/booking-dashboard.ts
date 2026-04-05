@@ -75,6 +75,7 @@ export async function updateBookingStatus(formData: FormData): Promise<ActionSta
   }
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/bookings/${id}`);
+  revalidatePath("/dashboard/money");
   return { success: "Booking updated." };
 }
 
@@ -151,6 +152,7 @@ export async function updateBookingPayment(formData: FormData): Promise<ActionSt
 
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/bookings/${id}`);
+  revalidatePath("/dashboard/money");
   return { success: "Payment updated." };
 }
 
@@ -499,6 +501,7 @@ export async function createManualBooking(_prev: ActionState, formData: FormData
     revalidatePath("/dashboard/bookings");
     revalidatePath("/dashboard/availability");
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/money");
     return { success: serviceIds.length > 1 ? `${serviceIds.length} bookings created.` : "Booking created." };
   } catch (e) {
     for (const id of [...createdIds].reverse()) {

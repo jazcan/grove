@@ -2,12 +2,13 @@ import { Suspense } from "react";
 import { eq } from "drizzle-orm";
 import { HandshakeBrandLockup } from "@/components/brand/handshake-brand-lockup";
 import { DashboardAccountMenu } from "@/components/dashboard/dashboard-account-menu";
-import { DashboardNav } from "@/components/dashboard/dashboard-nav";
+import { MainNavMenu } from "@/components/nav/main-nav-menu";
 import { DashboardOnboardingAssistant } from "@/components/dashboard/onboarding-assistant";
 import { getDb } from "@/db";
 import { providers } from "@/db/schema";
 import { loadAssistantPanelSnapshot } from "@/lib/assistant/panel";
 import { getCsrfTokenForForm } from "@/lib/csrf";
+import { serialString } from "@/lib/rsc-serialize";
 import { publicProfileImageUrl } from "@/lib/public-profile-helpers";
 import { loadProviderSetupState } from "@/lib/provider-setup";
 import { requireUser } from "@/lib/tenancy";
@@ -55,19 +56,12 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen overflow-x-hidden">
       <header className="sticky top-0 z-40 border-b border-[var(--card-border)] bg-[color-mix(in_oklab,var(--card)_92%,transparent)] shadow-[var(--shadow-sm)] backdrop-blur-md supports-[backdrop-filter]:bg-[color-mix(in_oklab,var(--card)_88%,transparent)]">
-        <div
-          className="mx-auto grid max-w-5xl gap-x-3 gap-y-3 px-4 py-4
-            grid-cols-[1fr_auto]
-            [grid-template-areas:'logo_account'_'nav_nav']
-            sm:grid-cols-[auto_minmax(0,1fr)_auto]
-            sm:[grid-template-areas:'logo_nav_account']
-            sm:items-center"
-        >
-          <HandshakeBrandLockup href="/dashboard" className="[grid-area:logo]" />
-          <div className="[grid-area:account] justify-self-end self-center">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-5">
+          <HandshakeBrandLockup href="/dashboard" className="min-w-0" />
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <MainNavMenu variant="dashboard" isAdmin={u.role === "admin"} />
             <DashboardAccountMenu userEmail={u.email} profileImageUrl={profileAvatarUrl} />
           </div>
-          <DashboardNav />
         </div>
       </header>
       <div className="mx-auto max-w-5xl px-4 py-8 pb-28 sm:px-5 sm:py-10 sm:pb-32">{children}</div>
@@ -80,7 +74,7 @@ export default async function DashboardLayout({
           preProvider={preProvider}
           initialExpanded={initialExpanded}
           assistantJson={assistantJson}
-          csrf={assistantCsrf}
+          csrf={serialString(assistantCsrf)}
         />
       </Suspense>
     </div>

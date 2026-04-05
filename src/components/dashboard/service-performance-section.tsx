@@ -28,10 +28,11 @@ export function ServicePerformanceSection({
   return (
     <section className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-6 sm:p-8" aria-labelledby="service-performance-heading">
       <h2 id="service-performance-heading" className="text-lg font-semibold tracking-tight text-[var(--foreground)] sm:text-xl">
-        Service performance
+        Bookings & revenue by service
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-        Bookings and paid revenue by service. Cancelled bookings are excluded; revenue counts payments marked paid.
+        A simple snapshot of how often each offering is booked and how much paid revenue it has brought in (non-cancelled
+        bookings only; revenue is counted when payment is marked paid).
       </p>
       <div className="mt-6 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
         <table className="w-full min-w-[320px] text-left text-sm">

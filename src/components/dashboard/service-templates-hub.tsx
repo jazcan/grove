@@ -31,6 +31,9 @@ const FILTER_TO_BUCKET: Record<Exclude<TemplateCategoryFilter, "all">, string> =
   professional: "Professional Services",
 };
 
+/** Initial grid size before “See all” (goal: 4–6). */
+const TEMPLATE_PREVIEW_COUNT = 5;
+
 function templateMatchesCategoryFilter(
   template: ServiceTemplate,
   filter: TemplateCategoryFilter
@@ -196,6 +199,7 @@ function PreviewDialog({
 export function ServiceTemplatesHub({ templates }: { templates: ServiceTemplate[] }) {
   const [categoryFilter, setCategoryFilter] = useState<TemplateCategoryFilter>("personal");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAllTemplates, setShowAllTemplates] = useState(false);
 
   const baseFiltered = useMemo(
     () =>
@@ -213,6 +217,24 @@ export function ServiceTemplatesHub({ templates }: { templates: ServiceTemplate[
     }
     return partitionSmartAndRest(baseFiltered);
   }, [showFeaturedStrip, baseFiltered]);
+
+  const orderedTemplates = useMemo(() => {
+    if (showFeaturedStrip && smart.length > 0) {
+      const smartIds = new Set(smart.map((t) => t.id));
+      return [...smart, ...rest.filter((t) => !smartIds.has(t.id))];
+    }
+    return rest;
+  }, [showFeaturedStrip, smart, rest]);
+
+  useEffect(() => {
+    setShowAllTemplates(false);
+  }, [categoryFilter, searchQuery]);
+
+  const hiddenCount = Math.max(0, orderedTemplates.length - TEMPLATE_PREVIEW_COUNT);
+  const visibleTemplates =
+    showAllTemplates || orderedTemplates.length <= TEMPLATE_PREVIEW_COUNT
+      ? orderedTemplates
+      : orderedTemplates.slice(0, TEMPLATE_PREVIEW_COUNT);
 
   const [preview, setPreview] = useState<ServiceTemplate | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -240,7 +262,29 @@ export function ServiceTemplatesHub({ templates }: { templates: ServiceTemplate[
 
   return (
     <div className="space-y-8 sm:space-y-10">
+      <div className="flex flex-col gap-4 rounded-xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)] sm:text-xl">Start fresh</h2>
+          <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
+            Skip templates and define your service yourself—you can still add multiple times and prices in one go.
+          </p>
+        </div>
+        <Link
+          href="/dashboard/services?scratch=1#service-form"
+          className="ui-btn-primary inline-flex min-h-12 w-full shrink-0 items-center justify-center px-6 text-sm font-semibold sm:w-auto sm:min-w-[11rem]"
+        >
+          Create from scratch
+        </Link>
+      </div>
+
       <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)] sm:text-xl">Templates</h2>
+          <p className="mt-1 text-sm text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
+            Ready-made names, timing, and pricing you can edit after you pick one.
+          </p>
+        </div>
+
         <label className="ui-field block">
           <span className="mb-1 block text-sm text-[color-mix(in_oklab,var(--foreground)_70%,transparent)]">Search templates</span>
           <input
@@ -254,78 +298,66 @@ export function ServiceTemplatesHub({ templates }: { templates: ServiceTemplate[
           />
         </label>
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div
-            role="tablist"
-            aria-label="Filter by service category"
-            className="flex flex-wrap gap-2"
-          >
-            {FILTER_TABS.map((tab) => {
-              const selected = categoryFilter === tab.value;
-              return (
-                <button
-                  key={tab.value}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  onClick={() => setCategoryFilter(tab.value)}
-                  className={[
-                    "rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors",
-                    selected
-                      ? "border-[color-mix(in_oklab,var(--accent)_45%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_12%,var(--card))] text-[var(--foreground)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_22%,transparent)]"
-                      : "border-[color-mix(in_oklab,var(--foreground)_12%,var(--border))] bg-[var(--card)] text-[color-mix(in_oklab,var(--foreground)_88%,transparent)] hover:border-[color-mix(in_oklab,var(--foreground)_22%,var(--border))]",
-                  ].join(" ")}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-          <Link
-            href="/dashboard/services?scratch=1#service-form"
-            className="inline-flex shrink-0 items-center justify-center rounded-xl border border-[color-mix(in_oklab,var(--foreground)_12%,var(--border))] bg-[var(--card)] px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-[color-mix(in_oklab,var(--foreground)_22%,var(--border))] lg:mt-0"
-          >
-            Start from scratch
-          </Link>
+        <div
+          role="tablist"
+          aria-label="Filter by service category"
+          className="flex flex-wrap gap-2"
+        >
+          {FILTER_TABS.map((tab) => {
+            const selected = categoryFilter === tab.value;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setCategoryFilter(tab.value)}
+                className={[
+                  "rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors",
+                  selected
+                    ? "border-[color-mix(in_oklab,var(--accent)_45%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_12%,var(--card))] text-[var(--foreground)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_22%,transparent)]"
+                    : "border-[color-mix(in_oklab,var(--foreground)_12%,var(--border))] bg-[var(--card)] text-[color-mix(in_oklab,var(--foreground)_88%,transparent)] hover:border-[color-mix(in_oklab,var(--foreground)_22%,var(--border))]",
+                ].join(" ")}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {showFeaturedStrip && smart.length > 0 ? (
-        <section aria-labelledby="smart-templates-heading">
-          <h2 id="smart-templates-heading" className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">
-            Smart templates
-          </h2>
-          <ul className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
-            {smart.map((t) => (
+      <section aria-labelledby="templates-grid-heading">
+        <h3 id="templates-grid-heading" className="sr-only">
+          Template list
+        </h3>
+        <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
+          {visibleTemplates.length ? (
+            visibleTemplates.map((t) => (
               <TemplateCard
                 key={t.id}
                 template={t}
                 onPreview={openPreview}
-                highlightLabel={smartLabels[t.id]}
+                highlightLabel={showFeaturedStrip ? smartLabels[t.id] : undefined}
               />
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      <section aria-labelledby={showFeaturedStrip ? "all-templates-heading" : "filtered-templates-heading"}>
-        <h2
-          id={showFeaturedStrip ? "all-templates-heading" : "filtered-templates-heading"}
-          className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl"
-        >
-          {showFeaturedStrip ? "All templates" : "Templates"}
-        </h2>
-        <ul className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
-          {rest.length ? (
-            rest.map((t) => <TemplateCard key={t.id} template={t} onPreview={openPreview} />)
+            ))
           ) : (
             <li className="col-span-full rounded-xl border border-dashed border-[color-mix(in_oklab,var(--foreground)_18%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] px-4 py-6 text-center text-sm text-[color-mix(in_oklab,var(--foreground)_62%,transparent)]">
-              {baseFiltered.length === 0
-                ? "No templates match your search or filter. Try clearing the search or choose “All”."
-                : "No additional templates in this view."}
+              No templates match your search or filter. Try clearing the search or choose “All”.
             </li>
           )}
         </ul>
+
+        {hiddenCount > 0 && !showAllTemplates ? (
+          <div className="mt-6 flex justify-center sm:justify-start">
+            <button
+              type="button"
+              onClick={() => setShowAllTemplates(true)}
+              className="ui-btn-secondary min-h-11 px-6 text-sm font-semibold"
+            >
+              See all ({orderedTemplates.length} templates)
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <PreviewDialog template={preview} dialogRef={dialogRef} onClose={handleDialogClose} />

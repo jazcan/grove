@@ -1,13 +1,19 @@
 /**
  * Public provider profile helpers (no auth secrets).
- * Image URLs work when S3_PUBLIC_BASE_URL matches upload/presign configuration.
+ * Image URLs work when S3_PUBLIC_BASE_URL matches upload/presign configuration,
+ * or in development when keys are under `uploads/profiles/` and APP_URL is set.
  */
 export function publicProfileImageUrl(key: string | null | undefined): string | null {
   const k = key?.trim();
   if (!k) return null;
+  const normalized = k.replace(/^\//, "");
   const base = process.env.S3_PUBLIC_BASE_URL?.replace(/\/$/, "");
-  if (!base) return null;
-  return `${base}/${k.replace(/^\//, "")}`;
+  if (base) return `${base}/${normalized}`;
+  if (normalized.startsWith("uploads/profiles/")) {
+    const app = process.env.APP_URL?.replace(/\/$/, "");
+    if (app) return `${app}/${normalized}`;
+  }
+  return null;
 }
 
 export function providerDisplayInitials(displayName: string): string {

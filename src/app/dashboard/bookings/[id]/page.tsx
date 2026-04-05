@@ -13,6 +13,7 @@ import {
   updateBookingPayment,
   rescheduleBooking,
 } from "@/actions/booking-dashboard";
+import { BookingInvoiceForm } from "@/components/dashboard/bookings/booking-invoice-form";
 import { ServiceCardSection } from "@/components/dashboard/bookings/service-card-section";
 import { formatBookingConfirmation } from "@/lib/format-booking-reference";
 
@@ -158,6 +159,14 @@ export default async function BookingDetailPage({ params }: Props) {
               Save payment
             </button>
           </form>
+        </div>
+
+        <div className="ui-card p-5 sm:p-6">
+          <h2 className="text-base font-semibold text-[var(--foreground)]">Invoice</h2>
+          <p className="mt-1 text-xs text-[color-mix(in_oklab,var(--foreground)_58%,transparent)]">
+            Creates a draft invoice from this booking&apos;s price. Download a simple PDF or fetch JSON from the API.
+          </p>
+          <BookingInvoiceForm csrf={csrf} bookingId={booking.id} />
         </div>
 
         <div className="ui-card p-5 sm:p-6">

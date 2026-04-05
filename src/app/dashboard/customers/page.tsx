@@ -1,4 +1,4 @@
-import { eq, asc, and, count, max } from "drizzle-orm";
+import { eq, asc, and, count, max, gte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { customers, bookings, providers } from "@/db/schema";
 import { requireProvider } from "@/lib/tenancy";
@@ -72,6 +72,14 @@ export default async function CustomersPage({ searchParams }: Props) {
     .where(crmCustomersOnly);
   const totalCustomerCount = Number(totalCustomers?.n ?? 0);
 
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const [addedRecent] = await db
+    .select({ n: count() })
+    .from(customers)
+    .where(and(crmCustomersOnly, gte(customers.createdAt, thirtyDaysAgo)));
+  const addedLast30Days = Number(addedRecent?.n ?? 0);
+
   const list: CustomerRow[] = baseList.map((c) => {
     const s = statsMap.get(c.id);
     return {
@@ -95,16 +103,30 @@ export default async function CustomersPage({ searchParams }: Props) {
       <main id="main-content" className="min-w-0 max-w-4xl">
         <header>
           <h1 className="text-2xl font-semibold tracking-tight">Customers</h1>
-          <p className="mt-2 max-w-xl text-sm text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
-            Keep track of your clients and your work with them
-            {totalCustomerCount > 0 ? (
-              <span className="text-[color-mix(in_oklab,var(--foreground)_48%,transparent)]">
-                {" "}
-                · {totalCustomerCount} total
-              </span>
-            ) : null}
-            .
-          </p>
+          {totalCustomerCount > 0 ? (
+            <div className="mt-2 max-w-xl space-y-1.5 leading-relaxed text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
+              <p className="text-sm text-[var(--foreground)]">
+                You have{" "}
+                <span className="text-lg font-semibold tabular-nums text-[var(--foreground)]">
+                  {totalCustomerCount}
+                </span>{" "}
+                {totalCustomerCount === 1 ? "customer" : "customers"}.
+              </p>
+              {addedLast30Days > 0 ? (
+                <p className="text-sm">
+                  You&apos;ve added{" "}
+                  <span className="font-semibold tabular-nums text-[var(--foreground)]">
+                    {addedLast30Days}
+                  </span>{" "}
+                  new {addedLast30Days === 1 ? "customer" : "customers"} in the last 30 days.
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_65%,transparent)]">
+              People show up here after they book—or add someone yourself when you need to.
+            </p>
+          )}
         </header>
 
         {totalCustomerCount === 0 ? (

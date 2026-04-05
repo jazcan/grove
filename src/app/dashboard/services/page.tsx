@@ -1,7 +1,6 @@
 import { and, asc, count, eq, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { availabilityRules, bookings, providers, services, users } from "@/db/schema";
-import { BundleSuggestionCard } from "@/components/dashboard/bundle-suggestion-card";
 import { ensureDefaultPricingProfile } from "@/domain/pricing/ensure-default";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { requireProvider } from "@/lib/tenancy";
@@ -152,18 +151,10 @@ export default async function ServicesPage({ searchParams }: Props) {
               <div className="mt-6">
                 <ServicesList services={list} csrf={csrf} />
               </div>
-              {hasServices ? (
-                <div className="mt-10">
-                  <BundleSuggestionCard />
-                </div>
-              ) : null}
             </section>
             {list.length > 0 ? (
               <ServicePerformanceSection services={list} statsByServiceId={statsByServiceId} />
             ) : null}
-            <section className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-5 sm:p-6 md:p-8">
-              <ServiceTemplatesHub templates={serviceTemplates} />
-            </section>
             <ServiceCreateSection
               csrf={csrf}
               prefillDefaults={prefillDefaults}
@@ -173,6 +164,9 @@ export default async function ServicesPage({ searchParams }: Props) {
               defaultServiceLevelsEnabled={Boolean(prov?.defaultServiceLevelsEnabled)}
               pricingTierLabels={pricingTierLabels}
             />
+            <section className="rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--card))] p-5 sm:p-6 md:p-8">
+              <ServiceTemplatesHub templates={serviceTemplates} />
+            </section>
           </>
         ) : (
           <>
@@ -202,11 +196,6 @@ export default async function ServicesPage({ searchParams }: Props) {
           <div className="mt-6">
             <ServicesList services={list} csrf={csrf} />
           </div>
-          {hasServices ? (
-            <div className="mt-10">
-              <BundleSuggestionCard />
-            </div>
-          ) : null}
         </section>
       ) : null}
     </main>
