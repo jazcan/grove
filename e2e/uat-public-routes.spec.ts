@@ -25,4 +25,9 @@ test.describe("UAT plan 8 (partial) — public routes", () => {
       await expect(page.locator("#main-content, main").first()).toBeVisible({ timeout: 15_000 });
     }
   });
+
+  test("signup prefills referral code from ?ref= query", async ({ page }) => {
+    await page.goto("/signup?ref=local12x", { waitUntil: "domcontentloaded" });
+    await expect(page.getByLabel(/referral code/i)).toHaveValue("LOCAL12X");
+  });
 });

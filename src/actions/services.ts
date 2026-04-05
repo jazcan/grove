@@ -11,6 +11,7 @@ import { getCanonicalTemplateRowBySlug } from "@/lib/canonical-templates";
 import { QUICK_START_PREFILL_ID } from "@/lib/service-templates";
 import { emitPlatformEvent } from "@/platform/events/emit";
 import { ensureDefaultPricingProfile } from "@/domain/pricing/ensure-default";
+import { maybeActivateReferralForProvider } from "@/domain/local-ambassador/referral-lifecycle";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
 import type { ActionState } from "@/domain/auth/actions";
 
@@ -136,6 +137,8 @@ export async function createService(formData: FormData): Promise<ActionState> {
     });
   }
 
+  await maybeActivateReferralForProvider(db, ctx.providerId);
+
   const returnTo = formData.get("returnTo")?.toString() || "/dashboard/services#existing-services";
   revalidatePath("/dashboard/services");
   redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}saved=service`);
@@ -194,6 +197,8 @@ export async function updateService(formData: FormData): Promise<ActionState> {
     .update(providers)
     .set({ defaultServiceLevelsEnabled: serviceLevelsEnabled, updatedAt: new Date() })
     .where(eq(providers.id, ctx.providerId));
+
+  await maybeActivateReferralForProvider(db, ctx.providerId);
 
   await emitPlatformEvent(
     {

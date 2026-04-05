@@ -29,10 +29,16 @@ import {
   PRICING_TYPES,
   PLATFORM_EVENT_ACTORS,
   USER_ROLES,
+  HANDOFF_STATUSES,
+  PROVIDER_REFERRAL_STATUSES,
 } from "@/platform/enums";
 import type { TemplateAddOn, TemplateOutcome, TemplateStep } from "@/platform/templates/structure";
 
 export const userRoleEnum = pgEnum("user_role", USER_ROLES);
+
+export const handoffStatusEnum = pgEnum("handoff_status", HANDOFF_STATUSES);
+
+export const providerReferralStatusEnum = pgEnum("provider_referral_status", PROVIDER_REFERRAL_STATUSES);
 
 export const bookingStatusEnum = pgEnum("booking_status", BOOKING_STATUSES);
 
@@ -72,6 +78,13 @@ export const users = pgTable("users", {
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   role: userRoleEnum("role").notNull().default("provider"),
   mfaEnabled: boolean("mfa_enabled").notNull().default(false),
+  /** True when the account was created from the internal admin seeding tool (not public signup). */
+  isSeededAccount: boolean("is_seeded_account").notNull().default(false),
+  handoffStatus: handoffStatusEnum("handoff_status").notNull().default("none"),
+  /** Target login email before handoff is triggered; cleared after email is moved to `email`. */
+  handoffToEmail: varchar("handoff_to_email", { length: 320 }),
+  handoffSentAt: timestamp("handoff_sent_at", { withTimezone: true }),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -143,6 +156,8 @@ export const providers = pgTable(
     timezone: varchar("timezone", { length: 64 }).notNull().default("America/Toronto"),
     paymentCash: boolean("payment_cash").notNull().default(true),
     paymentEtransfer: boolean("payment_etransfer").notNull().default(false),
+    /** In-person card / tap-to-pay; shown to clients as “In person credit/debit”. */
+    paymentInPersonCreditDebit: boolean("payment_in_person_credit_debit").notNull().default(false),
     etransferDetails: text("etransfer_details").notNull().default(""),
     paymentDueBeforeAppointment: boolean("payment_due_before").notNull().default(false),
     cancellationPolicy: text("cancellation_policy").notNull().default(""),
@@ -166,10 +181,38 @@ export const providers = pgTable(
     defaultServiceLevelsEnabled: boolean("default_service_levels_enabled").notNull().default(false),
     /** Set when the provider has committed a public page address (onboarding or first profile save). */
     usernameLockedAt: timestamp("username_locked_at", { withTimezone: true }),
+    /** Internal-only notes for admin seeding / handoff (never shown on public profile). */
+    internalAdminNotes: text("internal_admin_notes"),
+    /** Stable shareable code for the Local Ambassador referral link (uppercase alphanumeric). Nullable until backfilled. */
+    referralCode: varchar("referral_code", { length: 16 }).unique(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("providers_discoverable_idx").on(t.discoverable, t.publicProfileEnabled)]
+);
+
+/** Direct provider-to-provider referrals (Local Ambassador). One row per referred provider when attributed. */
+export const providerReferrals = pgTable(
+  "provider_referrals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    referrerProviderId: uuid("referrer_provider_id")
+      .notNull()
+      .references(() => providers.id, { onDelete: "cascade" }),
+    referredProviderId: uuid("referred_provider_id").references(() => providers.id, { onDelete: "cascade" }),
+    referredEmail: varchar("referred_email", { length: 320 }),
+    referralCodeUsed: varchar("referral_code_used", { length: 16 }).notNull(),
+    status: providerReferralStatusEnum("status").notNull().default("signed_up"),
+    invitedAt: timestamp("invited_at", { withTimezone: true }),
+    signedUpAt: timestamp("signed_up_at", { withTimezone: true }),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("provider_referrals_referred_uidx").on(t.referredProviderId),
+    index("provider_referrals_referrer_idx").on(t.referrerProviderId),
+  ]
 );
 
 /** Up to five promo codes per provider (enforced in application logic). */
@@ -942,6 +985,12 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 
 export const providersRelations = relations(providers, ({ one, many }) => ({
   user: one(users, { fields: [providers.userId], references: [users.id] }),
+  referralsMade: many(providerReferrals, { relationName: "referrer" }),
+  referralReceived: one(providerReferrals, {
+    fields: [providers.id],
+    references: [providerReferrals.referredProviderId],
+    relationName: "referred",
+  }),
   services: many(services),
   availabilityRules: many(availabilityRules),
   blockedTimes: many(blockedTimes),
@@ -960,6 +1009,19 @@ export const providersRelations = relations(providers, ({ one, many }) => ({
   }),
   assistantConversations: many(assistantConversations),
   discountCodes: many(providerDiscountCodes),
+}));
+
+export const providerReferralsRelations = relations(providerReferrals, ({ one }) => ({
+  referrer: one(providers, {
+    fields: [providerReferrals.referrerProviderId],
+    references: [providers.id],
+    relationName: "referrer",
+  }),
+  referred: one(providers, {
+    fields: [providerReferrals.referredProviderId],
+    references: [providers.id],
+    relationName: "referred",
+  }),
 }));
 
 export const providerDiscountCodesRelations = relations(providerDiscountCodes, ({ one }) => ({

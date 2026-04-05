@@ -33,7 +33,7 @@ export function formatIncomePaymentMethod(m: IncomePaymentMethod): string {
     case "cash":
       return "Cash";
     case "terminal":
-      return "Terminal";
+      return "In person credit/debit";
     default:
       return "Other";
   }

@@ -113,8 +113,14 @@ export function CustomersListClient({ rows, initialQuery, timezone, totalCustome
             aria-busy={searching}
           />
         </div>
-        <div className="flex shrink-0 items-center sm:items-stretch">
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-stretch">
           <AddCustomerModalButton />
+          <Link
+            href="/dashboard/customers/import"
+            className="ui-btn inline-flex min-h-12 items-center justify-center px-4 text-sm font-semibold no-underline"
+          >
+            Import CSV
+          </Link>
         </div>
       </div>
 

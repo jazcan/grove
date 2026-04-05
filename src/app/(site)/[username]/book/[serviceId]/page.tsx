@@ -40,6 +40,7 @@ export default async function PublicBookPage({ params }: Props) {
       publicProfileEnabled: providers.publicProfileEnabled,
       paymentCash: providers.paymentCash,
       paymentEtransfer: providers.paymentEtransfer,
+      paymentInPersonCreditDebit: providers.paymentInPersonCreditDebit,
       etransferDetails: providers.etransferDetails,
       cancellationPolicy: providers.cancellationPolicy,
     })
@@ -161,6 +162,7 @@ export default async function PublicBookPage({ params }: Props) {
           providerName={serialString(prov.businessName || prov.displayName)}
           providerPaymentCash={Boolean(prov.paymentCash)}
           providerPaymentEtransfer={Boolean(prov.paymentEtransfer)}
+          providerPaymentInPersonCreditDebit={Boolean(prov.paymentInPersonCreditDebit)}
           providerEtransferDetails={serialString(prov.etransferDetails)}
           providerCancellationPolicy={serialString(prov.cancellationPolicy)}
           serviceId={serialString(svcRow.id)}

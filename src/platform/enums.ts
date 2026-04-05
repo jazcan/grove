@@ -5,6 +5,14 @@
 export const USER_ROLES = ["provider", "admin"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
+/** Login / handoff lifecycle for admin-seeded provider accounts (`users.is_seeded_account`). */
+export const HANDOFF_STATUSES = ["none", "seeded", "invited", "claimed"] as const;
+export type HandoffStatus = (typeof HANDOFF_STATUSES)[number];
+
+/** Local Ambassador direct referral lifecycle (`provider_referrals.status`). */
+export const PROVIDER_REFERRAL_STATUSES = ["invited", "signed_up", "activated"] as const;
+export type ProviderReferralStatus = (typeof PROVIDER_REFERRAL_STATUSES)[number];
+
 export const BOOKING_STATUSES = [
   "pending",
   "confirmed",

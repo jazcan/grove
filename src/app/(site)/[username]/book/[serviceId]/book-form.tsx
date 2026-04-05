@@ -25,6 +25,7 @@ type Props = {
   providerName: string;
   providerPaymentCash: boolean;
   providerPaymentEtransfer: boolean;
+  providerPaymentInPersonCreditDebit: boolean;
   providerEtransferDetails: string;
   providerCancellationPolicy: string;
   serviceId: string;
@@ -100,6 +101,7 @@ export function BookForm({
   providerName,
   providerPaymentCash,
   providerPaymentEtransfer,
+  providerPaymentInPersonCreditDebit,
   providerEtransferDetails,
   providerCancellationPolicy,
   serviceId,
@@ -138,8 +140,11 @@ export function BookForm({
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
-  const hasPaymentChoice = providerPaymentCash || providerPaymentEtransfer;
-  const [paymentMethod, setPaymentMethod] = useState<"" | "cash" | "etransfer">("");
+  const hasPaymentChoice =
+    providerPaymentCash || providerPaymentEtransfer || providerPaymentInPersonCreditDebit;
+  const [paymentMethod, setPaymentMethod] = useState<
+    "" | "cash" | "etransfer" | "in_person_credit_debit"
+  >("");
   const [paymentError, setPaymentError] = useState("");
   const [state, action, formPending] = useActionState<ActionState, FormData>(
     submitPublicBooking,
@@ -299,17 +304,17 @@ export function BookForm({
   }, [state?.error, state?.success]);
 
   useEffect(() => {
-    if (providerPaymentCash && !providerPaymentEtransfer) {
-      setPaymentMethod("cash");
-    } else if (!providerPaymentCash && providerPaymentEtransfer) {
-      setPaymentMethod("etransfer");
-    } else if (providerPaymentCash && providerPaymentEtransfer) {
-      setPaymentMethod("");
+    const enabled: ("cash" | "etransfer" | "in_person_credit_debit")[] = [];
+    if (providerPaymentCash) enabled.push("cash");
+    if (providerPaymentEtransfer) enabled.push("etransfer");
+    if (providerPaymentInPersonCreditDebit) enabled.push("in_person_credit_debit");
+    if (enabled.length === 1) {
+      setPaymentMethod(enabled[0]!);
     } else {
       setPaymentMethod("");
     }
     setPaymentError("");
-  }, [providerPaymentCash, providerPaymentEtransfer]);
+  }, [providerPaymentCash, providerPaymentEtransfer, providerPaymentInPersonCreditDebit]);
 
   const selectedLabel = slotStart ? prettyDateTime(slotStart) : null;
   const canSubmit =
@@ -1031,6 +1036,32 @@ export function BookForm({
                           checked={paymentMethod === "etransfer"}
                           onChange={() => {
                             setPaymentMethod("etransfer");
+                            setPaymentError("");
+                          }}
+                          className="mt-1 h-[1.125rem] w-[1.125rem] shrink-0 accent-[var(--accent)]"
+                        />
+                      </label>
+                    ) : null}
+                    {providerPaymentInPersonCreditDebit ? (
+                      <label
+                        className={[
+                          "ui-choice ui-choice-tall",
+                          paymentMethod === "in_person_credit_debit" ? "ui-choice-selected" : "",
+                        ].join(" ")}
+                      >
+                        <span className="min-w-0">
+                          <span className="font-semibold text-[var(--foreground)]">
+                            In person credit/debit
+                          </span>
+                          <span className="ui-hint mt-1 block">Pay with card at the appointment.</span>
+                        </span>
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="in_person_credit_debit"
+                          checked={paymentMethod === "in_person_credit_debit"}
+                          onChange={() => {
+                            setPaymentMethod("in_person_credit_debit");
                             setPaymentError("");
                           }}
                           className="mt-1 h-[1.125rem] w-[1.125rem] shrink-0 accent-[var(--accent)]"

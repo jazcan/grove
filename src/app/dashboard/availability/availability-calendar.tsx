@@ -182,15 +182,21 @@ export function AvailabilityCalendar(props: {
   const [optimisticBlocked, setOptimisticBlocked] = useState<BlockedTime[]>([]);
   const [blockError, setBlockError] = useState<string | null>(null);
 
-  const blockedSyncKey = useMemo(() => blocked.map((b) => `${b.id}:${b.startsAtISO}`).join("|"), [blocked]);
-
+  /** Drop optimistic rows once the server `blocked` list includes the same id (after refresh). */
   useEffect(() => {
-    setOptimisticBlocked([]);
-  }, [blockedSyncKey]);
+    setOptimisticBlocked((prev) => prev.filter((o) => !blocked.some((b) => b.id === o.id)));
+  }, [blocked]);
+
+  /** Prefer server rows; keep optimistic only for ids not yet in props (avoids a gap after save + refresh). */
+  const mergedBlocked = useMemo(() => {
+    const byId = new Map(blocked.map((b) => [b.id, b]));
+    const extra = optimisticBlocked.filter((o) => !byId.has(o.id));
+    return [...blocked, ...extra];
+  }, [blocked, optimisticBlocked]);
 
   const timeGridBounds = useMemo(
-    () => deriveTimeGridBounds(rules, bookings, blocked, timezone),
-    [rules, bookings, blocked, timezone]
+    () => deriveTimeGridBounds(rules, bookings, mergedBlocked, timezone),
+    [rules, bookings, mergedBlocked, timezone]
   );
 
   /** Remount when weekly hours or timezone change so slot axis + scroll apply cleanly; not on every booking/block tweak. */
@@ -229,7 +235,19 @@ export function AvailabilityCalendar(props: {
         setOptimisticBlocked((p) => p.filter((x) => x.id !== tempId));
         return { ok: false as const, error: r.error };
       }
-      setOptimisticBlocked((p) => p.filter((x) => x.id !== tempId));
+      // Swap temp id for the real row so the calendar never goes blank while RSC refreshes.
+      setOptimisticBlocked((p) =>
+        p.map((x) =>
+          x.id === tempId
+            ? {
+                id: r.id,
+                startsAtISO: r.startsAtISO,
+                endsAtISO: r.endsAtISO,
+                reason: r.reason ?? null,
+              }
+            : x
+        )
+      );
       router.refresh();
       return { ok: true as const };
     },
@@ -248,11 +266,13 @@ export function AvailabilityCalendar(props: {
         return;
       }
       setBlockError(null);
-      void (async () => {
-        const r = await submitBlockRange(info.start, info.end, "");
+      const start = info.start;
+      const end = info.end;
+      void submitBlockRange(start, end, "").then((r) => {
         if (!r.ok) setBlockError(r.error);
-        info.view.calendar.unselect();
-      })();
+      });
+      // Clear the drag selection immediately so the optimistic event is visible (don’t wait for the server).
+      info.view.calendar.unselect();
     },
     [submitBlockRange]
   );
@@ -263,16 +283,15 @@ export function AvailabilityCalendar(props: {
       const start = arg.date;
       const end = new Date(start.getTime() + 60 * 60 * 1000);
       setBlockError(null);
-      void (async () => {
-        const r = await submitBlockRange(start, end, "");
+      void submitBlockRange(start, end, "").then((r) => {
         if (!r.ok) setBlockError(r.error);
-      })();
+      });
     },
     [submitBlockRange]
   );
 
   const blockedEvents: EventInput[] = useMemo(() => {
-    const merged = [...blocked, ...optimisticBlocked];
+    const merged = mergedBlocked;
     return merged.map((b) => {
       const isOpt = b.id.startsWith("optimistic-");
       const base = {
@@ -298,7 +317,7 @@ export function AvailabilityCalendar(props: {
         backgroundColor: "rgba(239, 68, 68, 0.35)",
       };
     });
-  }, [blocked, optimisticBlocked]);
+  }, [mergedBlocked]);
 
   const bookingEvents: EventInput[] = useMemo(
     () =>
@@ -358,11 +377,7 @@ export function AvailabilityCalendar(props: {
   );
 
   const byBookingId = useMemo(() => new Map(bookings.map((b) => [b.id, b])), [bookings]);
-  const byBlockId = useMemo(() => {
-    const m = new Map(blocked.map((b) => [b.id, b]));
-    for (const o of optimisticBlocked) m.set(o.id, o);
-    return m;
-  }, [blocked, optimisticBlocked]);
+  const byBlockId = useMemo(() => new Map(mergedBlocked.map((b) => [b.id, b])), [mergedBlocked]);
 
   const onEventClick = (arg: EventClickArg) => {
     const kind = (arg.event.extendedProps as { kind?: string }).kind;
@@ -419,7 +434,7 @@ export function AvailabilityCalendar(props: {
           selectable
           selectMirror
           selectMinDistance={6}
-          longPressDelay={400}
+          longPressDelay={150}
           slotDuration="00:15:00"
           slotLabelInterval="01:00:00"
           select={onSelect}

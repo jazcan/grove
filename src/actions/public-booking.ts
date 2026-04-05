@@ -392,16 +392,20 @@ export async function submitPublicBooking(
   });
   if (!okSlot) return { error: "That time is no longer available." };
 
-  const wantsPayChoice = prov.paymentCash || prov.paymentEtransfer;
+  const wantsPayChoice =
+    prov.paymentCash || prov.paymentEtransfer || prov.paymentInPersonCreditDebit;
   let paymentMethod: string | null = null;
   if (wantsPayChoice) {
-    if (rawPay !== "cash" && rawPay !== "etransfer") {
+    if (rawPay !== "cash" && rawPay !== "etransfer" && rawPay !== "in_person_credit_debit") {
       return { error: "Please select a payment method" };
     }
     if (rawPay === "cash" && !prov.paymentCash) {
       return { error: "That payment method isn’t available for this provider." };
     }
     if (rawPay === "etransfer" && !prov.paymentEtransfer) {
+      return { error: "That payment method isn’t available for this provider." };
+    }
+    if (rawPay === "in_person_credit_debit" && !prov.paymentInPersonCreditDebit) {
       return { error: "That payment method isn’t available for this provider." };
     }
     paymentMethod = rawPay;

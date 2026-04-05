@@ -48,6 +48,7 @@ type RootProps = {
   maxDateISO: string;
   paymentCash: boolean;
   paymentEtransfer: boolean;
+  paymentInPersonCreditDebit: boolean;
   children: ReactNode;
   /** Open modal on mount (e.g. deep-linked from customer profile). */
   autoOpen?: boolean;
@@ -72,6 +73,7 @@ export function ManualBookingModalRoot({
   maxDateISO,
   paymentCash,
   paymentEtransfer,
+  paymentInPersonCreditDebit,
   children,
   autoOpen = false,
   preselectCustomerId = null,
@@ -193,7 +195,8 @@ export function ManualBookingModalRoot({
   }, [customers, custQuery]);
 
   const hasServices = services.length > 0;
-  const showPayMethods = paymentStatus === "paid" && paymentCash && paymentEtransfer;
+  const enabledPayCount = [paymentCash, paymentEtransfer, paymentInPersonCreditDebit].filter(Boolean).length;
+  const showPayMethods = paymentStatus === "paid" && enabledPayCount >= 2;
 
   return (
     <ManualBookingOpenContext.Provider value={open}>
@@ -458,14 +461,24 @@ export function ManualBookingModalRoot({
             {showPayMethods ? (
               <fieldset className="grid gap-2 text-sm">
                 <legend className="font-medium">How was it paid?</legend>
-                <label className="flex items-center gap-2">
-                  <input type="radio" name="paymentMethod" value="cash" required />
-                  Cash
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="radio" name="paymentMethod" value="etransfer" required />
-                  E-transfer
-                </label>
+                {paymentCash ? (
+                  <label className="flex items-center gap-2">
+                    <input type="radio" name="paymentMethod" value="cash" />
+                    Cash
+                  </label>
+                ) : null}
+                {paymentEtransfer ? (
+                  <label className="flex items-center gap-2">
+                    <input type="radio" name="paymentMethod" value="etransfer" />
+                    E-transfer
+                  </label>
+                ) : null}
+                {paymentInPersonCreditDebit ? (
+                  <label className="flex items-center gap-2">
+                    <input type="radio" name="paymentMethod" value="in_person_credit_debit" />
+                    In person credit/debit
+                  </label>
+                ) : null}
               </fieldset>
             ) : null}
 

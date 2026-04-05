@@ -85,6 +85,7 @@ export default async function BookingsPage({ searchParams }: Props) {
       bookingHorizonDays: providers.bookingHorizonDays,
       paymentCash: providers.paymentCash,
       paymentEtransfer: providers.paymentEtransfer,
+      paymentInPersonCreditDebit: providers.paymentInPersonCreditDebit,
     })
     .from(providers)
     .where(eq(providers.id, u.providerId))
@@ -340,6 +341,7 @@ export default async function BookingsPage({ searchParams }: Props) {
     maxDateISO,
     paymentCash: prov?.paymentCash ?? true,
     paymentEtransfer: prov?.paymentEtransfer ?? false,
+    paymentInPersonCreditDebit: prov?.paymentInPersonCreditDebit ?? false,
     autoOpen: autoOpenBooking,
     preselectCustomerId,
   };

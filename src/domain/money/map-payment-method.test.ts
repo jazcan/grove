@@ -7,6 +7,7 @@ describe("mapBookingPaymentMethodToIncome", () => {
     expect(mapBookingPaymentMethodToIncome("E-Transfer")).toBe("e_transfer");
     expect(mapBookingPaymentMethodToIncome("Interac")).toBe("e_transfer");
     expect(mapBookingPaymentMethodToIncome("card / terminal")).toBe("terminal");
+    expect(mapBookingPaymentMethodToIncome("in_person_credit_debit")).toBe("terminal");
   });
 
   it("defaults to other", () => {

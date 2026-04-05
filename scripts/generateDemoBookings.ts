@@ -107,6 +107,7 @@ type ResolvedProvider = {
   timezone: string;
   paymentCash: boolean;
   paymentEtransfer: boolean;
+  paymentInPersonCreditDebit: boolean;
 };
 
 /**
@@ -128,6 +129,7 @@ async function resolveProvider(identifier: string): Promise<ResolvedProvider> {
         timezone: providers.timezone,
         paymentCash: providers.paymentCash,
         paymentEtransfer: providers.paymentEtransfer,
+        paymentInPersonCreditDebit: providers.paymentInPersonCreditDebit,
       })
       .from(providers)
       .innerJoin(users, eq(providers.userId, users.id))
@@ -241,6 +243,7 @@ function pickPaymentMethod(p: ResolvedProvider): string | null {
   const opts: string[] = [];
   if (p.paymentCash) opts.push("cash");
   if (p.paymentEtransfer) opts.push("etransfer");
+  if (p.paymentInPersonCreditDebit) opts.push("in_person_credit_debit");
   if (!opts.length) return null;
   return opts[Math.floor(Math.random() * opts.length)] ?? null;
 }

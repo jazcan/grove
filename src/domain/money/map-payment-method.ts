@@ -7,6 +7,7 @@ import type { IncomePaymentMethod } from "@/platform/enums";
 export function mapBookingPaymentMethodToIncome(raw: string | null | undefined): IncomePaymentMethod {
   const s = raw?.trim().toLowerCase() ?? "";
   if (!s) return "other";
+  if (s === "in_person_credit_debit") return "terminal";
   if (s === "cash" || s.includes("cash")) return "cash";
   if (s.includes("e-transfer") || s.includes("etransfer") || s.includes("e transfer") || s === "interac") {
     return "e_transfer";

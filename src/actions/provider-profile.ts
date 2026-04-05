@@ -10,6 +10,7 @@ import { isValidUsername, isReservedUsername } from "@/lib/reserved-usernames";
 import { logAudit } from "@/lib/audit";
 import { geocodeProviderAddress } from "@/lib/geocoding/geocode-provider-address";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
+import { maybeActivateReferralForProvider } from "@/domain/local-ambassador/referral-lifecycle";
 import type { ActionState } from "@/domain/auth/actions";
 
 /** Set to `true` to require verified account email before publishing (see profile forms). */
@@ -63,6 +64,7 @@ export async function updateProviderProfile(formData: FormData): Promise<Profile
   const timezone = plainTextFromInput(formData.get("timezone")?.toString() ?? "", 64) || "America/Toronto";
   const paymentCash = formData.get("paymentCash") === "on";
   const paymentEtransfer = formData.get("paymentEtransfer") === "on";
+  const paymentInPersonCreditDebit = formData.get("paymentInPersonCreditDebit") === "on";
   const etransferDetails = plainTextFromInput(
     formData.get("etransferDetails")?.toString() ?? "",
     2000
@@ -105,6 +107,7 @@ export async function updateProviderProfile(formData: FormData): Promise<Profile
       timezone,
       paymentCash,
       paymentEtransfer,
+      paymentInPersonCreditDebit,
       etransferDetails,
       paymentDueBeforeAppointment: paymentDueBefore,
       cancellationPolicy,
@@ -243,6 +246,8 @@ export async function completeOnboarding(
     entityId: ctx.providerId,
     action: "display_name_set",
   });
+
+  await maybeActivateReferralForProvider(db, ctx.providerId);
 
   revalidatePath("/dashboard/onboarding");
   revalidatePath("/dashboard/profile");

@@ -1,6 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { randomBytes } from "crypto";
 import { getDb } from "@/db";
@@ -21,6 +22,9 @@ import { isAdminEmail } from "@/lib/env";
 import { isSafeInternalPath } from "@/lib/safe-internal-path";
 import { logAudit } from "@/lib/audit";
 import { brand } from "@/config/brand";
+import { allocateUniqueReferralCode } from "@/domain/local-ambassador/referral-code";
+import { tryRecordReferralOnSignup } from "@/domain/local-ambassador/referral-lifecycle";
+import { REFERRAL_COOKIE_NAME } from "@/lib/local-ambassador-cookie";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -48,6 +52,11 @@ export async function signUp(prev: ActionState, formData: FormData): Promise<Act
   const admin = isAdminEmail(email);
   const userId = globalThis.crypto.randomUUID();
 
+  const formRef = formData.get("referralCode")?.toString() ?? "";
+  const cookieStore = await cookies();
+  const cookieRef = cookieStore.get(REFERRAL_COOKIE_NAME)?.value ?? "";
+  const rawReferralCode = formRef.trim() || cookieRef || "";
+
   await db.transaction(async (tx) => {
     await tx.insert(users).values({
       id: userId,
@@ -57,13 +66,25 @@ export async function signUp(prev: ActionState, formData: FormData): Promise<Act
     });
     if (!admin) {
       const username = `prov-${randomBytes(6).toString("hex")}`;
-      await tx.insert(providers).values({
-        userId,
-        username,
-        displayName: "New provider",
+      const referralCode = await allocateUniqueReferralCode(tx);
+      const [created] = await tx
+        .insert(providers)
+        .values({
+          userId,
+          username,
+          displayName: "New provider",
+          referralCode,
+        })
+        .returning({ id: providers.id });
+      await tryRecordReferralOnSignup(tx, {
+        newUserId: userId,
+        newProviderId: created!.id,
+        rawReferralCode,
       });
     }
   });
+
+  cookieStore.delete(REFERRAL_COOKIE_NAME);
 
   const raw = generateToken();
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 48);
@@ -197,15 +218,39 @@ export async function resetPassword(prev: ActionState, formData: FormData): Prom
     return { error: "Invalid or expired reset link." };
   }
 
+  const [handoffUser] = await db
+    .select({
+      isSeededAccount: users.isSeededAccount,
+      handoffStatus: users.handoffStatus,
+      emailVerifiedAt: users.emailVerifiedAt,
+    })
+    .from(users)
+    .where(eq(users.id, tok.userId))
+    .limit(1);
+
+  const completeSeededHandoff =
+    handoffUser?.isSeededAccount === true && handoffUser.handoffStatus === "invited";
+
   const passwordHash = await hashPassword(password);
+  const now = new Date();
   await db.transaction(async (tx) => {
     await tx
       .update(users)
-      .set({ passwordHash, updatedAt: new Date() })
+      .set({
+        passwordHash,
+        updatedAt: now,
+        ...(completeSeededHandoff
+          ? {
+              handoffStatus: "claimed" as const,
+              claimedAt: now,
+              emailVerifiedAt: handoffUser?.emailVerifiedAt ?? now,
+            }
+          : {}),
+      })
       .where(eq(users.id, tok.userId));
     await tx
       .update(passwordResetTokens)
-      .set({ usedAt: new Date() })
+      .set({ usedAt: now })
       .where(eq(passwordResetTokens.id, tok.id));
   });
 

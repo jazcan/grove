@@ -1,7 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
-/** Use the same origin as your dev server (e.g. http://localhost:3001 if 3000 is taken). */
-const baseURL = process.env.UAT_BASE_URL ?? "http://localhost:3000";
+/**
+ * Dedicated port for Playwright’s dev server so health checks match the process Next actually binds
+ * (avoids timeouts when port 3000 is taken and Next moves to 3001+).
+ * Override with UAT_BASE_URL / UAT_PORT when reusing an existing server.
+ */
+const uatPort = process.env.UAT_PORT ?? "3333";
+const baseURL = process.env.UAT_BASE_URL ?? `http://localhost:${uatPort}`;
 
 export default defineConfig({
   testDir: "e2e",
@@ -23,7 +28,8 @@ export default defineConfig({
     : {
         command: "npm run dev",
         url: baseURL,
-        // Prefer reusing a running `npm run dev` so UAT does not fail when port 3000 is taken.
+        env: { ...process.env, PORT: uatPort },
+        // Prefer reusing a running dev server on the same UAT port when already up.
         reuseExistingServer: true,
         timeout: 120_000,
         stdout: "pipe",

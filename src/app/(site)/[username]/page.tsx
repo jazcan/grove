@@ -148,6 +148,7 @@ export default async function PublicProfilePage({ params }: Props) {
           contactPhone={prov.contactPhone}
           paymentCash={prov.paymentCash}
           paymentEtransfer={prov.paymentEtransfer}
+          paymentInPersonCreditDebit={prov.paymentInPersonCreditDebit}
           etransferDetails={prov.etransferDetails}
           paymentDueBeforeAppointment={prov.paymentDueBeforeAppointment}
           cancellationPolicy={prov.cancellationPolicy}

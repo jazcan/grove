@@ -52,6 +52,7 @@ function paymentMethodLabel(method: string | null | undefined): string {
   const m = method.trim().toLowerCase();
   if (m === "cash") return "Cash";
   if (m === "etransfer" || m === "e-transfer" || m === "interac") return "E-transfer";
+  if (m === "in_person_credit_debit") return "In person credit/debit";
   return method.trim();
 }
 

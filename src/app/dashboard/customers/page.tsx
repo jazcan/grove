@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { eq, asc, and, count, max, gte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { customers, bookings, providers } from "@/db/schema";
@@ -146,8 +147,14 @@ export default async function CustomersPage({ searchParams }: Props) {
                   aria-disabled="true"
                 />
               </div>
-              <div className="flex shrink-0 items-center sm:items-stretch">
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-stretch">
                 <AddCustomerModalButton />
+                <Link
+                  href="/dashboard/customers/import"
+                  className="ui-btn inline-flex min-h-12 items-center justify-center px-4 text-sm font-semibold no-underline"
+                >
+                  Import CSV
+                </Link>
               </div>
             </div>
             <div className="mt-12 rounded-2xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)] px-6 py-14 text-center shadow-[var(--shadow-card)] sm:px-10">
@@ -155,7 +162,15 @@ export default async function CustomersPage({ searchParams }: Props) {
               <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
                 Customers will appear here after their first booking, or you can add them manually.
               </p>
-              <AddCustomerEmptyButton className="ui-btn-primary mx-auto mt-8 min-h-12 px-6 text-sm font-semibold" />
+              <div className="mx-auto mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                <AddCustomerEmptyButton className="ui-btn-primary min-h-12 px-6 text-sm font-semibold" />
+                <Link
+                  href="/dashboard/customers/import"
+                  className="ui-btn inline-flex min-h-12 items-center justify-center px-6 text-sm font-semibold no-underline"
+                >
+                  Import CSV
+                </Link>
+              </div>
             </div>
           </>
         ) : (

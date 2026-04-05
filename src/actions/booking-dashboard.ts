@@ -284,7 +284,11 @@ export async function createManualBooking(_prev: ActionState, formData: FormData
 
   const db = getDb();
   const [provPay] = await db
-    .select({ paymentCash: providers.paymentCash, paymentEtransfer: providers.paymentEtransfer })
+    .select({
+      paymentCash: providers.paymentCash,
+      paymentEtransfer: providers.paymentEtransfer,
+      paymentInPersonCreditDebit: providers.paymentInPersonCreditDebit,
+    })
     .from(providers)
     .where(eq(providers.id, ctx.providerId))
     .limit(1);
@@ -293,18 +297,22 @@ export async function createManualBooking(_prev: ActionState, formData: FormData
   if (paymentStatus === "paid") {
     const cashOk = !!provPay?.paymentCash;
     const etOk = !!provPay?.paymentEtransfer;
-    if (!cashOk && !etOk) {
+    const inPersonOk = !!provPay?.paymentInPersonCreditDebit;
+    const enabledCount = [cashOk, etOk, inPersonOk].filter(Boolean).length;
+    if (enabledCount === 0) {
       paymentMethod = null;
+    } else if (enabledCount === 1) {
+      if (cashOk) paymentMethod = "cash";
+      else if (etOk) paymentMethod = "etransfer";
+      else paymentMethod = "in_person_credit_debit";
     } else if (payMethodRaw === "cash" && cashOk) {
       paymentMethod = "cash";
     } else if (payMethodRaw === "etransfer" && etOk) {
       paymentMethod = "etransfer";
-    } else if (cashOk && !etOk) {
-      paymentMethod = "cash";
-    } else if (!cashOk && etOk) {
-      paymentMethod = "etransfer";
+    } else if (payMethodRaw === "in_person_credit_debit" && inPersonOk) {
+      paymentMethod = "in_person_credit_debit";
     } else {
-      return { error: "Choose how this was paid (cash or e-transfer)." };
+      return { error: "Choose how this was paid." };
     }
   }
 

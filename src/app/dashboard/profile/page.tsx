@@ -11,6 +11,9 @@ import { requireProvider } from "@/lib/tenancy";
 import { updateProviderProfile, updateUsername } from "@/actions/provider-profile";
 import { ProfileShell } from "@/app/dashboard/profile/profile-shell";
 import { ProfileImageField } from "@/components/dashboard/profile/profile-image-field";
+import { LocalAmbassadorCopyButton } from "@/components/dashboard/local-ambassador-copy-button";
+import { LocalAmbassadorSection } from "@/components/dashboard/local-ambassador-section";
+import { getPublicAppUrlForDashboardLinks } from "@/lib/env";
 
 type Props = { searchParams: Promise<{ saved?: string }> };
 
@@ -98,6 +101,17 @@ export default async function ProfilePage({ searchParams }: Props) {
   const aboutComplete = (prov?.bio?.trim().length ?? 0) >= 20;
   const previewHref = published && prov?.username ? `/${prov.username}` : null;
   const usernameLocked = prov?.usernameLockedAt != null;
+
+  const usernameForUrl = prov?.username?.trim() ?? "";
+  /** Host + path only (e.g. handshakelocal.com/your-name), from APP_URL. */
+  const publicProfileUrl = usernameForUrl.length
+    ? (() => {
+        const base = getPublicAppUrlForDashboardLinks();
+        const path = `/${encodeURIComponent(usernameForUrl)}`;
+        const u = new URL(path, `${base}/`);
+        return `${u.hostname}${u.pathname}`;
+      })()
+    : null;
 
   return (
     <main id="main-content">
@@ -195,6 +209,22 @@ export default async function ProfilePage({ searchParams }: Props) {
                     aria-readonly={usernameLocked}
                   />
                 </div>
+                {publicProfileUrl ? (
+                  <div className="mt-4 flex flex-col gap-2 rounded-xl border border-[color-mix(in_oklab,var(--foreground)_8%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2%,var(--background))] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+                        Public profile URL
+                      </p>
+                      <p className="mt-1 break-all font-mono text-sm text-[var(--foreground)]">{publicProfileUrl}</p>
+                    </div>
+                    <LocalAmbassadorCopyButton
+                      text={publicProfileUrl}
+                      className="ui-btn-secondary shrink-0 px-4 py-2 text-sm font-semibold"
+                    >
+                      Copy URL
+                    </LocalAmbassadorCopyButton>
+                  </div>
+                ) : null}
               </form>
             </section>
 
@@ -539,6 +569,15 @@ export default async function ProfilePage({ searchParams }: Props) {
                       />
                       <span>E-transfer</span>
                     </label>
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-[var(--surface-muted)] px-3 py-3 text-sm ring-1 ring-[color-mix(in_oklab,var(--foreground)_6%,transparent)]">
+                      <input
+                        type="checkbox"
+                        name="paymentInPersonCreditDebit"
+                        defaultChecked={prov?.paymentInPersonCreditDebit}
+                        className="mt-0.5"
+                      />
+                      <span>In person credit/debit</span>
+                    </label>
                   </fieldset>
 
                   <div>
@@ -591,6 +630,8 @@ export default async function ProfilePage({ searchParams }: Props) {
                 </div>
               </ProfileSectionCard>
             </form>
+
+            <LocalAmbassadorSection providerId={u.providerId} />
           </div>
         </div>
       </ProfileShell>

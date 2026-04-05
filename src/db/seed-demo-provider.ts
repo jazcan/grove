@@ -35,6 +35,7 @@ import {
   users,
 } from "@/db/schema";
 import { ensureDefaultPricingProfile } from "@/domain/pricing/ensure-default";
+import { allocateUniqueReferralCode } from "@/domain/local-ambassador/referral-code";
 import { BOOKING_FAILED_SIGNAL_KIND } from "@/domain/provider-dashboard-signals.shared";
 import { hashPassword } from "@/lib/password";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
@@ -428,9 +429,11 @@ async function main(): Promise<void> {
     role: "provider",
   });
 
+  const demoReferralCode = await allocateUniqueReferralCode(db);
   await db.insert(providers).values({
     userId,
     username: DEMO_USERNAME,
+    referralCode: demoReferralCode,
     displayName: "Jordan Mercer",
     businessName: "River Valley Pet Care",
     bio: `I’m Jordan — I grew up around dogs and barn cats in rural New Brunswick, and I’ve been walking and sitting pets in Fredericton for four seasons now. I keep visits calm and predictable: clear notes, on-time arrivals, and photos when you want them. Most of my clients are neighbours and referrals — the kind of repeat relationships where I remember your pet’s quirks without asking twice.`,

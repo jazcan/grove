@@ -29,6 +29,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/schema-health" className="rounded-md px-3 py-2 hover:bg-[var(--surface-hover)]">
               Schema health
             </Link>
+            <Link href="/admin/providers/seeded" className="rounded-md px-3 py-2 hover:bg-[var(--surface-hover)]">
+              Seeded providers
+            </Link>
+            <Link href="/admin/providers/new-seeded" className="rounded-md px-3 py-2 hover:bg-[var(--surface-hover)]">
+              Seed provider
+            </Link>
+            <Link href="/admin/ambassadors" className="rounded-md px-3 py-2 hover:bg-[var(--surface-hover)]">
+              Ambassadors
+            </Link>
           </nav>
           <form action={signOut}>
             <button type="submit" className="ui-btn-secondary min-h-10 px-4 py-2 text-sm">

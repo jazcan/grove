@@ -12,6 +12,7 @@ type Props = {
   contactPhone: string | null;
   paymentCash: boolean;
   paymentEtransfer: boolean;
+  paymentInPersonCreditDebit: boolean;
   etransferDetails: string;
   paymentDueBeforeAppointment: boolean;
   cancellationPolicy: string;
@@ -32,6 +33,7 @@ export function ProviderDetailsSection({
   contactPhone,
   paymentCash,
   paymentEtransfer,
+  paymentInPersonCreditDebit,
   etransferDetails,
   paymentDueBeforeAppointment,
   cancellationPolicy,
@@ -41,7 +43,11 @@ export function ProviderDetailsSection({
   const cityOk = hasText(city);
   const areaOk = hasText(serviceArea);
   const hasContact = !!(contactEmail?.trim() || contactPhone?.trim());
-  const accepted = [paymentCash && "Cash", paymentEtransfer && "E-transfer"].filter(Boolean) as string[];
+  const accepted = [
+    paymentCash && "Cash",
+    paymentEtransfer && "E-transfer",
+    paymentInPersonCreditDebit && "In person credit/debit",
+  ].filter(Boolean) as string[];
   const acceptedLine = accepted.length ? accepted.join(", ") : "Ask when you book";
   const etransferOk = paymentEtransfer && hasText(etransferDetails);
   const cancelOk = hasText(cancellationPolicy);

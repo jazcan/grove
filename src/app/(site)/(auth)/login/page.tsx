@@ -3,13 +3,16 @@ import { getCsrfTokenForForm } from "@/lib/csrf";
 import { isSafeInternalPath } from "@/lib/safe-internal-path";
 import { LoginForm } from "./login-form";
 
-type Props = { searchParams: Promise<{ next?: string }> };
+type Props = { searchParams: Promise<{ next?: string; ref?: string }> };
 
 export default async function LoginPage({ searchParams }: Props) {
   const csrf = await getCsrfTokenForForm();
   const sp = await searchParams;
   const nextRaw = typeof sp.next === "string" ? sp.next : "";
   const next = isSafeInternalPath(nextRaw) ? nextRaw : "";
+  const refRaw = typeof sp.ref === "string" ? sp.ref : "";
+  const signupHref =
+    refRaw.length > 0 ? `/signup?ref=${encodeURIComponent(refRaw)}` : "/signup";
 
   return (
     <main
@@ -19,7 +22,7 @@ export default async function LoginPage({ searchParams }: Props) {
       <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Sign in</h1>
       <p className="mt-3 text-base text-[var(--muted)]">
         New here?{" "}
-        <Link href="/signup" className="ui-link font-semibold">
+        <Link href={signupHref} className="ui-link font-semibold">
           Create an account
         </Link>
       </p>

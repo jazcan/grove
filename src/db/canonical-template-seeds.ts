@@ -1443,6 +1443,58 @@ export const CANONICAL_TEMPLATE_SEEDS: CanonicalTemplateSeedRow[] = [
     outcomes: [
       { id: "live", label: "Site closer to ready for visitors" }
     ],
+  },
+  {
+    slug: "snow-blowing-walkways-45",
+    version: 1,
+    label: "Snow Blowing — Walkways & Steps",
+    descriptionShort: "Walkways, steps, and tight areas cleared with a blower after plowing.",
+    name: "Snow Blowing — Walkways & Steps (45 min)",
+    description:
+      "Targeted blower work for walkways, side entrances, and tight areas where a plow can’t safely reach. Ideal paired with driveway clearing or after heavy drifting.",
+    category: "Home Services",
+    durationMinutes: 45,
+    bufferMinutes: 10,
+    pricingType: "fixed",
+    priceAmount: "55.00",
+    currency: "CAD",
+    prepInstructions:
+      "Mark fragile edges, deck boards, and hidden steps. Note where to pile snow and any narrow gates or pets.",
+    steps: [
+      { id: "walks", title: "Walkways & side entrances", order: 0 },
+      { id: "steps", title: "Steps & landings", order: 1 },
+      { id: "tidy", title: "Quick tidy of tracked snow", order: 2 }
+    ],
+    addOns: [],
+    outcomes: [
+      { id: "safe-path", label: "Safer foot traffic paths" }
+    ],
+  },
+  {
+    slug: "salting-sanding-25",
+    version: 1,
+    label: "Salting / Sanding",
+    descriptionShort: "Ice control for walks and parking areas.",
+    name: "Salting / Sanding (25 min)",
+    description:
+      "Application of salt and/or traction sand on walks, steps, and small parking areas after clearing. Rates reflect typical residential/lot sizes; large sites may need a custom quote.",
+    category: "Home Services",
+    durationMinutes: 25,
+    bufferMinutes: 5,
+    pricingType: "fixed",
+    priceAmount: "40.00",
+    currency: "CAD",
+    prepInstructions:
+      "Flag sensitive plantings, pets that use the yard, and any drainage trouble spots. Note if you prefer sand-only near entry mats.",
+    steps: [
+      { id: "assess", title: "Assess ice & drift", order: 0 },
+      { id: "apply", title: "Apply salt/sand mix", order: 1 },
+      { id: "edges", title: "Touch high-traffic edges", order: 2 }
+    ],
+    addOns: [],
+    outcomes: [
+      { id: "traction", label: "Improved traction on priority paths" }
+    ],
   }
 ];
 

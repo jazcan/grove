@@ -6,7 +6,9 @@ import { providers } from "@/db/schema";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { requireUser } from "@/lib/tenancy";
 import { OnboardingForm } from "@/app/dashboard/onboarding/onboarding-form";
+import { OnboardingReferralPanel } from "@/components/dashboard/onboarding-referral-panel";
 import { OnboardingRoadmap } from "@/components/dashboard/onboarding-roadmap";
+import { providerHasReferralAttribution } from "@/domain/local-ambassador/referral-lifecycle";
 
 export default async function OnboardingPage() {
   const u = await requireUser();
@@ -19,6 +21,8 @@ export default async function OnboardingPage() {
     .from(providers)
     .where(eq(providers.id, u.providerId))
     .limit(1);
+
+  const hasReferralAttribution = await providerHasReferralAttribution(db, u.providerId);
 
   const csrf = await getCsrfTokenForForm();
 
@@ -46,6 +50,8 @@ export default async function OnboardingPage() {
             />
           </div>
         </div>
+
+        {!hasReferralAttribution ? <OnboardingReferralPanel csrfToken={csrf} /> : null}
 
         <OnboardingRoadmap />
       </div>
