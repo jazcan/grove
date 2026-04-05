@@ -87,9 +87,13 @@ export function getEnv(): Env {
 }
 
 /**
- * Absolute origin for dashboard UI links (e.g. public profile URL). Prefer `APP_URL` / `VERCEL_URL`
- * via {@link resolvePublicAppUrl} so the page can render even when `getEnv()` is not yet valid
- * (e.g. partial `.env.local`). Falls back to `getEnv().APP_URL`, then localhost in development.
+ * Absolute origin when `APP_URL` / `VERCEL_URL` are used without request context.
+ * For **share/copy links** shown to providers, prefer {@link getPublicSiteOriginForUserFacingLinks}
+ * in server components so the incoming host (e.g. a custom domain on Vercel) wins when `APP_URL` is unset.
+ *
+ * Prefer `APP_URL` / `VERCEL_URL` via {@link resolvePublicAppUrl} so the page can render even when
+ * `getEnv()` is not yet valid (e.g. partial `.env.local`). Falls back to `getEnv().APP_URL`, then
+ * localhost in development.
  */
 export function getPublicAppUrlForDashboardLinks(): string {
   const fromProcess = resolvePublicAppUrl(process.env.APP_URL);

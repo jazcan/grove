@@ -26,7 +26,7 @@ import {
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { fetchPresentedProviderSignals } from "@/domain/provider-dashboard-signals";
 import { computeWeeklyAvailableMinutes } from "@/lib/dashboard-metrics";
-import { getPublicAppUrlForDashboardLinks } from "@/lib/env";
+import { getPublicSiteOriginForUserFacingLinks } from "@/lib/server/public-site-origin";
 import { loadProviderSetupState } from "@/lib/provider-setup";
 import { requireProvider } from "@/lib/tenancy";
 
@@ -186,7 +186,7 @@ export default async function DashboardHomePage() {
   const published = setup.isPublished;
   const needsSetup = setup.needsSetup;
 
-  const appUrl = getPublicAppUrlForDashboardLinks();
+  const appUrl = await getPublicSiteOriginForUserFacingLinks();
   const profileUrl = prov?.username ? `${appUrl}/${prov.username}` : appUrl;
 
   const presentedSignals = await fetchPresentedProviderSignals(db, u.providerId);

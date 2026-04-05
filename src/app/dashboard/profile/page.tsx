@@ -13,7 +13,7 @@ import { ProfileShell } from "@/app/dashboard/profile/profile-shell";
 import { ProfileImageField } from "@/components/dashboard/profile/profile-image-field";
 import { LocalAmbassadorCopyButton } from "@/components/dashboard/local-ambassador-copy-button";
 import { LocalAmbassadorSection } from "@/components/dashboard/local-ambassador-section";
-import { getPublicAppUrlForDashboardLinks } from "@/lib/env";
+import { getPublicSiteOriginForUserFacingLinks } from "@/lib/server/public-site-origin";
 
 type Props = { searchParams: Promise<{ saved?: string }> };
 
@@ -103,12 +103,12 @@ export default async function ProfilePage({ searchParams }: Props) {
   const usernameLocked = prov?.usernameLockedAt != null;
 
   const usernameForUrl = prov?.username?.trim() ?? "";
-  /** Host + path only (e.g. handshakelocal.com/your-name), from APP_URL. */
+  const publicSiteOrigin = await getPublicSiteOriginForUserFacingLinks();
+  /** Host + path only (e.g. handshakelocal.com/your-name), from APP_URL or request host. */
   const publicProfileUrl = usernameForUrl.length
     ? (() => {
-        const base = getPublicAppUrlForDashboardLinks();
         const path = `/${encodeURIComponent(usernameForUrl)}`;
-        const u = new URL(path, `${base}/`);
+        const u = new URL(path, `${publicSiteOrigin}/`);
         return `${u.hostname}${u.pathname}`;
       })()
     : null;
