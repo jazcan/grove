@@ -10,7 +10,7 @@ export type NominatimHit = {
   display_name?: string;
 };
 
-const USER_AGENT = "HandshakeLocal/1.0 (marketplace search; contact: https://handshakelocal.com)";
+const USER_AGENT = "HandshakeLocal/1.0 (provider location search; contact: https://handshakelocal.com)";
 
 export async function geocodeWithNominatim(
   query: string,

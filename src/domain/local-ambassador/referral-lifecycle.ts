@@ -6,7 +6,7 @@ import { normalizeReferralCodeInput } from "@/domain/local-ambassador/referral-c
 /**
  * A referred provider counts as "activated" when they have locked in a public username
  * (`username_locked_at`) and at least one active service. This matches a practical
- * "they're really set up" bar without requiring full marketplace publish.
+ * "they're really set up" bar without requiring a fully public launch.
  */
 export async function maybeActivateReferralForProvider(db: Database, referredProviderId: string): Promise<void> {
   const [prov] = await db

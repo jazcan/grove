@@ -48,14 +48,14 @@ flowchart LR
 
 ---
 
-## Test plan 2 — Customer: marketplace and public booking
+## Test plan 2 — Customer: public booking
 
 **Goal:** Anonymous or logged-out user can find a provider and complete a booking.
 
 | Step | Action | Expected |
 | ---- | ------ | -------- |
-| 2.1 | Open `/marketplace` | List or search UI loads; your test provider appears if discoverable. |
-| 2.2 | Use search/filters if present | Results update without errors (`/api/marketplace/search` behavior). |
+| 2.1 | Open the provider’s public profile URL (`/{username}`) | Profile and booking CTA load. |
+| 2.2 | (Optional) Confirm `/marketplace` redirects to home | Legacy path should not show a directory UI. |
 | 2.3 | Navigate to `/{username}` | Correct provider; services listed. |
 | 2.4 | Open `/{username}/book/{serviceId}` | Booking form and slot picker load. |
 | 2.5 | Pick a valid future slot, fill required customer fields, submit | Success confirmation; no duplicate booking for same slot if you retry the same selection. |

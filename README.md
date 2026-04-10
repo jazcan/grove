@@ -2,7 +2,7 @@
 
 Customer-facing product name for this codebase (the repository and package may still be named **Grove** internally).
 
-Service-commerce platform for solo and small providers: public profiles, services, availability, bookings, offline payment tracking, notifications (email + queue), lightweight CRM, marketplace discovery, analytics, and admin audit tooling.
+Service-commerce platform for solo and small providers: public profiles, services, availability, bookings, offline payment tracking, notifications (email + queue), lightweight CRM, optional provider discovery, analytics, and admin audit tooling.
 
 ## Prerequisites
 

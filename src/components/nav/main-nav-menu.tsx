@@ -8,7 +8,6 @@ import { MainMenuToggleIcon } from "@/components/nav/main-menu-toggle-icon";
 import { signOut } from "@/domain/auth/actions";
 
 const DISCOVER_NAV = [
-  ["/marketplace", "Find a provider"],
   ["/about-handshake-local", "About Handshake Local"],
   ["/signup", "Become a provider"],
 ] as const;
@@ -57,8 +56,6 @@ export function MainNavMenu({
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
   const closeMenu = useCallback(() => setMenuOpen(false), []);
-
-  const marketplaceActive = path === "/marketplace" || path.startsWith("/marketplace/");
 
   useEffect(() => {
     setMenuOpen(false);
@@ -122,8 +119,7 @@ export function MainNavMenu({
             <>
               <div className={sectionLabelClass}>Discover</div>
               {DISCOVER_NAV.map(([href, label]) => {
-                const active =
-                  href === "/marketplace" ? marketplaceActive : path === href || path.startsWith(`${href}/`);
+                const active = path === href || path.startsWith(`${href}/`);
                 return (
                   <Link key={href} href={href} role="menuitem" className={menuItemClass(active)} onClick={closeMenu}>
                     {label}

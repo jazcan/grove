@@ -80,7 +80,7 @@ const FAQ = [
   },
   {
     q: `Can clients find me through ${brand.appName}?`,
-    a: `If you opt into discovery, clients can find you in the ${brand.appName} marketplace. You can still work with clients who reach you elsewhere.`,
+    a: `Clients book through the link you share. If you opt into discovery, we can surface your profile when we roll out search in your area. You can still work with everyone who reaches you directly.`,
   },
 ] as const;
 
@@ -124,11 +124,6 @@ export function MarketingHome() {
                       Sign in
                     </Link>
                   </div>
-                  <p className="mt-3 text-center text-sm sm:mt-4 sm:text-left">
-                    <Link href="/marketplace" className="ui-link font-semibold decoration-2 underline-offset-[0.3rem]">
-                      Find a provider
-                    </Link>
-                  </p>
                   <p className="mt-5 text-center text-sm font-medium text-[var(--muted)] sm:mt-6 sm:text-left">
                     Set up in minutes. No credit card required.
                   </p>

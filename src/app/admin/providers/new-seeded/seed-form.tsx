@@ -161,7 +161,7 @@ export function SeedProviderForm({ csrfToken, appBaseUrl }: Props) {
           </label>
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <input type="checkbox" name="discoverable" className="size-4 rounded border" />
-            Appear in marketplace
+            Opt in to discovery
           </label>
         </div>
       </section>

@@ -16,9 +16,6 @@ export function SiteFooter() {
           <Link href="/about-handshake-local" className="font-medium text-[var(--foreground)] hover:text-[var(--accent)]">
             About {brand.appName}
           </Link>
-          <Link href="/marketplace" className="font-medium text-[var(--foreground)] hover:text-[var(--accent)]">
-            Find a provider
-          </Link>
           <Link href="/signup" className="font-medium text-[var(--foreground)] hover:text-[var(--accent)]">
             Become a provider
           </Link>

@@ -292,7 +292,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                         <option value="CA">Canada</option>
                         <option value="US">United States</option>
                       </select>
-                      <p className="ui-hint mt-1.5">Used for marketplace distance search.</p>
+                      <p className="ui-hint mt-1.5">Used for location-based discovery and geocoding.</p>
                     </div>
                     <div>
                       <label htmlFor="region" className="text-sm font-medium">
@@ -358,9 +358,9 @@ export default async function ProfilePage({ searchParams }: Props) {
                       className="mt-0.5"
                     />
                     <span>
-                      <span className="font-medium text-[var(--foreground)]">Appear in marketplace search</span>
+                      <span className="font-medium text-[var(--foreground)]">Opt in to discovery</span>
                       <span className="mt-0.5 block text-[var(--muted)]">
-                        Helps new clients discover you in {brand.appName}.
+                        When available in your area, helps new clients find your public profile through {brand.appName}.
                       </span>
                     </span>
                   </label>

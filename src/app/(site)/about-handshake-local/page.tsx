@@ -47,8 +47,8 @@ export default function AboutHandshakeLocalPage() {
               processor you did not choose.
             </p>
             <p className="hl-body mt-4 text-base leading-relaxed text-[var(--muted)]">
-              When you want more demand, you can opt into discovery so nearby clients can find you in the marketplace—
-              while still serving everyone who already knows your name.
+              When you want more demand, you can opt into discovery so nearby clients can find you through Handshake
+              Local—while still serving everyone who already knows your name.
             </p>
           </div>
         </div>
@@ -104,15 +104,9 @@ export default function AboutHandshakeLocalPage() {
           <div className="max-w-3xl">
             <p className="text-base font-medium text-[var(--foreground)]">Explore the product</p>
             <p className="hl-body mt-3 text-sm leading-relaxed text-[var(--muted)]">
-              Browse providers in the marketplace or create an account to set up your profile.
+              Share your public booking link with clients, or create an account to set up your profile.
             </p>
             <p className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-semibold">
-              <Link href="/marketplace" className="ui-link">
-                Find a provider
-              </Link>
-              <span className="text-[var(--hl-ink-faint)]" aria-hidden>
-                ·
-              </span>
               <Link href="/signup" className="ui-link">
                 Become a provider
               </Link>

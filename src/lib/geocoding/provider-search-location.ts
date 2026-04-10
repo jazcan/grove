@@ -1,6 +1,6 @@
 /**
  * Runtime-only approximate coordinates for providers missing lat/lng in the database.
- * Used so marketplace radius search can still place them until real data is backfilled.
+ * Used so radius-based discovery can still place them until real data is backfilled.
  *
  * TEMPORARY — remove once all discoverable providers have geocoded coordinates saved on profile.
  * Do not persist these values to the database.

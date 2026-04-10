@@ -1,4 +1,4 @@
--- Base location fields for marketplace radius search (CA/US). Lat/lng filled via geocoding on profile save when possible.
+-- Base location fields for radius-based discovery (CA/US). Lat/lng filled via geocoding on profile save when possible.
 
 ALTER TABLE "providers" ADD COLUMN IF NOT EXISTS "country_code" varchar(2);
 ALTER TABLE "providers" ADD COLUMN IF NOT EXISTS "region" varchar(120);

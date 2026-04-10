@@ -14,8 +14,8 @@ test.describe("UAT plan 8 (partial) — public routes", () => {
     await expect(primaryCtas.getByRole("link", { name: "Sign in", exact: true })).toHaveAttribute("href", "/login");
   });
 
-  test("auth and marketplace pages load", async ({ page }) => {
-    for (const path of ["/login", "/signup", "/forgot-password", "/marketplace"]) {
+  test("auth pages load", async ({ page }) => {
+    for (const path of ["/login", "/signup", "/forgot-password"]) {
       const res = await page.goto(path, { waitUntil: "domcontentloaded" });
       const status = res?.status();
       expect(
@@ -24,6 +24,12 @@ test.describe("UAT plan 8 (partial) — public routes", () => {
       ).toBeTruthy();
       await expect(page.locator("#main-content, main").first()).toBeVisible({ timeout: 15_000 });
     }
+  });
+
+  test("legacy /marketplace redirects to home", async ({ page }) => {
+    await page.goto("/marketplace", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/(\?.*)?$/);
+    await expect(page.locator("#main-content, main").first()).toBeVisible({ timeout: 15_000 });
   });
 
   test("signup prefills referral code from ?ref= query", async ({ page }) => {

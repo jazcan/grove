@@ -17,10 +17,10 @@ export default function HelpPage() {
         <h2 className="text-lg font-semibold text-[var(--foreground)]">Common topics</h2>
         <ul className="list-inside list-disc space-y-2 text-[var(--muted)]">
           <li>
-            <Link href="/marketplace" className="ui-link font-medium text-[var(--foreground)]">
-              Find a provider
+            <Link href="/about-handshake-local" className="ui-link font-medium text-[var(--foreground)]">
+              About {brand.appName}
             </Link>{" "}
-            — search by service, location, and category.
+            — how the platform fits solo and small service businesses.
           </li>
           <li>
             <Link href="/signup" className="ui-link font-medium text-[var(--foreground)]">

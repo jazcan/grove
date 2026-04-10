@@ -15,7 +15,6 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
   const path = pathname ?? "";
 
   const isHome = path === "/" || path === "";
-  const marketplaceActive = path === "/marketplace" || path.startsWith("/marketplace/");
 
   return (
     <header
@@ -31,16 +30,6 @@ export function SiteHeaderClient({ isLoggedIn, isAdmin }: Props) {
         <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
           {isHome ? (
             <nav aria-label="Quick links" className="hidden min-w-0 items-center lg:flex lg:gap-4">
-              <Link
-                href="/marketplace"
-                className={`whitespace-nowrap text-sm font-medium transition-colors ${
-                  marketplaceActive
-                    ? "text-[var(--accent)]"
-                    : "text-[color-mix(in_oklab,var(--foreground)_66%,transparent)] hover:text-[var(--foreground)]"
-                }`}
-              >
-                Find a provider
-              </Link>
               {!isLoggedIn ? (
                 <>
                   <Link

@@ -139,7 +139,7 @@ export const providers = pgTable(
     bio: text("bio").notNull().default(""),
     category: varchar("category", { length: 120 }).notNull().default(""),
     city: varchar("city", { length: 120 }).notNull().default(""),
-    /** ISO 3166-1 alpha-2 (e.g. CA, US). Used for marketplace discovery and geocoding. */
+    /** ISO 3166-1 alpha-2 (e.g. CA, US). Used for discovery and geocoding. */
     countryCode: varchar("country_code", { length: 2 }),
     /** Province, state, or region label (e.g. ON, California). */
     region: varchar("region", { length: 120 }),

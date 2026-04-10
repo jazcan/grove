@@ -10,7 +10,7 @@ const toc = [
   ["bookings", "Bookings"],
   ["customers", "Customers"],
   ["marketing", "Marketing"],
-  ["marketplace", "Marketplace & discovery"],
+  ["discovery", "Discovery & visibility"],
   ["payments", "Payments"],
   ["analytics", "Analytics"],
   ["faq", "FAQ"],
@@ -79,7 +79,7 @@ export default async function ProviderDocsPage() {
         <DocSection id="welcome" title="Welcome">
           <p>
             {brand.appName} helps you offer services, manage bookings, stay organized, and stay in touch with
-            customers—whether they book through your public page, the marketplace, or you add them yourself.
+            customers—whether they book through your public page or you add them yourself.
           </p>
           <p>
             Your dashboard is organized by task: services, pricing, when you work, bookings, people you serve,
@@ -121,8 +121,8 @@ export default async function ProviderDocsPage() {
                 </Link>
               </>,
               <>
-                <strong className="text-[var(--foreground)]">Share your page or wait for discovery</strong> — clients can
-                book from your public link; if you opt in, you can also appear in marketplace search (see below).
+                <strong className="text-[var(--foreground)]">Share your page</strong> — clients can book from your public
+                link; if you opt in, you can also allow discovery when it is available in your area (see below).
               </>,
             ]}
           />
@@ -264,13 +264,10 @@ export default async function ProviderDocsPage() {
           </p>
         </DocSection>
 
-        <DocSection id="marketplace" title="Marketplace & discovery">
+        <DocSection id="discovery" title="Discovery & visibility">
           <p>
-            The public marketplace (
-            <Link href="/marketplace" className="ui-link font-semibold">
-              open directory
-            </Link>
-            ) lets people search by area and category and browse providers who choose to be discoverable.
+            Most clients reach you through the public link you share. Separately, you can opt in so your profile is
+            eligible for location-based discovery when that capability is available in your area.
           </p>
           <p>
             In{" "}
@@ -286,18 +283,18 @@ export default async function ProviderDocsPage() {
                 booking page with your link.
               </>,
               <>
-                <strong className="text-[var(--foreground)]">Appear in marketplace search</strong> — new clients can
-                find you inside {brand.appName}&apos;s directory when they search.
+                <strong className="text-[var(--foreground)]">Opt in to discovery</strong> — when search is available nearby,
+                new clients may find your public profile through {brand.appName}.
               </>,
             ]}
           />
           <p>
-            You can still work entirely with people who contact you directly or use your personal link—marketplace is
+            You can still work entirely with people who contact you directly or use your personal link—discovery is
             optional.
           </p>
           <p className="text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]">
-            Discovery depends on clients using the marketplace and on location search working for your area; results can
-            vary. Your public page link is the most reliable way to send someone straight to you.
+            Discovery depends on location data and regional rollout; results can vary. Your public page link is the most
+            reliable way to send someone straight to you.
           </p>
         </DocSection>
 
@@ -340,8 +337,8 @@ export default async function ProviderDocsPage() {
             <div>
               <dt className="font-semibold text-[var(--foreground)]">Can clients find me through Handshake Local?</dt>
               <dd className="mt-2">
-                Yes, if you publish your profile and opt in to marketplace search. Many providers also share their public
-                link directly—that works with or without marketplace visibility.
+                Yes—share your public link for the path that always works. If you publish your profile and opt in to
+                discovery, you may also appear when search is available in your area.
               </dd>
             </div>
             <div>

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Automates UAT plans 1–5 in sequence: provider setup, marketplace, public booking,
+ * Automates UAT plans 1–5 in sequence: provider setup, public booking,
  * bookings/payment updates, customers, marketing, analytics.
  * Requires Postgres + migrations + seed; starts dev server unless UAT_SKIP_WEBSERVER=1.
  */
@@ -74,10 +74,7 @@ test.describe.serial("UAT plans 1–5 — end-to-end journey", () => {
     const customerCtx = await browser.newContext({ timezoneId: "America/Toronto" });
     const c = await customerCtx.newPage();
 
-    await c.goto(`/marketplace?q=${encodeURIComponent(displayLabel)}`);
-    await expect(c.getByRole("heading", { name: "Find local services" })).toBeVisible();
-    await c.getByRole("link", { name: displayLabel }).first().click();
-    await expect(c).toHaveURL(new RegExp(`/${username}$`));
+    await c.goto(`/${username}`);
     await expect(c.getByRole("link", { name: /Book UAT Service/i }).first()).toBeVisible();
     // Full-page navigation is more reliable than depending on client-side routing from the card link.
     await c.goto(`/${username}/book/${serviceId}`);

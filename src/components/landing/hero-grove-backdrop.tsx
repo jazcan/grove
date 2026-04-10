@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { HeroGroveMapSlot } from "./hero-grove-map-slot";
 
 /**
  * Hero backdrop: full-width map field + paper wash + light topo accents.
@@ -10,16 +10,8 @@ export function HeroGroveBackdrop() {
       {/* Base wash */}
       <div className="absolute inset-0 bg-[color-mix(in_oklab,var(--hl-accent)_10%,transparent)] opacity-[0.35] sm:opacity-[0.42]" />
 
-      {/* Map — focal point shifted right so the left column sits over calmer, less busy map */}
-      <Image
-        src="/brand/hsl-map-banner.svg"
-        alt=""
-        width={1400}
-        height={600}
-        priority
-        unoptimized
-        className="absolute inset-0 h-full w-full min-h-[280px] object-cover object-[72%_42%] opacity-[0.92] sm:object-[68%_40%] md:object-[66%_38%] lg:object-[62%_36%] xl:object-[58%_34%]"
-      />
+      {/* Map — Mapbox when NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN is set; else static SVG */}
+      <HeroGroveMapSlot />
 
       {/* Soft paper wash — strongest at far left, tapers into the map (dims artwork behind headline) */}
       <div
