@@ -11,12 +11,94 @@ import { logAudit } from "@/lib/audit";
 import { geocodeProviderAddress } from "@/lib/geocoding/geocode-provider-address";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
 import { maybeActivateReferralForProvider } from "@/domain/local-ambassador/referral-lifecycle";
+import { emitOnboardingIdentityCompleted } from "@/lib/onboarding-platform-events";
 import type { ActionState } from "@/domain/auth/actions";
+import {
+  buildOnboardingUsernameCandidates,
+  isDisplayNameTakenByOtherProvider,
+  pickFirstAvailableUsername,
+} from "@/lib/provider-onboarding-identity";
+import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { getRequestIp } from "@/lib/request-ip";
 
 /** Set to `true` to require verified account email before publishing (see profile forms). */
 const ENFORCE_VERIFIED_EMAIL_FOR_PUBLISH = false;
 
 export type ProfileState = ActionState;
+
+export type PreviewOnboardingIdentityResult =
+  | {
+      ok: true;
+      normalized: string;
+      displayNameAvailable: boolean;
+      suggestedUsername: string | null;
+      alternates: string[];
+    }
+  | { ok: false; error: string };
+
+/**
+ * Debounced onboarding UI: checks display-name uniqueness and proposes an available username
+ * derived from the display name (plus safe fallbacks).
+ */
+export async function previewOnboardingIdentity(formData: FormData): Promise<PreviewOnboardingIdentityResult> {
+  if (!(await csrfOk(formData, { action: "previewOnboardingIdentity" }))) {
+    return { ok: false, error: "Invalid security token." };
+  }
+  const ctx = await loadProviderContext();
+  const ip = await getRequestIp();
+  const rl = rateLimit(clientKey(ip, `onb-idn-${ctx.providerId}`), 60, 60_000);
+  if (!rl.ok) {
+    return { ok: false, error: `Too many checks. Try again in ${rl.retryAfterSec}s.` };
+  }
+
+  const db = getDb();
+  const normalized = plainTextFromInput(formData.get("displayName")?.toString() ?? "", 200);
+  if (!normalized) {
+    return {
+      ok: true,
+      normalized: "",
+      displayNameAvailable: false,
+      suggestedUsername: null,
+      alternates: [],
+    };
+  }
+
+  const taken = await isDisplayNameTakenByOtherProvider(db, ctx.providerId, normalized);
+  if (taken) {
+    return {
+      ok: true,
+      normalized,
+      displayNameAvailable: false,
+      suggestedUsername: null,
+      alternates: [],
+    };
+  }
+
+  const candidates = buildOnboardingUsernameCandidates(normalized, { providerId: ctx.providerId });
+  const picked = await pickFirstAvailableUsername(db, ctx.providerId, candidates);
+  if (!picked) {
+    return { ok: false, error: "Could not reserve a username. Try again in a moment." };
+  }
+  const suggestion = picked.username;
+
+  const alternates: string[] = [];
+  for (const c of candidates) {
+    if (c === suggestion) continue;
+    const p = await pickFirstAvailableUsername(db, ctx.providerId, [c]);
+    if (p?.username === c) {
+      alternates.push(c);
+      if (alternates.length >= 3) break;
+    }
+  }
+
+  return {
+    ok: true,
+    normalized,
+    displayNameAvailable: true,
+    suggestedUsername: suggestion,
+    alternates,
+  };
+}
 
 export async function updateProviderProfile(formData: FormData): Promise<ProfileState> {
   if (!(await csrfOk(formData, { action: "updateProviderProfile" }))) return { error: "Invalid security token." };
@@ -190,7 +272,7 @@ export async function updateProviderProfile(formData: FormData): Promise<Profile
 }
 
 /**
- * Onboarding only: save username + display name in one step, then redirect to dashboard.
+ * Onboarding only: save username + display name in one step, then continue to the first-service step.
  * Reuses the same validation rules as updateUsername + setDisplayNameOnly.
  */
 export async function completeOnboarding(
@@ -216,6 +298,11 @@ export async function completeOnboarding(
 
   const displayName = plainTextFromInput(formData.get("displayName")?.toString() ?? "", 200);
   if (!displayName) return { error: "Display name is required." };
+
+  const displayTaken = await isDisplayNameTakenByOtherProvider(db, ctx.providerId, displayName);
+  if (displayTaken) {
+    return { error: "That display name is already in use. Try a small variation." };
+  }
 
   const [before] = await db
     .select({ username: providers.username })
@@ -249,13 +336,22 @@ export async function completeOnboarding(
 
   await maybeActivateReferralForProvider(db, ctx.providerId);
 
+  await emitOnboardingIdentityCompleted(db, {
+    providerId: ctx.providerId,
+    userId: ctx.id,
+    actorType: "user",
+  });
+
   revalidatePath("/dashboard/onboarding");
+  revalidatePath("/dashboard/onboarding/first-service");
+  revalidatePath("/dashboard/onboarding/customers");
+  revalidatePath("/dashboard/onboarding/share");
   revalidatePath("/dashboard/profile");
   revalidatePath(`/${raw}`);
   if (before?.username && before.username !== raw) {
     revalidatePath(`/${before.username}`);
   }
-  redirect("/dashboard");
+  redirect("/dashboard/onboarding/first-service");
 }
 
 export async function updateUsername(formData: FormData): Promise<ProfileState> {

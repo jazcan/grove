@@ -61,7 +61,7 @@ export function SignupForm({ csrf, initialReferralCode }: Props) {
           placeholder="From a Local Ambassador link or friend"
         />
         <p className="ui-hint">
-          This is who invited you. We’ll connect your accounts so you can refer each other and stay in touch.
+          This is who invited you.
         </p>
       </div>
       <p className="text-center text-xs leading-relaxed text-[var(--muted)]">

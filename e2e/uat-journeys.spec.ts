@@ -24,10 +24,19 @@ test.describe.serial("UAT plans 1–5 — end-to-end journey", () => {
     await p.getByRole("button", { name: "Create account" }).click();
     await p.waitForURL("**/dashboard/onboarding**", { timeout: 45_000 });
 
-    await p.getByLabel("Username").fill(username);
     await p.getByLabel("Display name").fill(displayLabel);
+    await expect(p.locator("#onboarding-display-status")).toContainText("Available", { timeout: 30_000 });
+    await expect(p.getByLabel("Username")).toBeVisible();
+    await p.getByLabel("Username").fill(username);
+    await expect(p.getByRole("button", { name: "Continue" })).toBeEnabled({ timeout: 15_000 });
     await p.getByRole("button", { name: "Continue" }).click();
-    await p.waitForURL((url) => new URL(url).pathname === "/dashboard", { timeout: 15_000 });
+    await p.waitForURL("**/dashboard/onboarding/first-service**", { timeout: 15_000 });
+
+    await p.getByRole("textbox", { name: /What are you offering/i }).fill("UAT Service");
+    await p.locator('input[name="variant_0_durationMinutes"]').fill("60");
+    await p.locator('input[name="variant_0_priceAmount"]').fill("50.00");
+    await p.getByRole("button", { name: "Continue to availability" }).click();
+    await p.waitForURL((url) => new URL(url).pathname === "/dashboard/availability", { timeout: 15_000 });
 
     await p.goto("/dashboard/profile");
     await p.locator("#displayName").fill(displayLabel);
@@ -37,11 +46,7 @@ test.describe.serial("UAT plans 1–5 — end-to-end journey", () => {
     await p.getByRole("button", { name: "Save changes" }).click();
     await p.waitForLoadState("networkidle");
 
-    await p.goto("/dashboard/services?scratch=1#service-form");
-    await expect(p.locator("#service-form")).toBeVisible({ timeout: 60_000 });
-    await p.locator('#service-form input[name="name"]').fill("UAT Service");
-    await p.getByRole("button", { name: "Create service" }).click();
-    await p.waitForLoadState("networkidle");
+    await p.goto("/dashboard/services");
     await expect(p.locator("section#existing-services ul li").first()).toBeVisible({ timeout: 60_000 });
     const serviceId = await p
       .locator("section#existing-services ul li")

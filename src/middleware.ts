@@ -8,14 +8,15 @@ import { normalizeReferralCodeInput } from "@/domain/local-ambassador/referral-c
 import { REFERRAL_COOKIE_MAX_AGE_SEC, REFERRAL_COOKIE_NAME } from "@/lib/local-ambassador-cookie";
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
   const { requestHeaders, signedCookieToSet } = await prepareCsrfForRequest(request);
+  requestHeaders.set("x-pathname", pathname);
   const res = NextResponse.next({ request: { headers: requestHeaders } });
 
   if (signedCookieToSet) {
     res.cookies.set(CSRF_COOKIE, signedCookieToSet, CSRF_COOKIE_OPTIONS);
   }
 
-  const pathname = request.nextUrl.pathname;
   const refRaw = request.nextUrl.searchParams.get("ref");
   if (pathname === "/signup" && refRaw) {
     const normalized = normalizeReferralCodeInput(refRaw);

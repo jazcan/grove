@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
@@ -10,6 +10,38 @@ import { logAudit } from "@/lib/audit";
 import { emitPlatformEvent } from "@/platform/events/emit";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
 import type { ActionState } from "@/domain/auth/actions";
+import { emitOnboardingAvailabilityCompleted } from "@/lib/onboarding-platform-events";
+
+function redirectAvailability(saved: "hours" | "blocked" | "pause", hash: string | undefined, formData: FormData) {
+  const q = new URLSearchParams();
+  q.set("saved", saved);
+  if (formData.get("onboardingContext") === "1") q.set("onboarding", "1");
+  const frag = hash ? `#${hash}` : "";
+  redirect(`/dashboard/availability?${q.toString()}${frag}`);
+}
+
+async function activeAvailabilityRuleCount(db: ReturnType<typeof getDb>, providerId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(availabilityRules)
+    .where(and(eq(availabilityRules.providerId, providerId), eq(availabilityRules.isActive, true)));
+  return Number(row?.n ?? 0);
+}
+
+async function maybeEmitAvailabilityOnboarding(
+  db: ReturnType<typeof getDb>,
+  ctx: Awaited<ReturnType<typeof loadProviderContext>>,
+  activeBefore: number,
+  activeAfter: number
+) {
+  if (activeBefore === 0 && activeAfter > 0) {
+    await emitOnboardingAvailabilityCompleted(db, {
+      providerId: ctx.providerId,
+      userId: ctx.id,
+      actorType: "user",
+    });
+  }
+}
 
 /** Normalize "9:00" / "09:00" to "09:00" for storage and duplicate checks. */
 function normalizeTimeLocal(raw: string): string | null {
@@ -27,6 +59,7 @@ export async function upsertAvailabilityRule(formData: FormData): Promise<Action
   if (!(await csrfOk(formData, { action: "upsertAvailabilityRule" }))) return { error: "Invalid security token." };
   const ctx = await loadProviderContext();
   const db = getDb();
+  const activeBefore = await activeAvailabilityRuleCount(db, ctx.providerId);
   const id = formData.get("id")?.toString();
   const dayOfWeek = Number(formData.get("dayOfWeek"));
   const startRaw = plainTextFromInput(formData.get("startTimeLocal")?.toString() ?? "", 8);
@@ -100,8 +133,11 @@ export async function upsertAvailabilityRule(formData: FormData): Promise<Action
     action: id ? "updated" : "created",
   });
 
+  const activeAfter = await activeAvailabilityRuleCount(db, ctx.providerId);
+  await maybeEmitAvailabilityOnboarding(db, ctx, activeBefore, activeAfter);
+
   revalidatePath("/dashboard/availability");
-  redirect("/dashboard/availability?saved=hours#weekly-schedule");
+  redirectAvailability("hours", "weekly-schedule", formData);
 }
 
 export async function deleteAvailabilityRule(formData: FormData): Promise<ActionState> {
@@ -135,7 +171,7 @@ export async function deleteAvailabilityRule(formData: FormData): Promise<Action
     action: "deleted",
   });
   revalidatePath("/dashboard/availability");
-  redirect("/dashboard/availability?saved=hours#weekly-schedule");
+  redirectAvailability("hours", "weekly-schedule", formData);
 }
 
 export type AddBlockedTimeInlineResult =
@@ -213,7 +249,7 @@ export async function addBlockedTime(formData: FormData): Promise<ActionState> {
   const inserted = await insertBlockedTimeFromForm(formData, ctx);
   if (!inserted.ok) return { error: inserted.error };
   revalidatePath("/dashboard/availability");
-  redirect("/dashboard/availability?saved=blocked#blocked-time-list");
+  redirectAvailability("blocked", "blocked-time-list", formData);
 }
 
 /** Same as addBlockedTime but returns data for client-side calendar (no redirect). */
@@ -265,7 +301,7 @@ export async function deleteBlockedTime(formData: FormData): Promise<ActionState
     action: "deleted",
   });
   revalidatePath("/dashboard/availability");
-  redirect("/dashboard/availability?saved=blocked#blocked-time-list");
+  redirectAvailability("blocked", "blocked-time-list", formData);
 }
 
 export async function deleteBlockedTimeInline(formData: FormData): Promise<DeleteBlockedTimeInlineResult> {
@@ -330,7 +366,7 @@ export async function setBookingsPaused(formData: FormData): Promise<ActionState
     .limit(1);
   revalidatePath("/dashboard/availability");
   if (p?.username) revalidatePath(`/${p.username}`);
-  redirect("/dashboard/availability?saved=pause");
+  redirectAvailability("pause", undefined, formData);
 }
 
 const WEEKDAY_DOW = [1, 2, 3, 4, 5] as const;
@@ -360,6 +396,7 @@ export async function applyWorkingHoursPreset(formData: FormData): Promise<Actio
         }));
 
   const db = getDb();
+  const activeBefore = await activeAvailabilityRuleCount(db, ctx.providerId);
   await db.delete(availabilityRules).where(eq(availabilityRules.providerId, ctx.providerId));
   await db.insert(availabilityRules).values(windows);
   await logAudit({
@@ -370,8 +407,10 @@ export async function applyWorkingHoursPreset(formData: FormData): Promise<Actio
     entityId: "preset",
     action: "preset_applied",
   });
+  const activeAfter = await activeAvailabilityRuleCount(db, ctx.providerId);
+  await maybeEmitAvailabilityOnboarding(db, ctx, activeBefore, activeAfter);
   revalidatePath("/dashboard/availability");
-  redirect("/dashboard/availability?saved=hours#weekly-schedule");
+  redirectAvailability("hours", "weekly-schedule", formData);
 }
 
 export async function applyHoursToWeekdays(formData: FormData): Promise<ActionState> {
@@ -392,6 +431,7 @@ export async function applyHoursToWeekdays(formData: FormData): Promise<ActionSt
   }
 
   const db = getDb();
+  const activeBefore = await activeAvailabilityRuleCount(db, ctx.providerId);
   await db
     .delete(availabilityRules)
     .where(
@@ -414,6 +454,8 @@ export async function applyHoursToWeekdays(formData: FormData): Promise<ActionSt
     entityId: "weekdays_bulk",
     action: "weekdays_applied",
   });
+  const activeAfter = await activeAvailabilityRuleCount(db, ctx.providerId);
+  await maybeEmitAvailabilityOnboarding(db, ctx, activeBefore, activeAfter);
   revalidatePath("/dashboard/availability");
-  redirect("/dashboard/availability?saved=hours#weekly-schedule");
+  redirectAvailability("hours", "weekly-schedule", formData);
 }

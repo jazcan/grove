@@ -14,6 +14,8 @@ import { sendEmail } from "@/lib/email";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 import { getRequestIp } from "@/lib/request-ip";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
+import { isSafeInternalPath } from "@/lib/safe-internal-path";
+import { emitOnboardingCustomerAdded } from "@/lib/onboarding-platform-events";
 
 export async function updateCustomerNotes(formData: FormData): Promise<ActionState> {
   if (!(await csrfOk(formData, { action: "updateCustomerNotes" }))) return { error: "Invalid security token." };
@@ -93,6 +95,12 @@ export async function createCustomerManual(_prev: ActionState, formData: FormDat
   const phoneNorm = normalizePhone(phoneRaw || undefined);
   const db = getDb();
 
+  const [custBefore] = await db
+    .select({ n: count() })
+    .from(customers)
+    .where(eq(customers.providerId, ctx.providerId));
+  const hadCustomers = Number(custBefore?.n ?? 0) > 0;
+
   const [dup] = await db
     .select({ id: customers.id })
     .from(customers)
@@ -124,6 +132,15 @@ export async function createCustomerManual(_prev: ActionState, formData: FormDat
     entityId: row.id,
     action: "created_manual",
   });
+
+  if (!hadCustomers) {
+    await emitOnboardingCustomerAdded(db, { providerId: ctx.providerId, userId: ctx.id, actorType: "user" }, row.id);
+  }
+
+  const returnTo = formData.get("returnTo")?.toString().trim() ?? "";
+  if (returnTo && isSafeInternalPath(returnTo) && returnTo.startsWith("/dashboard/onboarding/")) {
+    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}added=1`);
+  }
 
   redirect(`/dashboard/customers/${row.id}?added=1`);
 }

@@ -5,7 +5,7 @@ import { availabilityRules, bookings, customers, providers, services } from "@/d
 import type { ProviderSetupState } from "@/lib/provider-setup-model";
 
 export type { DashboardNextStep, ProviderSetupState } from "@/lib/provider-setup-model";
-export { buildProviderSetupSteps } from "@/lib/provider-setup-model";
+export { buildProviderSetupSteps, getNextSetupStepHref } from "@/lib/provider-setup-model";
 
 /**
  * Single load of flags and counts for onboarding, dashboard command center, and nav hints.
@@ -20,6 +20,7 @@ export async function loadProviderSetupState(
       username: providers.username,
       displayName: providers.displayName,
       publicProfileEnabled: providers.publicProfileEnabled,
+      onboardingWalkthroughCompletedAt: providers.onboardingWalkthroughCompletedAt,
     })
     .from(providers)
     .where(eq(providers.id, providerId))
@@ -72,9 +73,13 @@ export async function loadProviderSetupState(
   const [custRow] = await db
     .select({ n: count() })
     .from(customers)
-    .where(eq(customers.providerId, providerId));
+    .where(and(eq(customers.providerId, providerId), eq(customers.accountReady, true)));
 
   const customerCount = Number(custRow?.n ?? 0);
+
+  const onboardingWalkthroughCompletedAt = prov?.onboardingWalkthroughCompletedAt ?? null;
+  const onboardingTailPending =
+    onboardingWalkthroughCompletedAt == null && hasIdentity && hasServices && hasAvailability;
 
   return {
     hasIdentity,
@@ -86,5 +91,7 @@ export async function loadProviderSetupState(
     pendingBookingCount,
     todayBookingCount,
     customerCount,
+    onboardingWalkthroughCompletedAt,
+    onboardingTailPending,
   };
 }

@@ -20,11 +20,14 @@ export function WeeklyScheduleRow({
   rule,
   csrf,
   compact,
+  onboardingFlow,
 }: {
   rule: WeeklyRule;
   csrf: string;
   /** When true, sits inside a grouped list (no outer card chrome). */
   compact?: boolean;
+  /** Preserve `?onboarding=1` through availability saves. */
+  onboardingFlow?: boolean;
 }) {
   const [active, setActive] = useState(rule.isActive);
 
@@ -52,6 +55,7 @@ export function WeeklyScheduleRow({
     <div className={shell}>
       <form action={asFormAction(upsertAvailabilityRule)} className={formClass}>
         <CsrfField token={csrf} />
+        {onboardingFlow ? <input type="hidden" name="onboardingContext" value="1" /> : null}
         <input type="hidden" name="id" value={rule.id} />
         <label className={fieldClass}>
           <span className="ui-label">Day</span>
@@ -98,6 +102,7 @@ export function WeeklyScheduleRow({
         className={compact ? "mt-1 flex justify-end sm:mt-0.5" : `mt-3 flex justify-end border-t border-[var(--border)] pt-3`}
       >
         <CsrfField token={csrf} />
+        {onboardingFlow ? <input type="hidden" name="onboardingContext" value="1" /> : null}
         <input type="hidden" name="id" value={rule.id} />
         <button
           type="submit"

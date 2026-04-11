@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { HandshakeBrandLockup } from "@/components/brand/handshake-brand-lockup";
 import { DashboardAccountMenu } from "@/components/dashboard/dashboard-account-menu";
@@ -51,7 +52,15 @@ export default async function DashboardLayout({
     assistantJson = JSON.stringify(assistantSnapshot);
   }
 
-  const initialExpanded = setupLoadFailed ? true : (setupState?.needsSetup ?? true);
+  const h = await headers();
+  const pathname = h.get("x-pathname") ?? "";
+  const isOnboardingRoute =
+    pathname === "/dashboard/onboarding" || pathname.startsWith("/dashboard/onboarding/");
+  const initialExpanded = isOnboardingRoute
+    ? false
+    : setupLoadFailed
+      ? true
+      : (setupState?.needsSetup ?? true) || (setupState?.onboardingTailPending ?? false);
 
   return (
     <div className="min-h-screen overflow-x-hidden">

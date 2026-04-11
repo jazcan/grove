@@ -74,14 +74,14 @@ export default async function ServicesPage({ searchParams }: Props) {
     .where(eq(services.providerId, u.providerId))
     .orderBy(asc(services.sortOrder), asc(services.name));
 
-  const [anyRule] = await db
+  const [activeRule] = await db
     .select({ id: availabilityRules.id })
     .from(availabilityRules)
-    .where(eq(availabilityRules.providerId, u.providerId))
+    .where(and(eq(availabilityRules.providerId, u.providerId), eq(availabilityRules.isActive, true)))
     .limit(1);
 
   const hasServices = list.length > 0;
-  const hasAvailability = !!anyRule;
+  const hasAvailability = !!activeRule;
   const published = !!prov?.publicProfileEnabled;
   const showTemplatesFirst = !hasServices || accountYoung;
   const establishedServicesLayout = hasServices && !accountYoung;

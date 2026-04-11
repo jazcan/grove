@@ -4,6 +4,7 @@ import { brand } from "@/config/brand";
 import { getDb } from "@/db";
 import { providers } from "@/db/schema";
 import { getCsrfTokenForForm } from "@/lib/csrf";
+import { loadProviderSetupState, getNextSetupStepHref } from "@/lib/provider-setup";
 import { requireUser } from "@/lib/tenancy";
 import { OnboardingForm } from "@/app/dashboard/onboarding/onboarding-form";
 import { OnboardingReferralPanel } from "@/components/dashboard/onboarding-referral-panel";
@@ -21,6 +22,12 @@ export default async function OnboardingPage() {
     .from(providers)
     .where(eq(providers.id, u.providerId))
     .limit(1);
+
+  const timezone = prov?.timezone ?? "America/Toronto";
+  const setup = await loadProviderSetupState(db, u.providerId, timezone);
+  if (setup.hasIdentity) {
+    redirect(getNextSetupStepHref(setup));
+  }
 
   const hasReferralAttribution = await providerHasReferralAttribution(db, u.providerId);
 
@@ -40,7 +47,7 @@ export default async function OnboardingPage() {
         <div className="ui-card mt-8 p-6 sm:p-7">
           <h2 className="text-lg font-semibold tracking-tight">Your public identity</h2>
           <p className="ui-hint mt-2">
-            Choose a URL and how you want to appear to customers.
+            Choose how you want to appear to customers, then pick a booking link.
           </p>
           <div className="mt-6">
             <OnboardingForm
@@ -51,9 +58,9 @@ export default async function OnboardingPage() {
           </div>
         </div>
 
-        {!hasReferralAttribution ? <OnboardingReferralPanel csrfToken={csrf} /> : null}
-
         <OnboardingRoadmap />
+
+        {!hasReferralAttribution ? <OnboardingReferralPanel csrfToken={csrf} /> : null}
       </div>
     </main>
   );

@@ -16,7 +16,13 @@ export type PlatformEventName =
   | "availability.rule.saved"
   | "availability.rule.deleted"
   | "availability.block.created"
-  | "availability.block.deleted";
+  | "availability.block.deleted"
+  | "onboarding.identity_completed"
+  | "onboarding.first_service_created"
+  | "onboarding.availability_completed"
+  | "onboarding.customer_added"
+  | "onboarding.share_prompt_viewed"
+  | "onboarding.completed";
 
 export type PlatformEventPayloads = {
   "booking.created": {
@@ -84,6 +90,26 @@ export type PlatformEventPayloads = {
   "availability.block.deleted": {
     providerId: string;
     blockId: string;
+  };
+  "onboarding.identity_completed": {
+    providerId: string;
+  };
+  "onboarding.first_service_created": {
+    providerId: string;
+    serviceId: string;
+  };
+  "onboarding.availability_completed": {
+    providerId: string;
+  };
+  "onboarding.customer_added": {
+    providerId: string;
+    customerId: string;
+  };
+  "onboarding.share_prompt_viewed": {
+    providerId: string;
+  };
+  "onboarding.completed": {
+    providerId: string;
   };
 };
 

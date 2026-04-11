@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import type { Database } from "@/db";
 import { bookings, providers, services } from "@/db/schema";
 import { loadProviderSlotsForServiceDate } from "@/domain/availability/load-provider-slots";
-import type { ProviderSetupState } from "@/lib/provider-setup-model";
+import { getNextSetupStepHref, type ProviderSetupState } from "@/lib/provider-setup-model";
 import { MANUAL_BOOKING_WALK_IN_EMAIL } from "@/domain/bookings/create-booking";
 import { normalizeEmail } from "@/lib/normalize";
 import {
@@ -41,26 +41,31 @@ export async function buildDeterministicSuggestionCandidates(
   const disabled = new Set(prefs.disabledSuggestionTypes);
   const out: SuggestionCandidate[] = [];
 
-  if (!disabled.has("onboarding_incomplete") && setup.needsSetup) {
+  if (!disabled.has("onboarding_incomplete") && (setup.needsSetup || setup.onboardingTailPending)) {
     const missing: string[] = [];
     if (!setup.hasIdentity) missing.push("profile identity");
     if (!setup.hasServices) missing.push("at least one active service");
-    if (!setup.hasAvailability) missing.push("weekly availability");
+    if (!setup.hasAvailability) missing.push("at least one active weekly hours row");
     if (!setup.isPublished) missing.push("public profile");
+    if (setup.onboardingTailPending) {
+      if (setup.customerCount === 0) missing.push("optional: add customers");
+      else missing.push("optional: share your booking link");
+    }
+    const onlyTail = !setup.needsSetup && setup.onboardingTailPending;
     out.push({
-      dedupeKey: "setup:incomplete",
+      dedupeKey: onlyTail ? "setup:tail" : "setup:incomplete",
       type: "onboarding_incomplete",
-      title: "Finish setup to take bookings",
+      title: onlyTail ? "Optional next steps" : "Finish setup to take bookings",
       summary:
         missing.length > 0
-          ? `Still needed: ${missing.join(" · ")}.`
+          ? `${onlyTail ? "When you’re ready: " : "Still needed: "}${missing.join(" · ")}.`
           : "Complete services, availability, and publish your profile.",
-      priorityScore: 100,
-      urgencyLevel: "high",
+      priorityScore: onlyTail ? 85 : 100,
+      urgencyLevel: onlyTail ? "medium" : "high",
       surfaceMode: "drawer_card",
       reasonJson: { missing },
       actionPayloadJson: {
-        primaryHref: "/dashboard/services",
+        primaryHref: getNextSetupStepHref(setup),
         actions: ["open_setup", "mark_seen", "dismiss", "snooze"],
       },
     });

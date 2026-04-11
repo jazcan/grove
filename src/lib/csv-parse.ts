@@ -10,7 +10,7 @@ export type CsvParseResult = CsvParseOk | CsvParseErr;
 const MAX_ROWS = 2500;
 const MAX_COLS = 40;
 
-function parseCsvToMatrix(text: string): string[][] | { error: string } {
+export function parseCsvToMatrix(text: string): string[][] | { error: string } {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";

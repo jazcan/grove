@@ -181,6 +181,10 @@ export const providers = pgTable(
     defaultServiceLevelsEnabled: boolean("default_service_levels_enabled").notNull().default(false),
     /** Set when the provider has committed a public page address (onboarding or first profile save). */
     usernameLockedAt: timestamp("username_locked_at", { withTimezone: true }),
+    /** First-run checklist: provider finished customers step + share prompt (or skipped). Null = tail not completed. */
+    onboardingWalkthroughCompletedAt: timestamp("onboarding_walkthrough_completed_at", {
+      withTimezone: true,
+    }),
     /** Internal-only notes for admin seeding / handoff (never shown on public profile). */
     internalAdminNotes: text("internal_admin_notes"),
     /** Stable shareable code for the Local Ambassador referral link (uppercase alphanumeric). Nullable until backfilled. */

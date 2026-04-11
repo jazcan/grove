@@ -260,6 +260,34 @@ export default async function DashboardHomePage() {
 
   const actions: SmartAction[] = [];
 
+  if (!setup.hasServices) {
+    actions.push({
+      id: "onboarding-first-service",
+      title: "Add your first bookable offer",
+      body: "One service—name, duration, and price—is enough to unlock the rest of setup.",
+      href: "/dashboard/onboarding/first-service",
+      cta: "Add a service",
+    });
+  }
+
+  if (setup.onboardingTailPending && setup.customerCount === 0) {
+    actions.push({
+      id: "onboarding-customers",
+      title: "Optional: add people you already know",
+      body: "Import or add a few customers so follow-ups stay organized—skip anytime.",
+      href: "/dashboard/onboarding/customers",
+      cta: "Add customers",
+    });
+  } else if (setup.onboardingTailPending && setup.customerCount > 0) {
+    actions.push({
+      id: "onboarding-share",
+      title: "Share your booking link",
+      body: "Copy a short message when you’re ready—nothing is sent from us automatically.",
+      href: "/dashboard/onboarding/share",
+      cta: "Get share ideas",
+    });
+  }
+
   if (hasSignals) {
     actions.push({
       id: "fix-signals",
@@ -267,6 +295,16 @@ export default async function DashboardHomePage() {
       body: "People are running into booking issues—review and make sure everything is clear and available.",
       href: "/dashboard#attention",
       cta: "Review signals",
+    });
+  }
+
+  if (!setup.hasServices) {
+    actions.push({
+      id: "no-services",
+      title: "Add what people can book",
+      body: "Create one service with a name, duration, and price—then set your availability.",
+      href: setup.hasIdentity ? "/dashboard/onboarding/first-service" : "/dashboard/onboarding",
+      cta: setup.hasIdentity ? "Add a service" : "Finish profile setup",
     });
   }
 
@@ -377,9 +415,11 @@ export default async function DashboardHomePage() {
           <p className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
             {needsSetup
               ? "Finish the basics below, then lean on this page to spot issues, see your day, and pick one sensible next step."
-              : published
-                ? "Your home base—see what needs a human touch, what’s on for today, and what to do next."
-                : "Almost there—publish when it feels right, then share your link so neighbors can book."}
+              : setup.onboardingTailPending
+                ? "Core setup is in place—use the highlighted step if you want a nudge on customers or sharing, or jump in anywhere from the nav."
+                : published
+                  ? "Your home base—see what needs a human touch, what’s on for today, and what to do next."
+                  : "Almost there—publish when it feels right, then share your link so neighbors can book."}
           </p>
         </header>
 

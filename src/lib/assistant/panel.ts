@@ -47,6 +47,8 @@ function fallbackAssistantPanelSnapshot(
         pendingBookingCount: 0,
         todayBookingCount: 0,
         customerCount: 0,
+        onboardingWalkthroughCompletedAt: null,
+        onboardingTailPending: false,
       },
       todayBookings: [],
       unpaidCompletedSample: [],

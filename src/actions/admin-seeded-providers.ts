@@ -8,6 +8,7 @@ import { providers, users, services } from "@/db/schema";
 import { hashPassword } from "@/lib/password";
 import { plainTextFromInput, optionalHttpUrl } from "@/lib/sanitize";
 import { isValidUsername, isReservedUsername } from "@/lib/reserved-usernames";
+import { slugifyDisplayNameToUsernameHint } from "@/lib/provider-onboarding-identity";
 import { logAudit } from "@/lib/audit";
 import { geocodeProviderAddress } from "@/lib/geocoding/geocode-provider-address";
 import { getCanonicalTemplateRowBySlug } from "@/lib/canonical-templates";
@@ -36,20 +37,11 @@ export type HandoffActionState = ActionState & {
   emailSent?: boolean;
 };
 
-function slugifyUsernameHint(s: string): string {
-  return s
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64);
-}
-
 async function pickUniqueUsername(hint: string | null): Promise<string> {
   const db = getDb();
   const candidates: string[] = [];
   if (hint) {
-    const raw = slugifyUsernameHint(hint);
+    const raw = slugifyDisplayNameToUsernameHint(hint);
     if (raw.length >= 3 && isValidUsername(raw) && !isReservedUsername(raw)) {
       candidates.push(raw);
     }

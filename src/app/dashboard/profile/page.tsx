@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { brand } from "@/config/brand";
 import { getDb } from "@/db";
-import { availabilityRules, providers, services, users } from "@/db/schema";
+import { availabilityRules, customers, providers, services, users } from "@/db/schema";
 import { asFormAction } from "@/lib/form-action";
 import { getCsrfTokenForForm } from "@/lib/csrf";
 import { CsrfField } from "@/components/csrf-field";
@@ -41,15 +41,20 @@ export default async function ProfilePage({ searchParams }: Props) {
     .from(services)
     .where(eq(services.providerId, u.providerId))
     .limit(1);
-  const [anyRule] = await db
+  const [activeRule] = await db
     .select({ id: availabilityRules.id })
     .from(availabilityRules)
-    .where(eq(availabilityRules.providerId, u.providerId))
+    .where(and(eq(availabilityRules.providerId, u.providerId), eq(availabilityRules.isActive, true)))
     .limit(1);
+  const [crmCustomersRow] = await db
+    .select({ n: count() })
+    .from(customers)
+    .where(and(eq(customers.providerId, u.providerId), eq(customers.accountReady, true)));
+  const crmCustomerCount = Number(crmCustomersRow?.n ?? 0);
   const csrf = await getCsrfTokenForForm();
 
   const hasServices = !!anyService;
-  const hasAvailability = !!anyRule;
+  const hasAvailability = !!activeRule;
   const published = !!prov?.publicProfileEnabled;
 
   const profileDetailsDone =
@@ -80,18 +85,28 @@ export default async function ProfilePage({ searchParams }: Props) {
       href: "/dashboard/availability",
     },
     {
+      key: "customers",
+      label: "Bring in existing customers",
+      done: crmCustomerCount > 0,
+      href: "/dashboard/onboarding/customers",
+      optional: true,
+    },
+    {
       key: "publish",
       label: "Profile published",
       done: published,
       href: "/dashboard/profile#profile-visibility",
     },
-  ] as const;
+  ];
 
-  const completedReadiness = readinessSteps.filter((s) => s.done).length;
-  const progressPct = Math.round((completedReadiness / readinessSteps.length) * 100);
-  const allReady = completedReadiness === readinessSteps.length;
+  const requiredReadiness = readinessSteps.filter((s) => s.optional !== true);
+  const completedReadiness = requiredReadiness.filter((s) => s.done).length;
+  const progressPct = Math.round((completedReadiness / requiredReadiness.length) * 100);
+  const allReady = requiredReadiness.length > 0 && completedReadiness === requiredReadiness.length;
 
-  const missingLabels = readinessSteps.filter((s) => !s.done).map((s) => s.label.toLowerCase());
+  const missingLabels = readinessSteps
+    .filter((s) => !s.done && s.optional !== true)
+    .map((s) => s.label.toLowerCase());
   const subline = allReady
     ? "You’re set—keep your services and availability up to date as you grow."
     : missingLabels.length === 1

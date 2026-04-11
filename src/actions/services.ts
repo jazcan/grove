@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
@@ -12,6 +12,7 @@ import { QUICK_START_PREFILL_ID } from "@/lib/service-templates";
 import { emitPlatformEvent } from "@/platform/events/emit";
 import { ensureDefaultPricingProfile } from "@/domain/pricing/ensure-default";
 import { maybeActivateReferralForProvider } from "@/domain/local-ambassador/referral-lifecycle";
+import { emitOnboardingFirstServiceCreated } from "@/lib/onboarding-platform-events";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
 import type { ActionState } from "@/domain/auth/actions";
 
@@ -74,12 +75,19 @@ export async function createService(formData: FormData): Promise<ActionState> {
     .limit(1);
   let sortOrder = (maxRow?.m ?? 0) + 1;
 
+  const [beforeActiveRow] = await db
+    .select({ n: count() })
+    .from(services)
+    .where(and(eq(services.providerId, ctx.providerId), eq(services.isActive, true)));
+  const hadActiveServicesBefore = Number(beforeActiveRow?.n ?? 0) > 0;
+
   const { tiers } = await ensureDefaultPricingProfile(db, ctx.providerId);
   const defaultTier = tiers.find((t) => t.sortOrder === 0) ?? tiers[0];
 
   const multi = variants.length > 1;
 
-  for (const v of variants) {
+  for (let vi = 0; vi < variants.length; vi++) {
+    const v = variants[vi]!;
     const rowName = multi ? `${name} (${v.durationMinutes} min)` : name;
     const [created] = await db
       .insert(services)
@@ -127,6 +135,14 @@ export async function createService(formData: FormData): Promise<ActionState> {
       db
     );
 
+    if (vi === 0 && !hadActiveServicesBefore) {
+      await emitOnboardingFirstServiceCreated(
+        db,
+        { providerId: ctx.providerId, userId: ctx.id, actorType: "user" },
+        id
+      );
+    }
+
     await logAudit({
       actorUserId: ctx.id,
       actorType: "user",
@@ -141,7 +157,19 @@ export async function createService(formData: FormData): Promise<ActionState> {
 
   const returnTo = formData.get("returnTo")?.toString() || "/dashboard/services#existing-services";
   revalidatePath("/dashboard/services");
+  revalidatePath("/dashboard/onboarding");
+  revalidatePath("/dashboard/onboarding/first-service");
+  revalidatePath("/dashboard/onboarding/customers");
+  revalidatePath("/dashboard/onboarding/share");
   redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}saved=service`);
+}
+
+/** `useActionState` adapter for {@link createService} (onboarding first-service step). */
+export async function createServiceFromActionState(
+  _prevState: ActionState | null,
+  formData: FormData
+): Promise<ActionState> {
+  return createService(formData);
 }
 
 export async function updateService(formData: FormData): Promise<ActionState> {

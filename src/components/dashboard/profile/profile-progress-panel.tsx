@@ -5,6 +5,8 @@ type Step = {
   label: string;
   done: boolean;
   href: string;
+  /** Excluded from “ready for bookings” progress bar count. */
+  optional?: boolean;
 };
 
 export function ProfileProgressPanel({
@@ -22,8 +24,9 @@ export function ProfileProgressPanel({
   previewHref: string | null;
   previewReady: boolean;
 }) {
-  const completed = steps.filter((s) => s.done).length;
-  const total = steps.length;
+  const required = steps.filter((s) => !s.optional);
+  const completed = required.filter((s) => s.done).length;
+  const total = required.length;
 
   return (
     <div className="mt-6 rounded-2xl bg-[var(--card)] p-5 shadow-[var(--shadow-card)] ring-1 ring-[color-mix(in_oklab,var(--foreground)_6%,transparent)] sm:p-6">
@@ -81,7 +84,12 @@ export function ProfileProgressPanel({
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold" aria-hidden>
                 {s.done ? <span className="text-[var(--success)]">✓</span> : <span className="text-[var(--accent)]">○</span>}
               </span>
-              <span className="min-w-0">{s.label}</span>
+              <span className="min-w-0">
+                {s.label}
+                {s.optional ? (
+                  <span className="ml-1.5 text-xs font-normal text-[var(--muted)]">(optional)</span>
+                ) : null}
+              </span>
             </Link>
           </li>
         ))}

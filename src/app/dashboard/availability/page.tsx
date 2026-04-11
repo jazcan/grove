@@ -1,4 +1,5 @@
 import { eq, asc, and, lt, gt } from "drizzle-orm";
+import Link from "next/link";
 import { getDb } from "@/db";
 import { availabilityRules, blockedTimes, bookings, customers, providers, services } from "@/db/schema";
 import { asFormAction } from "@/lib/form-action";
@@ -19,11 +20,12 @@ import {
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-type Props = { searchParams: Promise<{ saved?: string }> };
+type Props = { searchParams: Promise<{ saved?: string; onboarding?: string }> };
 
 export default async function AvailabilityPage({ searchParams }: Props) {
   const sp = await searchParams;
   const saved = sp.saved === "hours" || sp.saved === "blocked" || sp.saved === "pause";
+  const onboardingFlow = sp.onboarding === "1";
   const u = await requireProvider();
   const db = getDb();
   const [prov] = await db
@@ -120,7 +122,7 @@ export default async function AvailabilityPage({ searchParams }: Props) {
         <p className="mt-2 text-sm text-[color-mix(in_oklab,var(--foreground)_68%,transparent)]">
           Stay in control of your time.
         </p>
-        {saved ? (
+               {saved ? (
           <div
             role="status"
             className="mt-4 rounded-xl border border-[color-mix(in_oklab,var(--accent)_35%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_10%,var(--background))] px-4 py-3 text-sm"
@@ -133,6 +135,31 @@ export default async function AvailabilityPage({ searchParams }: Props) {
                   : "You’re accepting new bookings again."
                 : "Your availability has been updated."}
             </div>
+          </div>
+        ) : null}
+
+        {onboardingFlow ? (
+          <div
+            role="status"
+            className="mt-4 rounded-xl border border-[color-mix(in_oklab,var(--accent)_28%,var(--border))] bg-[color-mix(in_oklab,var(--accent)_8%,var(--background))] px-4 py-3 text-sm"
+          >
+            <div className="font-medium text-[var(--foreground)]">Setup: weekly hours</div>
+            <p className="mt-1 text-[color-mix(in_oklab,var(--foreground)_75%,transparent)]">
+              Turn on at least one active day below (a preset is fastest). When you&apos;re happy with it, continue the
+              checklist.
+            </p>
+          </div>
+        ) : null}
+
+        {onboardingFlow && hasAvailability ? (
+          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-[color-mix(in_oklab,var(--foreground)_10%,var(--border))] bg-[var(--card)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <p className="text-sm font-medium text-[var(--foreground)]">Hours look good — next: customers (optional)</p>
+            <Link
+              href="/dashboard/onboarding/customers"
+              className="ui-btn-primary inline-flex min-h-11 shrink-0 items-center justify-center px-5 text-center text-sm font-semibold no-underline"
+            >
+              Continue setup
+            </Link>
           </div>
         ) : null}
 
@@ -166,6 +193,7 @@ export default async function AvailabilityPage({ searchParams }: Props) {
             </p>
             <form action={asFormAction(setBookingsPaused)} className="mt-4">
               <CsrfField token={csrf} />
+              {onboardingFlow ? <input type="hidden" name="onboardingContext" value="1" /> : null}
               <input type="hidden" name="paused" value={bookingsPaused ? "false" : "true"} />
               <button type="submit" className={bookingsPaused ? "ui-btn-primary min-h-11 w-full text-sm font-semibold sm:w-auto" : "ui-btn-secondary min-h-11 w-full text-sm font-semibold sm:w-auto"}>
                 {bookingsPaused ? "Resume accepting bookings" : "Pause new bookings"}
@@ -184,6 +212,7 @@ export default async function AvailabilityPage({ searchParams }: Props) {
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <form action={asFormAction(applyWorkingHoursPreset)} className="min-w-0 flex-1 sm:min-w-[200px]">
                 <CsrfField token={csrf} />
+                {onboardingFlow ? <input type="hidden" name="onboardingContext" value="1" /> : null}
                 <input type="hidden" name="preset" value="nine_to_five" />
                 <button type="submit" className="ui-btn-secondary min-h-11 w-full px-4 text-sm font-semibold">
                   9–5 weekdays
@@ -191,6 +220,7 @@ export default async function AvailabilityPage({ searchParams }: Props) {
               </form>
               <form action={asFormAction(applyWorkingHoursPreset)} className="min-w-0 flex-1 sm:min-w-[200px]">
                 <CsrfField token={csrf} />
+                {onboardingFlow ? <input type="hidden" name="onboardingContext" value="1" /> : null}
                 <input type="hidden" name="preset" value="evenings_only" />
                 <button type="submit" className="ui-btn-secondary min-h-11 w-full px-4 text-sm font-semibold">
                   Evenings (5–9pm)
@@ -221,6 +251,7 @@ export default async function AvailabilityPage({ searchParams }: Props) {
             className="border-b border-[color-mix(in_oklab,var(--foreground)_5%,var(--border))] bg-[color-mix(in_oklab,var(--foreground)_2.5%,var(--background))] px-4 py-3 sm:px-5"
           >
             <CsrfField token={csrf} />
+            {onboardingFlow ? <input type="hidden" name="onboardingContext" value="1" /> : null}
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
               <p className="text-sm font-semibold text-[var(--foreground)] sm:shrink-0">Apply to Mon–Fri</p>
               <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-end sm:gap-3">
@@ -245,6 +276,7 @@ export default async function AvailabilityPage({ searchParams }: Props) {
                 <WeeklyScheduleRow
                   key={r.id}
                   csrf={csrf}
+                  onboardingFlow={onboardingFlow}
                   compact
                   rule={{
                     id: r.id,
@@ -265,6 +297,7 @@ export default async function AvailabilityPage({ searchParams }: Props) {
 
         <form action={asFormAction(upsertAvailabilityRule)} className="mt-6 rounded-xl border border-[color-mix(in_oklab,var(--foreground)_7%,var(--border))] bg-[var(--card)] p-4 shadow-[var(--shadow-sm)] sm:p-5">
           <CsrfField token={csrf} />
+          {onboardingFlow ? <input type="hidden" name="onboardingContext" value="1" /> : null}
           <p className="text-sm font-semibold text-[var(--foreground)]">Add a window</p>
           <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
             <label className="ui-field min-w-[140px] flex-1 text-sm sm:max-w-[180px]">

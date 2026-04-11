@@ -9,6 +9,9 @@ export type AssistantRouteId =
   | "marketing"
   | "analytics"
   | "onboarding"
+  | "first-service"
+  | "onboarding_customers"
+  | "onboarding_share"
   | "other";
 
 export type PageGuide = {
@@ -25,6 +28,11 @@ export function getAssistantRouteId(pathname: string | null): AssistantRouteId {
   if (!pathname) return "dashboard";
   const p = pathname.replace(/\/$/, "") || "/";
   if (p === "/dashboard") return "dashboard";
+  if (p === "/dashboard/onboarding/first-service" || p.startsWith("/dashboard/onboarding/first-service/")) {
+    return "first-service";
+  }
+  if (p.startsWith("/dashboard/onboarding/customers")) return "onboarding_customers";
+  if (p.startsWith("/dashboard/onboarding/share")) return "onboarding_share";
   if (p.startsWith("/dashboard/onboarding")) return "onboarding";
   if (p.startsWith("/dashboard/profile")) return "profile";
   if (p.startsWith("/dashboard/services")) return "services";
@@ -77,6 +85,18 @@ const GUIDES: Record<AssistantRouteId, PageGuide> = {
   onboarding: {
     contextTitle: "Welcome",
     body: "Pick a username and display name clients will recognize. You can refine your public profile and catalog right after this step.",
+  },
+  "first-service": {
+    contextTitle: "Your first offer",
+    body: "Add one bookable service—a clear name, how long it takes, and what you charge. Everything you save here is the same catalog as your full Services page.",
+  },
+  onboarding_customers: {
+    contextTitle: "Existing customers",
+    body: "Bring in people you already serve by typing or pasting—no Facebook or Messenger connection. If someone doesn’t have an email yet, we save a placeholder so they still appear in your list.",
+  },
+  onboarding_share: {
+    contextTitle: "Share your link",
+    body: "Copy your public booking link when you’re ready. Finishing here only marks setup complete—nothing is posted for you.",
   },
   other: {
     contextTitle: "Dashboard",

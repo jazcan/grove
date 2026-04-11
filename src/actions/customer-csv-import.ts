@@ -2,7 +2,7 @@
 
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, eq, count } from "drizzle-orm";
 import { getDb } from "@/db";
 import { customers } from "@/db/schema";
 import { csrfOk, loadProviderContext } from "@/actions/_guard";
@@ -16,6 +16,7 @@ import {
   type CsvImportFieldValue,
 } from "@/domain/customers/csv-import";
 import { logAudit } from "@/lib/audit";
+import { emitOnboardingCustomerAdded } from "@/lib/onboarding-platform-events";
 
 const MAX_BYTES = 600_000;
 
@@ -64,6 +65,13 @@ export async function importCustomersCsvAction(_prev: ActionState, formData: For
 
   const db = getDb();
 
+  const [custBefore] = await db
+    .select({ n: count() })
+    .from(customers)
+    .where(eq(customers.providerId, ctx.providerId));
+  const hadCustomers = Number(custBefore?.n ?? 0) > 0;
+  let firstNewCustomerId: string | null = null;
+
   for (const row of parsed.rows) {
     const parts = extractMappedParts(row, mapping);
     const placeholderEmail = `import-${randomUUID()}@${IMPORT_PLACEHOLDER_EMAIL_DOMAIN}`;
@@ -95,17 +103,21 @@ export async function importCustomersCsvAction(_prev: ActionState, formData: For
     seenInFile.add(built.emailNormalized);
 
     try {
-      await db.insert(customers).values({
-        providerId: ctx.providerId,
-        fullName: built.fullName,
-        email: built.email,
-        emailNormalized: built.emailNormalized,
-        phone: built.phone,
-        phoneNormalized: built.phoneNormalized,
-        notes: built.notes,
-        accountReady: true,
-      });
+      const [ins] = await db
+        .insert(customers)
+        .values({
+          providerId: ctx.providerId,
+          fullName: built.fullName,
+          email: built.email,
+          emailNormalized: built.emailNormalized,
+          phone: built.phone,
+          phoneNormalized: built.phoneNormalized,
+          notes: built.notes,
+          accountReady: true,
+        })
+        .returning({ id: customers.id });
       imported += 1;
+      if (ins?.id && !firstNewCustomerId) firstNewCustomerId = ins.id;
     } catch {
       failed += 1;
     }
@@ -122,6 +134,14 @@ export async function importCustomersCsvAction(_prev: ActionState, formData: For
   });
 
   revalidatePath("/dashboard/customers");
+
+  if (!hadCustomers && imported > 0 && firstNewCustomerId) {
+    await emitOnboardingCustomerAdded(
+      db,
+      { providerId: ctx.providerId, userId: ctx.id, actorType: "user" },
+      firstNewCustomerId
+    );
+  }
 
   const parts = [
     `Imported ${imported} customer${imported === 1 ? "" : "s"}.`,

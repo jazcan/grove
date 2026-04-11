@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { HandshakeLogo } from "@/components/brand/handshake-logo";
 import { brand } from "@/config/brand";
 import {
@@ -46,8 +46,10 @@ function writeStored(value: StoredUi) {
 }
 
 function routeMatchesStep(routeId: AssistantRouteId, stepKey: string): boolean {
-  if (stepKey === "services") return routeId === "services";
+  if (stepKey === "services") return routeId === "services" || routeId === "first-service";
   if (stepKey === "availability") return routeId === "availability";
+  if (stepKey === "customers") return routeId === "onboarding_customers" || routeId === "customers";
+  if (stepKey === "share") return routeId === "onboarding_share";
   if (stepKey === "publish") return routeId === "profile";
   return false;
 }
@@ -58,6 +60,10 @@ function onStepShortCta(stepKey: string): string {
       return "Add a bookable service";
     case "availability":
       return "Set working hours";
+    case "customers":
+      return "Add people you know";
+    case "share":
+      return "Copy your link";
     case "publish":
       return "Publish your profile";
     default:
@@ -73,6 +79,10 @@ function completePrimaryCta(routeId: AssistantRouteId): { label: string; href: s
       return { label: "Refine services", href: "/dashboard/services" };
     case "availability":
       return { label: "Adjust calendar", href: "/dashboard/availability" };
+    case "onboarding_customers":
+      return { label: "Continue to share ideas", href: "/dashboard/onboarding/share" };
+    case "onboarding_share":
+      return { label: "Open dashboard", href: "/dashboard" };
     case "profile":
       return { label: "Profile settings", href: "/dashboard/profile" };
     case "pricing":
@@ -86,6 +96,8 @@ function completePrimaryCta(routeId: AssistantRouteId): { label: string; href: s
     case "analytics":
       return { label: "Command center", href: "/dashboard" };
     case "onboarding":
+      return { label: "Open dashboard", href: "/dashboard" };
+    case "first-service":
       return { label: "Open dashboard", href: "/dashboard" };
     default:
       return { label: "Command center", href: "/dashboard" };
@@ -124,12 +136,23 @@ export function DashboardAssistant({
   const [askInput, setAskInput] = useState("");
   const [pending, startTransition] = useTransition();
   const [toastShown, setToastShown] = useState<string | null>(null);
+  const prevRouteIdRef = useRef<AssistantRouteId | null>(null);
 
   useEffect(() => {
+    if (routeId === "onboarding" || routeId === "first-service") {
+      const prev = prevRouteIdRef.current;
+      if (prev !== "onboarding" && prev !== "first-service") {
+        setExpanded(false);
+      }
+      prevRouteIdRef.current = routeId;
+      return;
+    }
+    prevRouteIdRef.current = routeId;
     const stored = readStored();
     if (stored === "minimized") setExpanded(false);
     else if (stored === "open") setExpanded(true);
-  }, []);
+    else setExpanded(initialExpanded);
+  }, [routeId, initialExpanded]);
 
   useEffect(() => {
     setPanel(parseAssistantSnapshot(assistantJson));
@@ -168,9 +191,10 @@ export function DashboardAssistant({
   }, [fab.toastSuggestionId, panel?.suggestions, toastShown]);
 
   const steps = setup ? buildProviderSetupSteps(setup) : [];
-  const nextIncomplete = steps.find((s) => !s.done) ?? null;
-  const completedSetupSteps = setup ? steps.filter((s) => s.done).length : 0;
-  const totalSetupSteps = steps.length;
+  const requiredSetupSteps = steps.filter((s) => !s.optional);
+  const nextIncomplete = requiredSetupSteps.find((s) => !s.done) ?? null;
+  const completedSetupSteps = setup ? requiredSetupSteps.filter((s) => s.done).length : 0;
+  const totalSetupSteps = requiredSetupSteps.length;
   const progressPct =
     totalSetupSteps > 0 ? Math.round((completedSetupSteps / totalSetupSteps) * 100) : 0;
 
@@ -179,7 +203,7 @@ export function DashboardAssistant({
       return { label: "Reload page", href: pathname || "/dashboard" };
     }
     if (preProvider || !setup) {
-      if (routeId === "onboarding") {
+      if (routeId === "onboarding" || routeId === "first-service") {
         return { label: "Use the form below", href: "#main-content" };
       }
       return { label: "Finish account setup", href: "/dashboard/onboarding" };
