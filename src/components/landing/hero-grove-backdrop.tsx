@@ -10,7 +10,7 @@ export function HeroGroveBackdrop() {
       {/* Base wash */}
       <div className="absolute inset-0 bg-[color-mix(in_oklab,var(--hl-accent)_10%,transparent)] opacity-[0.35] sm:opacity-[0.42]" />
 
-      {/* Map — Mapbox when NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN is set; else static SVG */}
+      {/* Map — static SVG banner */}
       <HeroGroveMapSlot />
 
       {/* Soft paper wash — strongest at far left, tapers into the map (dims artwork behind headline) */}
